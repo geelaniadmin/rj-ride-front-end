@@ -1,0 +1,260 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ops-bg: #F4F5F7;
+  --color-ops-sidebar: #1B2A4A;
+  --color-ops-card: #FFFFFF;
+  --color-ops-card2: #E8E8E8;
+  --color-brand-blue: #5A6ACF;
+  --color-success: #28A048;
+  --color-alert-amber: #F0A030;
+  --color-danger: #E84040;
+  --color-text-primary: #3D434A;
+  --color-text-secondary: #8B8FA8;
+  --color-text-tertiary: #6B7F99;
+  --color-border: #E0E0E0;
+}
+
+* {
+  @apply border-[#E0E0E0];
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-[#F4F5F7] text-[#3D434A];
+  font-size: 14px;
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+button {
+  @apply transition-colors;
+}
+
+/* Custom scrollbar */
+body ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+body ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body ::-webkit-scrollbar-thumb {
+  background: #8B8FA8;
+  border-radius: 4px;
+}
+
+body ::-webkit-scrollbar-thumb:hover {
+  background: #6B7F99;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #8B8FA8;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6B7F99;
+}
+
+/* Animations */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(90, 106, 207, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(90, 106, 207, 0);
+  }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, #E8E8E8 25%, #F4F5F7 50%, #E8E8E8 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-pulse-border {
+  animation: pulse-border 2s infinite;
+}
+
+.animate-count-up {
+  animation: count-up 0.4s ease-out;
+}
+
+/* Background grid pattern */
+.bg-ops-grid {
+  background-image:
+    linear-gradient(rgba(90, 106, 207, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(90, 106, 207, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Status badge colors */
+.status-draft {
+  @apply bg-gray-600 text-white;
+}
+
+.status-confirmed {
+  @apply bg-brand-blue text-white;
+}
+
+.status-assigned {
+  @apply bg-brand-blue text-white;
+}
+
+.status-in-progress {
+  @apply bg-alert-amber text-white;
+}
+
+.status-completed {
+  @apply bg-success text-white;
+}
+
+.status-billed {
+  @apply bg-teal-600 text-white;
+}
+
+.status-cancelled {
+  @apply bg-danger text-white;
+}
+
+.status-pending {
+  @apply bg-gray-600 text-white;
+}
+
+.status-driver-accepted {
+  @apply bg-brand-blue text-white;
+}
+
+.status-driver-rejected {
+  @apply bg-danger text-white;
+}
+
+.status-en-route-pickup {
+  @apply bg-alert-amber text-white;
+}
+
+.status-at-pickup {
+  @apply bg-alert-amber text-white;
+}
+
+.status-pax-picked {
+  @apply bg-alert-amber text-white;
+}
+
+.status-in-transit {
+  @apply bg-alert-amber text-white;
+}
+
+.status-at-drop {
+  @apply bg-teal-600 text-white;
+}
+
+.status-pax-dropped {
+  @apply bg-success text-white;
+}
+
+.status-no-show {
+  @apply bg-danger text-white;
+}
+
+.status-breakdown {
+  @apply bg-danger text-white;
+}
+
+.status-accident {
+  @apply bg-danger text-white;
+}
+
+.status-vehicle-swap {
+  @apply bg-purple-600 text-white;
+}
+
+.status-delayed {
+  @apply bg-alert-amber text-white;
+}
+
+.status-sos {
+  @apply bg-danger text-white font-bold animate-pulse;
+}
