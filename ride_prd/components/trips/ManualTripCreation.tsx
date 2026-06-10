@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import { useTripStore } from "@/stores/tripStore";
 import { useCustomerStore } from "@/stores/customerStore";
 import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
+import { useVendorStore } from "@/stores/vendorStore";
 import { useTenantStore } from "@/stores/tenantStore";
 import { useToastStore } from "@/stores/toastStore";
 import { getOffers } from "@/lib/quote";
@@ -30,11 +31,14 @@ export const ManualTripCreation: React.FC<ManualTripCreationProps> = ({ onCreate
   const customers = useMemo(() => allCustomers.filter((c) => c.tenantId === activeTenantId), [allCustomers, activeTenantId]);
   const allVTs = useVehicleTypeStore((s) => s.vehicleTypes) || [];
   const vts = useMemo(() => allVTs.filter((v) => v.tenantId === activeTenantId), [allVTs, activeTenantId]);
+  const allVendors = useVendorStore((s) => s.vendors);
+  const vendors = useMemo(() => allVendors.filter((v) => v.tenantId === activeTenantId && v.active), [allVendors, activeTenantId]);
 
   const addTrip = useTripStore((s) => s.addTrip);
   const addToast = useToastStore((s) => s.addToast);
 
   const [customerId, setCustomerId] = useState<string>(((customers && customers[0] ? customers[0].id : "") as string) || "");
+  const [vendorId, setVendorId] = useState<string>(((vendors && vendors[0] ? vendors[0].id : "") as string) || "");
   const [scheduleType, setScheduleType] = useState<"ONE_OFF" | "RECURRING">("ONE_OFF");
   const [scheduleDate, setScheduleDate] = useState<string>((new Date().toISOString().split("T")[0] || "") as string);
   const [reference, setReference] = useState("");
@@ -90,12 +94,13 @@ export const ManualTripCreation: React.FC<ManualTripCreationProps> = ({ onCreate
   };
 
   const addVehicle = () => {
-    const newVehicle = createTripVehicle(newVehicleTypeId);
+    const vId = vendorId || "V1";
+    const newVehicle = createTripVehicle(newVehicleTypeId, vId);
     setVehicles([...vehicles, newVehicle]);
     // Auto-quote the new vehicle
     const offers = getOffers({
       tenantId: activeTenantId,
-      vendorId: "V1", // TODO: allow vendor selection
+      vendorId: vId,
       customerId,
       vehicleTypeId: newVehicleTypeId,
       quotedAt: scheduleDate,
@@ -197,6 +202,14 @@ export const ManualTripCreation: React.FC<ManualTripCreationProps> = ({ onCreate
             />
           </FormField>
 
+          <FormField label="Vehicle Vendor" required>
+            <Select
+              value={vendorId}
+              onChange={(e) => setVendorId(e.target.value)}
+              options={vendors.map((v) => ({ value: v.id, label: v.name }))}
+            />
+          </FormField>
+
           <FormField label="Reference (optional)">
             <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="e.g., BOOK-12345, PO-789" />
           </FormField>
@@ -262,7 +275,12 @@ export const ManualTripCreation: React.FC<ManualTripCreationProps> = ({ onCreate
                     </select>
                   </div>
                 ) : (
-                  <p className="text-xs text-red-400">No offers available</p>
+                  <div className="text-xs">
+                    <p className="text-red-400 font-medium">No offers available</p>
+                    <p className="text-text-muted mt-1">
+                      Go to <span className="text-brand-blue">Pricing → Rate Cards</span> to create a rate card for this vendor + customer + vehicle type.
+                    </p>
+                  </div>
                 )}
               </div>
             );

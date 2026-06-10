@@ -1,0 +1,28 @@
+{
+  "name": "@ride/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./types": "./src/types/index.ts",
+    "./stores/tripStore": "./src/stores/tripStore.ts",
+    "./stores/driverStore": "./src/stores/driverStore.ts",
+    "./stores/vehicleStore": "./src/stores/vehicleStore.ts",
+    "./stores/earningsStore": "./src/stores/earningsStore.ts",
+    "./stores/alertStore": "./src/stores/alertStore.ts",
+    "./stores/sessionStore": "./src/stores/sessionStore.ts",
+    "./stores/vendorStore": "./src/stores/vendorStore.ts",
+    "./mock/seed": "./src/mock/seed.ts",
+    "./mock/vendors": "./src/mock/vendors.ts",
+    "./mock/drivers": "./src/mock/drivers.ts",
+    "./mock/vehicles": "./src/mock/vehicles.ts",
+    "./mock/earnings": "./src/mock/earnings.ts",
+    "./mock/alerts": "./src/mock/alerts.ts"
+  },
+  "dependencies": {
+    "zustand": "^5.0.14"
+  }
+}

@@ -58,44 +58,28 @@ export const ApiVehicleCountCreation: React.FC<ApiVehicleCountCreationProps> = (
 
   const [payload, setPayload] = useState<string>(JSON.stringify(SAMPLE_PAYLOAD, null, 2));
   const [isCommitting, setIsCommitting] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
 
-  const validateAndParse = (): VehicleCountPayload | null => {
+  // Derived values — computed during render, never call setState here
+  const parsed = useMemo(() => {
     try {
-      const parsed = JSON.parse(payload) as VehicleCountPayload;
-
-      if (!parsed.customer_code) {
-        setValidationError("customer_code is required");
-        return null;
-      }
-      if (!parsed.pickup_address || parsed.pickup_lat === undefined || parsed.pickup_lng === undefined) {
-        setValidationError("Pickup location is required");
-        return null;
-      }
-      if (!parsed.drop_address || parsed.drop_lat === undefined || parsed.drop_lng === undefined) {
-        setValidationError("Drop location is required");
-        return null;
-      }
-      if (!parsed.schedule_date) {
-        setValidationError("schedule_date is required");
-        return null;
-      }
-      if (!parsed.vehicle_count || parsed.vehicle_count < 1) {
-        setValidationError("vehicle_count is required and must be >= 1");
-        return null;
-      }
-
-      setValidationError(null);
-      return parsed;
-    } catch (err) {
-      setValidationError(`Invalid JSON: ${err instanceof Error ? err.message : "Unknown error"}`);
+      return JSON.parse(payload) as VehicleCountPayload;
+    } catch {
       return null;
     }
-  };
+  }, [payload]);
+
+  const validationError = useMemo(() => {
+    if (!parsed) return "Invalid JSON format";
+    if (!parsed.customer_code) return "customer_code is required";
+    if (!parsed.pickup_address || parsed.pickup_lat === undefined || parsed.pickup_lng === undefined) return "Pickup location is required";
+    if (!parsed.drop_address || parsed.drop_lat === undefined || parsed.drop_lng === undefined) return "Drop location is required";
+    if (!parsed.schedule_date) return "schedule_date is required";
+    if (!parsed.vehicle_count || parsed.vehicle_count < 1) return "vehicle_count is required and must be >= 1";
+    return null;
+  }, [parsed]);
 
   const handleCreate = async () => {
-    const parsed = validateAndParse();
-    if (!parsed) return;
+    if (!parsed || validationError) return;
 
     setIsCommitting(true);
 
@@ -174,7 +158,6 @@ export const ApiVehicleCountCreation: React.FC<ApiVehicleCountCreationProps> = (
     }
   };
 
-  const parsed = validateAndParse();
 
   return (
     <div className="space-y-6">

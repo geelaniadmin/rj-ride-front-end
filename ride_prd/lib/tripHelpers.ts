@@ -25,10 +25,11 @@ export function createStop(
   };
 }
 
-export function createTripVehicle(requestedVehicleTypeId: string): TripVehicle {
+export function createTripVehicle(requestedVehicleTypeId: string, vendorId?: string): TripVehicle {
   return {
     id: id(),
     requestedVehicleTypeId,
+    vendorId,
     status: "PENDING",
     pax: [],
   };

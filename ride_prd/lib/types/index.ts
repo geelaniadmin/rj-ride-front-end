@@ -241,6 +241,7 @@ export interface OTPGates {
 export interface TripVehicle {
   id: ID;
   requestedVehicleTypeId: ID;
+  vendorId?: ID;
   priceId?: ID;
   lockedPrice?: number;
   lockedRateCardVersion?: number;
