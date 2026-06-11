@@ -1,0 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-ops-sidebar: #1B2A4A;
+  --color-brand-blue: #2563EB;
+  --color-danger: #E84040;
+  --color-success: #1DB87A;
+  --color-warning: #F0A030;
+  --color-page-bg: #F4F5F7;
+  --color-card-bg: #FFFFFF;
+  --color-text-primary: #3D434A;
+  --color-text-secondary: #8B8FA8;
+  --color-text-tertiary: #6B7F99;
+  --color-border: #E0E0E0;
+}
+
+* {
+  @apply border-[#E0E0E0];
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-[#F4F5F7] text-[#3D434A];
+  font-size: 14px;
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+
+button {
+  @apply transition-colors;
+}
+
+/* Custom scrollbar */
+body ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+body ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body ::-webkit-scrollbar-thumb {
+  background: #8B8FA8;
+  border-radius: 4px;
+}
+
+body ::-webkit-scrollbar-thumb:hover {
+  background: #6B7F99;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #8B8FA8;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #6B7F99;
+}
+
+/* Animations */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Background grid pattern */
+.bg-ops-grid {
+  background-image:
+    linear-gradient(0deg, transparent 24%, rgba(0, 0, 0, 0.02) 25%, rgba(0, 0, 0, 0.02) 26%, transparent 27%, transparent 74%, rgba(0, 0, 0, 0.02) 75%, rgba(0, 0, 0, 0.02) 76%, transparent 77%, transparent),
+    linear-gradient(90deg, transparent 24%, rgba(0, 0, 0, 0.02) 25%, rgba(0, 0, 0, 0.02) 26%, transparent 27%, transparent 74%, rgba(0, 0, 0, 0.02) 75%, rgba(0, 0, 0, 0.02) 76%, transparent 77%, transparent);
+  background-size: 48px 48px;
+}
