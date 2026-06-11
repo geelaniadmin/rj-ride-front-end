@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useOpsSessionStore } from '@/stores/opsSessionStore';
 import { OpsShell } from '@/components/layout/OpsShell';
 import { ToastProvider } from '@/components/ui/Toast';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { SeedInitializer } from '@/components/SeedInitializer';
 import { useCrossTabSync } from '@/hooks/useCrossTabSync';
 import { useTripStore } from '@ride/shared';
@@ -43,10 +44,13 @@ export function RootLayoutContent({ children }: RootLayoutContentProps) {
   }
 
   return (
-    <OpsShell>
-      <ToastProvider />
-      <SeedInitializer />
-      {children}
-    </OpsShell>
+    <>
+      <OfflineBanner />
+      <OpsShell>
+        <ToastProvider />
+        <SeedInitializer />
+        {children}
+      </OpsShell>
+    </>
   );
 }
