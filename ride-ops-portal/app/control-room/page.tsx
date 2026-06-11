@@ -5,6 +5,7 @@ import { useTripStore } from '@/stores/tripStore';
 import { useTenantStore } from '@/stores/tenantStore';
 import { useSafetyAlertStore } from '@ride/shared';
 import { KpiCard } from '@/components/ui/KpiCard';
+import { KpiCardSkeleton } from '@/components/ui/Skeleton';
 import { Card } from '@/components/ui/Card';
 import { LiveBadge } from '@/components/ui/LiveBadge';
 import { useToastStore } from '@/components/ui/Toast';
@@ -31,6 +32,8 @@ export default function SafetyBoardPage() {
   const tenant = tenants.find((t) => t.id === tenantId);
   const tenantTrips = trips.filter((t) => t.tenantId === tenantId);
   const activeSos = safetyAlerts.filter((a) => a.type === 'SOS' && a.status === 'ACTIVE' && tenantId === a.tenantId);
+
+  const isLoading = trips.length === 0 && safetyAlerts.length === 0;
 
   const activeTripsCount = tenantTrips.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'ASSIGNED').length;
   const anomaliesToday = safetyAlerts.filter(
@@ -77,10 +80,21 @@ export default function SafetyBoardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard label="Active trips" value={activeTripsCount} icon={<TrendingUp />} />
-        <KpiCard label="SOS active" value={activeSos.length} icon={<AlertCircle />} trend={activeSos.length > 0 ? { direction: 'up', value: 'Urgent' } : undefined} />
-        <KpiCard label="Anomalies today" value={anomaliesToday} icon={<AlertTriangle />} />
-        <KpiCard label="Resolved today" value={resolvedToday} icon={<CheckCircle />} trend={{ direction: 'up', value: 'Good' }} />
+        {isLoading ? (
+          <>
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+          </>
+        ) : (
+          <>
+            <KpiCard label="Active trips" value={activeTripsCount} icon={<TrendingUp />} />
+            <KpiCard label="SOS active" value={activeSos.length} icon={<AlertCircle />} trend={activeSos.length > 0 ? { direction: 'up', value: 'Urgent' } : undefined} />
+            <KpiCard label="Anomalies today" value={anomaliesToday} icon={<AlertTriangle />} />
+            <KpiCard label="Resolved today" value={resolvedToday} icon={<CheckCircle />} trend={{ direction: 'up', value: 'Good' }} />
+          </>
+        )}
       </div>
 
       <Card header="Live vehicle positions">

@@ -8,6 +8,7 @@ import { useSafetyAlertStore } from '@ride/shared';
 import { useRateCardStore } from '@/stores/rateCardStore';
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/ui/KpiCard';
+import { KpiCardSkeleton } from '@/components/ui/Skeleton';
 import { Button } from '@/components/ui/Button';
 import { Building2, TrendingUp, AlertCircle, BarChart3, Users, DollarSign, Activity, FileText } from 'lucide-react';
 
@@ -17,6 +18,8 @@ export default function SuperAdminPage() {
   const trips = useTripStore((s) => s.trips);
   const safetyAlerts = useSafetyAlertStore((s) => s.safetyAlerts);
   const rateCards = useRateCardStore((s) => s.rateCards);
+
+  const isLoading = tenants.length === 0 && trips.length === 0;
 
   const completedTrips = trips.filter((t) => t.status === 'COMPLETED' || t.status === 'BILLED').length;
   const activeSos = safetyAlerts.filter((a) => a.type === 'SOS' && a.status === 'ACTIVE').length;
@@ -63,10 +66,21 @@ export default function SuperAdminPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard label="Active tenants" value={tenants.length} icon={<Building2 />} />
-        <KpiCard label="Total trips" value={trips.length} icon={<TrendingUp />} />
-        <KpiCard label="Rate cards" value={rateCards.length} icon={<BarChart3 />} />
-        <KpiCard label="Active SOS" value={activeSos} icon={<AlertCircle />} trend={activeSos > 0 ? { direction: 'down', value: 'Needs attention' } : undefined} />
+        {isLoading ? (
+          <>
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+          </>
+        ) : (
+          <>
+            <KpiCard label="Active tenants" value={tenants.length} icon={<Building2 />} />
+            <KpiCard label="Total trips" value={trips.length} icon={<TrendingUp />} />
+            <KpiCard label="Rate cards" value={rateCards.length} icon={<BarChart3 />} />
+            <KpiCard label="Active SOS" value={activeSos} icon={<AlertCircle />} trend={activeSos > 0 ? { direction: 'down', value: 'Needs attention' } : undefined} />
+          </>
+        )}
       </div>
 
       <Card header="Quick navigation">

@@ -5,12 +5,15 @@ import { useTenantStore } from '@/stores/tenantStore';
 import { useTripStore } from '@/stores/tripStore';
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/ui/KpiCard';
+import { KpiCardSkeleton, ChartSkeleton } from '@/components/ui/Skeleton';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, DollarSign, Zap } from 'lucide-react';
 
 export default function BillingPage() {
   const tenants = useTenantStore((s) => s.tenants);
   const trips = useTripStore((s) => s.trips);
+
+  const isLoading = trips.length === 0;
 
   const billingStats = useMemo(() => {
     const completed = trips.filter((t) => t.status === 'COMPLETED' || t.status === 'BILLED');
@@ -63,35 +66,54 @@ export default function BillingPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard label="Total revenue" value={`₹${(billingStats.totalRevenue / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} icon={<DollarSign />} />
-        <KpiCard label="Completed trips" value={billingStats.completedTrips} icon={<Zap />} />
-        <KpiCard label="Avg revenue/trip" value={`₹${avgRevenuePerTrip.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} icon={<TrendingUp />} />
-        <KpiCard label="Active tenants" value={tenants.length} icon={<TrendingUp />} />
+        {isLoading ? (
+          <>
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+          </>
+        ) : (
+          <>
+            <KpiCard label="Total revenue" value={`₹${(billingStats.totalRevenue / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} icon={<DollarSign />} />
+            <KpiCard label="Completed trips" value={billingStats.completedTrips} icon={<Zap />} />
+            <KpiCard label="Avg revenue/trip" value={`₹${avgRevenuePerTrip.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} icon={<TrendingUp />} />
+            <KpiCard label="Active tenants" value={tenants.length} icon={<TrendingUp />} />
+          </>
+        )}
       </div>
 
       <Card header="Daily revenue (Last 7 days)">
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={billingStats.dailyData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip formatter={(value: any) => `₹${value}`} />
-            <Legend />
-            <Line type="monotone" dataKey="revenue" stroke="#2563EB" name="Revenue (₹)" />
-          </LineChart>
-        </ResponsiveContainer>
+        {isLoading ? (
+          <ChartSkeleton />
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={billingStats.dailyData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip formatter={(value: any) => `₹${value}`} />
+              <Legend />
+              <Line type="monotone" dataKey="revenue" stroke="#2563EB" name="Revenue (₹)" />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </Card>
 
       <Card header="Revenue by tenant">
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={billingStats.tenantRevenue}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-            <YAxis />
-            <Tooltip formatter={(value: any) => `₹${(value / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} />
-            <Bar dataKey="revenue" fill="#10B981" name="Revenue (₹)" />
-          </BarChart>
-        </ResponsiveContainer>
+        {isLoading ? (
+          <ChartSkeleton />
+        ) : (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={billingStats.tenantRevenue}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
+              <YAxis />
+              <Tooltip formatter={(value: any) => `₹${(value / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} />
+              <Bar dataKey="revenue" fill="#10B981" name="Revenue (₹)" />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </Card>
 
       <Card header="Tenant billing summary">

@@ -7,6 +7,7 @@ import { useVendorStore, useVehicleTypeStore } from '@ride/shared';
 import { useCustomerStore } from '@/stores/customerStore';
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/ui/KpiCard';
+import { KpiCardSkeleton, DataTableSkeleton } from '@/components/ui/Skeleton';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
 import { Drawer } from '@/components/ui/Drawer';
@@ -173,6 +174,8 @@ export default function RateManagerPage() {
       )
     : [];
 
+  const isLoading = tenantRateCards.length === 0;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -180,16 +183,27 @@ export default function RateManagerPage() {
           <h1 className="text-3xl font-bold text-[#1B2A4A]">Rate Cards</h1>
           <p className="text-sm text-[#8B8FA8] mt-1">Pre-negotiated rates</p>
         </div>
-        <Button onClick={() => router.push('/rate-manager/create')}>
+        <Button onClick={() => router.push('/rate-manager/create')} disabled={isLoading}>
           <Plus className="w-4 h-4 mr-2 inline" /> New rate card
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard label="Active cards" value={activeCards.length} icon={<LayoutList />} />
-        <KpiCard label="Vendors covered" value={uniqueVendors} icon={<Zap />} />
-        <KpiCard label="Vehicle types" value={uniqueVehicleTypes} icon={<Zap />} />
-        <KpiCard label="Avg ₹/km rate" value={avgPerKmRate / 100} unit="₹" icon={<TrendingUp />} />
+        {isLoading ? (
+          <>
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+            <KpiCardSkeleton />
+          </>
+        ) : (
+          <>
+            <KpiCard label="Active cards" value={activeCards.length} icon={<LayoutList />} />
+            <KpiCard label="Vendors covered" value={uniqueVendors} icon={<Zap />} />
+            <KpiCard label="Vehicle types" value={uniqueVehicleTypes} icon={<Zap />} />
+            <KpiCard label="Avg ₹/km rate" value={avgPerKmRate / 100} unit="₹" icon={<TrendingUp />} />
+          </>
+        )}
       </div>
 
       <Card header="Filters">
@@ -253,7 +267,7 @@ export default function RateManagerPage() {
       </Card>
 
       <Card header={`Rate cards (${filtered.length})`}>
-        <DataTable columns={columns} data={filtered} rowKey="id" pageSize={20} />
+        {isLoading ? <DataTableSkeleton rows={5} /> : <DataTable columns={columns} data={filtered} rowKey="id" pageSize={20} />}
       </Card>
 
       <Drawer isOpen={!!selectedCard} onClose={() => setSelectedRateCard(null)} title={selectedCard?.id} side="right">
