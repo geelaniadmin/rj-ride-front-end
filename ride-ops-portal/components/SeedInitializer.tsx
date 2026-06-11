@@ -6,6 +6,7 @@ import { useTenantStore } from '@/stores/tenantStore';
 import { useTripStore as useLocalTripStore } from '@/stores/tripStore';
 import { useRateCardStore } from '@/stores/rateCardStore';
 import { useCustomerStore } from '@/stores/customerStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 
 export function SeedInitializer() {
   const trips = useTripStore((s) => s.trips);
@@ -21,12 +22,20 @@ export function SeedInitializer() {
   const { addTripSeed } = useAddTripSeed();
   const { addSafetyAlertSeed } = useAddSafetyAlertSeed();
   const { seedRateManagerData } = useSeedRateManagerData();
+  const { seedNotifications } = useSeedNotifications();
 
   useEffect(() => {
     if (localTrips.length === 0) {
       addTripSeed();
     }
   }, [localTrips.length, addTripSeed]);
+
+  useEffect(() => {
+    const notifs = useNotificationStore((s) => s.notifications);
+    if (notifs.length === 0) {
+      seedNotifications();
+    }
+  }, []);
 
   useEffect(() => {
     if (safetyAlerts.length === 0) {
@@ -372,6 +381,118 @@ function useSeedRateManagerData() {
           newRate: rc as any,
           version: 1,
         });
+      });
+    },
+  };
+}
+
+function useSeedNotifications() {
+  const addNotification = useNotificationStore((s) => s.addNotification);
+
+  return {
+    seedNotifications: () => {
+      const now = new Date();
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60000).toISOString();
+      const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60000).toISOString();
+
+      // Control room notifications
+      const controlRoomNotifications = [
+        {
+          type: 'SOS_RAISED' as const,
+          title: 'SOS Triggered',
+          message: 'Trip RIDE-SEED-001 — Driver initiated emergency',
+          severity: 'red' as const,
+          isRead: false,
+          role: 'control-room' as const,
+          actionUrl: '/control-room/sos',
+        },
+        {
+          type: 'ANOMALY_DETECTED' as const,
+          title: 'Route Deviation',
+          message: 'Trip RIDE-SEED-002 deviated 300m from route',
+          severity: 'amber' as const,
+          isRead: false,
+          role: 'control-room' as const,
+          actionUrl: '/control-room/anomalies',
+        },
+        {
+          type: 'TRIP_COMPLETED' as const,
+          title: 'Trip Completed',
+          message: 'RIDE-SEED-003 completed safely in 45 minutes',
+          severity: 'green' as const,
+          isRead: true,
+          role: 'control-room' as const,
+        },
+      ];
+
+      // Rate manager notifications
+      const rateManagerNotifications = [
+        {
+          type: 'RATE_CARD_PUBLISHED' as const,
+          title: 'Rate Card v1 Published',
+          message: 'PER_KM rates for IndiGo Sedan now active',
+          severity: 'green' as const,
+          isRead: false,
+          role: 'rate-manager' as const,
+          actionUrl: '/rate-manager',
+        },
+        {
+          type: 'RATE_CARD_EXPIRING' as const,
+          title: 'Legacy Rate Expiring',
+          message: 'RC-001 v0 expires in 7 days',
+          severity: 'amber' as const,
+          isRead: false,
+          role: 'rate-manager' as const,
+        },
+        {
+          type: 'RATE_CARD_PUBLISHED' as const,
+          title: 'Bulk Update Complete',
+          message: '3 rate cards updated for holiday surcharges',
+          severity: 'green' as const,
+          isRead: true,
+          role: 'rate-manager' as const,
+        },
+      ];
+
+      // Super admin notifications
+      const superAdminNotifications = [
+        {
+          type: 'TENANT_ONBOARDED' as const,
+          title: 'New Tenant Activated',
+          message: 'SpiceJet Charters onboarded and live',
+          severity: 'green' as const,
+          isRead: false,
+          role: 'super-admin' as const,
+          actionUrl: '/super-admin/tenants',
+        },
+        {
+          type: 'SYSTEM_ALERT' as const,
+          title: 'Service Alert',
+          message: 'Rate engine latency spike detected (avg 250ms)',
+          severity: 'red' as const,
+          isRead: false,
+          role: 'super-admin' as const,
+          actionUrl: '/super-admin/health',
+        },
+        {
+          type: 'TENANT_PAYMENT_DUE' as const,
+          title: 'Payment Due',
+          message: 'IndiGo Airlines — ₹15,00,000 due in 3 days',
+          severity: 'amber' as const,
+          isRead: true,
+          role: 'super-admin' as const,
+        },
+      ];
+
+      // Add all notifications
+      const allNotifications = [
+        ...controlRoomNotifications,
+        ...rateManagerNotifications,
+        ...superAdminNotifications,
+      ];
+
+      allNotifications.forEach((notif: any) => {
+        addNotification(notif);
       });
     },
   };
