@@ -33,6 +33,11 @@ button {
   @apply transition-colors;
 }
 
+/* Touch target sizing for mobile */
+.touch-target {
+  @apply min-h-[44px];
+}
+
 /* Custom scrollbar */
 body ::-webkit-scrollbar {
   width: 4px;

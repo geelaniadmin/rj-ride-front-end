@@ -1,11 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { Zap, Layout, AlertCircle, BarChart3, Settings, DollarSign, Users, HeartHandshake, CheckCircle, LayoutList, PlusCircle, History, Calculator, FileText } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useSafetyAlertStore } from '@ride/shared';
 import { Badge } from '../ui/Badge';
+
+export interface NavItem {
+  href: string;
+  icon: React.ComponentType<any>;
+  label: string;
+  badge?: number;
+}
 
 interface NavLinkProps {
   href: string;
@@ -20,7 +27,7 @@ function NavLink({ href, icon: Icon, label, badge }: NavLinkProps) {
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+      className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors touch-target md:touch-auto ${
         isActive
           ? 'bg-white/10 border-l-2 border-[#2563EB] text-white'
           : 'text-gray-300 hover:text-white hover:bg-white/5'
@@ -87,4 +94,34 @@ export function SuperAdminSidebar() {
       </nav>
     </aside>
   );
+}
+
+export function getControlRoomNavItems(activeSosCount: number): NavItem[] {
+  return [
+    { href: '/control-room', icon: Layout, label: 'Overview' },
+    { href: '/control-room/sos', icon: AlertCircle, label: 'Live SOS', badge: activeSosCount },
+    { href: '/control-room/anomalies', icon: Zap, label: 'Anomalies' },
+    { href: '/control-room/trips', icon: Zap, label: 'Trips' },
+    { href: '/control-room/reports', icon: BarChart3, label: 'Reports' },
+  ];
+}
+
+export function getRateManagerNavItems(): NavItem[] {
+  return [
+    { href: '/rate-manager', icon: LayoutList, label: 'Rate Cards' },
+    { href: '/rate-manager/create', icon: PlusCircle, label: 'Create' },
+    { href: '/rate-manager/history', icon: History, label: 'History' },
+    { href: '/rate-manager/simulate', icon: Calculator, label: 'Simulator' },
+    { href: '/rate-manager/audit', icon: FileText, label: 'Audit' },
+  ];
+}
+
+export function getSuperAdminNavItems(): NavItem[] {
+  return [
+    { href: '/super-admin', icon: Layout, label: 'Dashboard' },
+    { href: '/super-admin/tenants', icon: Users, label: 'Tenants' },
+    { href: '/super-admin/billing', icon: DollarSign, label: 'Billing' },
+    { href: '/super-admin/health', icon: HeartHandshake, label: 'System Health' },
+    { href: '/super-admin/audit', icon: Settings, label: 'Audit Log' },
+  ];
 }
