@@ -153,7 +153,7 @@ export default function TripsPage() {
     { key: "status", header: "Status", render: (t) => <StatusBadge status={t.status} />, sortable: true },
     { key: "lockedPrice", header: "Price", render: (t) => `₹${Math.round(t.lockedPrice)}`, sortable: true },
     { key: "actions", header: "Actions", render: (t) => {
-      if (t.status === "PENDING") {
+      if (t.status === "ASSIGNED" || t.status === "PENDING") {
         return (
           <div className="flex gap-1.5">
             <button
@@ -412,7 +412,7 @@ export default function TripsPage() {
             </div>
 
             {/* Action buttons */}
-            {selectedTrip.status === "PENDING" && (
+            {(selectedTrip.status === "ASSIGNED" || selectedTrip.status === "PENDING") && (
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => { setShowDetailDrawer(false); handleAcceptClick(selectedTrip); }}

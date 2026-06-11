@@ -6,6 +6,7 @@ import { useOpsSessionStore } from '@/stores/opsSessionStore';
 import { OpsShell } from '@/components/layout/OpsShell';
 import { ToastProvider } from '@/components/ui/Toast';
 import { SeedInitializer } from '@/components/SeedInitializer';
+import { useCrossTabSync } from '@/hooks/useCrossTabSync';
 import { useTripStore } from '@ride/shared';
 
 interface RootLayoutContentProps {
@@ -17,6 +18,8 @@ export function RootLayoutContent({ children }: RootLayoutContentProps) {
   const router = useRouter();
   const pathname = usePathname();
   const trips = useTripStore((s) => s.trips);
+
+  useCrossTabSync();
 
   useEffect(() => {
     // Stores are auto-seeded on first render via Zustand persist

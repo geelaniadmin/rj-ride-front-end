@@ -1,14 +1,24 @@
 'use client';
 
 import React from 'react';
-import { Link, Layout, AlertCircle, Zap, BarChart3, Settings, DollarSign, Users, HeartHandshake, CheckCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Zap, Layout, AlertCircle, BarChart3, Settings, DollarSign, Users, HeartHandshake, CheckCircle } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { useSafetyAlertStore } from '@ride/shared';
+import { Badge } from '../ui/Badge';
 
-function NavLink({ href, icon: Icon, label }: { href: string; icon: React.ComponentType<any>; label: string }) {
+interface NavLinkProps {
+  href: string;
+  icon: React.ComponentType<any>;
+  label: string;
+  badge?: number;
+}
+
+function NavLink({ href, icon: Icon, label, badge }: NavLinkProps) {
   const pathname = usePathname();
   const isActive = pathname.startsWith(href);
   return (
-    <a
+    <Link
       href={href}
       className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
         isActive
@@ -18,11 +28,17 @@ function NavLink({ href, icon: Icon, label }: { href: string; icon: React.Compon
     >
       <Icon className="w-5 h-5" />
       <span className="text-sm font-medium">{label}</span>
-    </a>
+      {badge && badge > 0 && (
+        <Badge variant="red" className="ml-auto text-xs px-2">{badge}</Badge>
+      )}
+    </Link>
   );
 }
 
 export function ControlRoomSidebar() {
+  const safetyAlerts = useSafetyAlertStore((s) => s.safetyAlerts);
+  const activeSosCount = safetyAlerts.filter((a) => a.type === 'SOS' && a.status === 'ACTIVE').length;
+
   return (
     <aside className="w-60 bg-[#1B2A4A] text-white flex flex-col">
       <div className="p-4 border-b border-white/10">
@@ -30,9 +46,9 @@ export function ControlRoomSidebar() {
       </div>
       <nav className="flex-1 space-y-1 p-3 overflow-y-auto custom-scrollbar">
         <NavLink href="/control-room" icon={Layout} label="Overview" />
-        <NavLink href="/control-room/sos" icon={AlertCircle} label="Live SOS" />
+        <NavLink href="/control-room/sos" icon={AlertCircle} label="Live SOS" badge={activeSosCount} />
         <NavLink href="/control-room/anomalies" icon={Zap} label="Anomalies" />
-        <NavLink href="/control-room/trips" icon={Link} label="Trips" />
+        <NavLink href="/control-room/trips" icon={Zap} label="Trips" />
         <NavLink href="/control-room/reports" icon={BarChart3} label="Reports" />
       </nav>
     </aside>

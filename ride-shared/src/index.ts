@@ -10,6 +10,8 @@ export { useVendorStore, useVendorInfoStore } from './stores/vendorStore';
 export { useEarningsStore } from './stores/earningsStore';
 export { usePayoutStore } from './stores/payoutStore';
 export { useAlertStore } from './stores/alertStore';
+export { useSafetyAlertStore } from './stores/safetyAlertStore';
+export type { SafetyAlert, SafetyAlertType, SafetyAlertStatus, SafetyTimeline } from './stores/safetyAlertStore';
 export { useSessionStore } from './stores/sessionStore';
 
 // Helpers

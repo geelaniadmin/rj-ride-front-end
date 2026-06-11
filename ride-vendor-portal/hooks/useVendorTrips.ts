@@ -82,7 +82,7 @@ export function useVendorTrips(vendorId: string) {
     .filter((t) => t.status === "COMPLETED" && new Date(t.createdAt).toDateString() === today)
     .reduce((sum, t) => sum + Math.round(t.lockedPrice * 0.85), 0); // net = lockedPrice - 15%
 
-  const needingAttention = vendorTrips.filter((t) => t.status === "PENDING" || t.status === "ASSIGNED" || t.status === "DRIVER_ACCEPTED");
+  const needingAttention = vendorTrips.filter((t) => t.status === "ASSIGNED");
   const activeTrips = vendorTrips.filter((t) =>
     ["EN_ROUTE_PICKUP", "AT_PICKUP", "PAX_PICKED", "IN_TRANSIT", "AT_DROP"].includes(t.status)
   );

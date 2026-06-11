@@ -20,6 +20,6 @@ export const useTenantStore = create<TenantStoreState & TenantStoreActions>()(
       setTenants: (tenants) => set({ tenants }),
       getTenantById: (id) => get().tenants.find((t) => t.id === id),
     }),
-    { name: 'ride-tenants' }
+    { name: 'ride-tenant' }
   )
 );
