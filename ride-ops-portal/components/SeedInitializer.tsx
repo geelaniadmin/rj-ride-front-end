@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useTripStore, useAlertStore, useSafetyAlertStore } from '@ride/shared';
+import { useTripStore, useAlertStore, useSafetyAlertStore, useVendorStore, useVehicleTypeStore } from '@ride/shared';
 import { useTenantStore } from '@/stores/tenantStore';
 import { useTripStore as useLocalTripStore } from '@/stores/tripStore';
+import { useRateCardStore } from '@/stores/rateCardStore';
+import { useCustomerStore } from '@/stores/customerStore';
 
 export function SeedInitializer() {
   const trips = useTripStore((s) => s.trips);
@@ -11,9 +13,14 @@ export function SeedInitializer() {
   const tenants = useTenantStore((s) => s.tenants);
   const safetyAlerts = useSafetyAlertStore((s) => s.safetyAlerts);
   const localTrips = useLocalTripStore((s) => s.trips);
+  const customers = useCustomerStore((s) => s.customers);
+  const rateCards = useRateCardStore((s) => s.rateCards);
+  const vendors = useVendorStore((s) => s.vendors);
+  const vehicleTypes = useVehicleTypeStore((s) => s.vehicleTypes);
 
   const { addTripSeed } = useAddTripSeed();
   const { addSafetyAlertSeed } = useAddSafetyAlertSeed();
+  const { seedRateManagerData } = useSeedRateManagerData();
 
   useEffect(() => {
     if (localTrips.length === 0) {
@@ -27,13 +34,21 @@ export function SeedInitializer() {
     }
   }, [safetyAlerts.length, addSafetyAlertSeed]);
 
+  useEffect(() => {
+    if (customers.length === 0 || rateCards.length === 0 || vehicleTypes.length === 0) {
+      seedRateManagerData();
+    }
+  }, [customers.length, rateCards.length, vehicleTypes.length, seedRateManagerData]);
+
   const tripCount = localTrips.length;
   const alertCount = safetyAlerts.length;
   const tenantCount = tenants.length;
+  const customerCount = customers.length;
+  const rateCardCount = rateCards.length;
 
   return (
     <div className="fixed bottom-4 left-4 text-xs text-[#8B8FA8] bg-white border border-[#E0E0E0] rounded px-3 py-2 font-mono z-40">
-      Trips: {tripCount} | Safety Alerts: {alertCount} | Tenants: {tenantCount}
+      Trips: {tripCount} | Alerts: {alertCount} | Customers: {customerCount} | RateCards: {rateCardCount}
     </div>
   );
 }
@@ -257,6 +272,106 @@ function useAddSafetyAlertSeed() {
 
       alerts.forEach((alert) => {
         addSafetyAlert(alert as any);
+      });
+    },
+  };
+}
+
+function useSeedRateManagerData() {
+  const addCustomer = useCustomerStore((s) => s.addCustomer);
+  const addRateCard = useRateCardStore((s) => s.addRateCard);
+  const addAuditEntry = useRateCardStore((s) => s.addAuditEntry);
+  const vendors = useVendorStore((s) => s.vendors);
+  const vehicleTypes = useVehicleTypeStore((s) => s.vehicleTypes);
+
+  return {
+    seedRateManagerData: () => {
+      const tenantId = 'T1';
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+
+      // Get first vendor from existing vendors (should be seeded globally)
+      const vendor = vendors.length > 0 ? vendors[0] : null;
+      if (!vendor) return;
+
+      // Add customers
+      const customerIds: { [key: string]: string } = {};
+      const customerData = [
+        { name: 'IndiGo Airlines', code: 'INDIGO', billingCycle: 'MONTHLY', tenantId, active: true },
+        { name: 'Acme Logistics', code: 'ACME-LOG', billingCycle: 'FORTNIGHTLY', tenantId, active: true },
+        { name: 'TechCorp India', code: 'TECHCORP', billingCycle: 'WEEKLY', tenantId, active: true },
+      ];
+      customerData.forEach((c) => {
+        const id = addCustomer(c);
+        customerIds[c.code] = id;
+      });
+
+      // Get first vehicle type (should be pre-seeded globally)
+      const vt1 = vehicleTypes.find((vt) => vt.tenantId === tenantId);
+      const vt2 = vehicleTypes.filter((vt) => vt.tenantId === tenantId)[1];
+      if (!vt1) return;
+
+      // Add rate cards
+      const rateCardData = [
+        {
+          tenantId,
+          vendorId: vendor.id,
+          customerId: customerIds['INDIGO'],
+          vehicleTypeId: vt1.id,
+          basis: 'PER_KM' as const,
+          perKm: 2000, // ₹20/km in paise
+          modifiers: {
+            minFare: 20000, // ₹200
+            nightCharge: 25, // 25%
+            nightStartHour: 22,
+            nightEndHour: 6,
+            waitingPerHour: 10000, // ₹100/hr
+            freeWaitingMinutes: 10,
+            tollHandling: 'EXTRA' as const,
+          },
+          validFrom: today,
+          version: 1,
+        },
+        {
+          tenantId,
+          vendorId: vendor.id,
+          customerId: customerIds['INDIGO'],
+          vehicleTypeId: vt2?.id || vt1.id,
+          basis: 'PER_KM' as const,
+          perKm: 2500, // ₹25/km in paise
+          modifiers: {
+            minFare: 25000, // ₹250
+          },
+          validFrom: today,
+          version: 1,
+        },
+        {
+          tenantId,
+          vendorId: vendor.id,
+          customerId: customerIds['ACME-LOG'],
+          vehicleTypeId: vt1.id,
+          basis: 'HOURLY' as const,
+          hourlyRate: 50000, // ₹500/hr
+          modifiers: {
+            minFare: 15000, // ₹150
+          },
+          validFrom: today,
+          version: 1,
+        },
+      ];
+
+      rateCardData.forEach((rc) => {
+        const rcId = addRateCard(rc as any);
+        addAuditEntry({
+          timestamp: now.toISOString(),
+          action: 'CREATED',
+          rateCardId: rcId,
+          vendorId: rc.vendorId,
+          vehicleTypeId: rc.vehicleTypeId,
+          customerId: rc.customerId,
+          newRate: rc as any,
+          version: 1,
+        });
       });
     },
   };

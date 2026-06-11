@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Zap, Layout, AlertCircle, BarChart3, Settings, DollarSign, Users, HeartHandshake, CheckCircle } from 'lucide-react';
+import { Zap, Layout, AlertCircle, BarChart3, Settings, DollarSign, Users, HeartHandshake, CheckCircle, LayoutList, PlusCircle, History, Calculator, FileText } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useSafetyAlertStore } from '@ride/shared';
 import { Badge } from '../ui/Badge';
@@ -62,11 +62,11 @@ export function RateManagerSidebar() {
         <h2 className="text-sm font-bold">Rate Manager</h2>
       </div>
       <nav className="flex-1 space-y-1 p-3 overflow-y-auto custom-scrollbar">
-        <NavLink href="/rate-manager" icon={DollarSign} label="Rate Cards" />
-        <NavLink href="/rate-manager/create" icon={Zap} label="Create Version" />
-        <NavLink href="/rate-manager/history" icon={BarChart3} label="History" />
-        <NavLink href="/rate-manager/simulate" icon={CheckCircle} label="Simulator" />
-        <NavLink href="/rate-manager/audit" icon={Settings} label="Audit" />
+        <NavLink href="/rate-manager" icon={LayoutList} label="Rate Cards" />
+        <NavLink href="/rate-manager/create" icon={PlusCircle} label="Create" />
+        <NavLink href="/rate-manager/history" icon={History} label="History" />
+        <NavLink href="/rate-manager/simulate" icon={Calculator} label="Simulator" />
+        <NavLink href="/rate-manager/audit" icon={FileText} label="Audit" />
       </nav>
     </aside>
   );
