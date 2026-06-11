@@ -86,8 +86,8 @@ export const DataTable = forwardRef<HTMLDivElement, DataTableProps<any>>(
             <tbody>
               {paginated.map((row) => (
                 <tr key={String(row[rowKey])} className="border-b border-[#E0E0E0] hover:bg-gray-50">
-                  {columns.map((col) => (
-                    <td key={String(col.key)} className="px-4 py-3 text-[#3D434A]">
+                  {columns.map((col, idx) => (
+                    <td key={`${row[rowKey]}-${idx}`} className="px-4 py-3 text-[#3D434A]">
                       {col.render ? col.render(row[col.key], row) : String(row[col.key] || '')}
                     </td>
                   ))}

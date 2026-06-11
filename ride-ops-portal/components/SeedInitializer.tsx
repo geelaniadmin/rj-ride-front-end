@@ -35,10 +35,10 @@ export function SeedInitializer() {
   }, [safetyAlerts.length, addSafetyAlertSeed]);
 
   useEffect(() => {
-    if (customers.length === 0 || rateCards.length === 0 || vehicleTypes.length === 0) {
+    if (customers.length === 0) {
       seedRateManagerData();
     }
-  }, [customers.length, rateCards.length, vehicleTypes.length, seedRateManagerData]);
+  }, []);
 
   const tripCount = localTrips.length;
   const alertCount = safetyAlerts.length;
