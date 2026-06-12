@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Bell, LogOut, Menu } from 'lucide-react';
 import { useOpsSessionStore } from '@/stores/opsSessionStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -8,7 +8,6 @@ import { NotificationDrawer } from '@/components/notifications/NotificationDrawe
 import { useRouter } from 'next/navigation';
 import { roleColors, roleDisplayNames } from '@/lib/types';
 import { Badge } from '../ui/Badge';
-import { useTripStore, useAlertStore } from '@ride/shared';
 
 interface OpsHeaderProps {
   onMenuClick?: () => void;
@@ -19,9 +18,11 @@ export function OpsHeader({ onMenuClick }: OpsHeaderProps) {
   const router = useRouter();
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [notificationDrawerOpen, setNotificationDrawerOpen] = useState(false);
-  const alerts = useAlertStore((s) => s.alerts);
-  const alertCount = alerts.length;
-  const unreadCount = useNotificationStore((s) => (session ? s.getUnreadCount(session.role) : 0));
+  const allNotifications = useNotificationStore((s) => s.notifications);
+  const unreadCount = useMemo(
+    () => (session ? allNotifications.filter((n) => n.role === session.role && !n.isRead).length : 0),
+    [allNotifications, session?.role]
+  );
 
   const handleLogout = () => {
     clearSession();
@@ -42,13 +43,13 @@ export function OpsHeader({ onMenuClick }: OpsHeaderProps) {
   const displayName = roleDisplayNames[session.role];
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-[#E0E0E0] flex items-center justify-between px-6 z-40">
+    <header className="h-16 bg-card-bg border-b border-border flex items-center justify-between px-4 lg:px-6 z-20">
       <div className="flex items-center gap-4">
-        <button onClick={onMenuClick} className="md:hidden text-[#3D434A] hover:bg-gray-100 p-2 rounded">
-          <Menu className="w-5 h-5" />
+        <button onClick={onMenuClick} className="md:hidden p-2 hover:bg-ops-bg rounded-lg transition-colors">
+          <Menu className="w-5 h-5 text-text-secondary" />
         </button>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-[#2563EB] text-white flex items-center justify-center font-bold text-sm">
+          <div className="w-8 h-8 rounded-lg bg-brand-blue text-white flex items-center justify-center font-bold text-sm">
             R
           </div>
           <Badge variant="blue" className={color.badge}>
@@ -61,11 +62,11 @@ export function OpsHeader({ onMenuClick }: OpsHeaderProps) {
         <div className="relative">
           <button
             onClick={() => setNotificationDrawerOpen(true)}
-            className="relative p-2 text-[#8B8FA8] hover:text-[#3D434A] hover:bg-gray-100 rounded transition-colors"
+            className="relative p-2 hover:bg-ops-bg rounded-lg transition-colors"
           >
-            <Bell className="w-5 h-5" />
+            <Bell className="w-5 h-5 text-text-secondary" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-danger text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -75,34 +76,34 @@ export function OpsHeader({ onMenuClick }: OpsHeaderProps) {
         <div className="relative">
           <button
             onClick={() => setRoleMenuOpen(!roleMenuOpen)}
-            className="w-8 h-8 rounded-full bg-[#2563EB] text-white flex items-center justify-center text-xs font-bold"
+            className="w-8 h-8 rounded-lg bg-brand-blue text-white flex items-center justify-center text-xs font-bold"
           >
             {session.name.charAt(0).toUpperCase()}
           </button>
           {roleMenuOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border border-[#E0E0E0] rounded-lg shadow-lg z-50">
+            <div className="absolute right-0 mt-2 w-48 bg-card-bg border border-border rounded-lg shadow-lg z-50 py-1">
               <button
                 onClick={() => handleRoleSwitch('control-room')}
-                className="w-full text-left px-4 py-2 text-sm text-[#3D434A] hover:bg-gray-50"
+                className="w-full text-left px-4 py-2.5 text-sm text-text-primary hover:bg-ops-bg"
               >
                 Switch to Control Room
               </button>
               <button
                 onClick={() => handleRoleSwitch('rate-manager')}
-                className="w-full text-left px-4 py-2 text-sm text-[#3D434A] hover:bg-gray-50"
+                className="w-full text-left px-4 py-2.5 text-sm text-text-primary hover:bg-ops-bg"
               >
                 Switch to Rate Manager
               </button>
               <button
                 onClick={() => handleRoleSwitch('super-admin')}
-                className="w-full text-left px-4 py-2 text-sm text-[#3D434A] hover:bg-gray-50"
+                className="w-full text-left px-4 py-2.5 text-sm text-text-primary hover:bg-ops-bg"
               >
                 Switch to Super Admin
               </button>
-              <div className="border-t border-[#E0E0E0]" />
+              <div className="border-t border-border my-1" />
               <button
                 onClick={handleLogout}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                className="w-full text-left px-4 py-2.5 text-sm text-danger hover:bg-ops-bg flex items-center gap-2"
               >
                 <LogOut className="w-4 h-4" /> Logout
               </button>

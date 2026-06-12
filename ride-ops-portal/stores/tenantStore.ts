@@ -34,6 +34,6 @@ export const useTenantStore = create<TenantStoreState & TenantStoreActions>()(
       },
       getTenantById: (id) => get().tenants.find((t) => t.id === id),
     }),
-    { name: 'ride-tenant' }
+    { name: 'ride-ops-tenant' }
   )
 );

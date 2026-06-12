@@ -57,13 +57,13 @@ export const DataTable = forwardRef<HTMLDivElement, DataTableProps<any>>(
 
     return (
       <div ref={ref} className={`${className}`}>
-        <div className="overflow-x-auto border border-[#E0E0E0] rounded-lg">
+        <div className="overflow-x-auto border border-border rounded-lg">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-[#E0E0E0]">
+            <thead className="bg-table-header border-b border-border">
               <tr>
-                {columns.map((col) => (
+                {columns.map((col, idx) => (
                   <th
-                    key={String(col.key)}
+                    key={`${String(col.key)}-${idx}`}
                     className={`px-4 py-3 text-left font-medium text-[#3D434A] ${col.width || ''}`}
                   >
                     {col.sortable ? (
@@ -85,7 +85,7 @@ export const DataTable = forwardRef<HTMLDivElement, DataTableProps<any>>(
             </thead>
             <tbody>
               {paginated.map((row) => (
-                <tr key={String(row[rowKey])} className="border-b border-[#E0E0E0] hover:bg-gray-50">
+                <tr key={String(row[rowKey])} className="border-b border-border hover:bg-ops-bg">
                   {columns.map((col, idx) => (
                     <td key={`${row[rowKey]}-${idx}`} className="px-4 py-3 text-[#3D434A]">
                       {col.render ? col.render(row[col.key], row) : String(row[col.key] || '')}
@@ -105,14 +105,14 @@ export const DataTable = forwardRef<HTMLDivElement, DataTableProps<any>>(
               <button
                 onClick={() => setPage(Math.max(0, page - 1))}
                 disabled={page === 0}
-                className="px-3 py-1 border border-[#E0E0E0] rounded hover:bg-gray-50 disabled:opacity-50"
+                className="px-3 py-1 border border-border rounded hover:bg-gray-50 disabled:opacity-50"
               >
                 Prev
               </button>
               <button
                 onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
                 disabled={page === totalPages - 1}
-                className="px-3 py-1 border border-[#E0E0E0] rounded hover:bg-gray-50 disabled:opacity-50"
+                className="px-3 py-1 border border-border rounded hover:bg-gray-50 disabled:opacity-50"
               >
                 Next
               </button>

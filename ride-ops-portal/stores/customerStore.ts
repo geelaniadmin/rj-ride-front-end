@@ -58,6 +58,6 @@ export const useCustomerStore = create<CustomerStore>()(
         return get().customers.find((c) => c.id === id);
       },
     }),
-    { name: 'ride-customers' }
+    { name: 'ride-ops-customers' }
   )
 );

@@ -27,8 +27,8 @@ export function VehicleDetailPanel({ vehicleId, onClose, onAcknowledge }: Vehicl
   const driver = trip.vehicles.find((v) => v.driverId)?.driverId;
 
   return (
-    <div className="fixed right-0 top-16 h-[calc(100vh-64px)] w-96 bg-white border-l border-[#E0E0E0] shadow-lg z-30 overflow-y-auto">
-      <div className="p-4 border-b border-[#E0E0E0] flex items-center justify-between">
+    <div className="fixed right-0 top-16 h-[calc(100vh-64px)] w-96 bg-white border-l border-border shadow-lg z-30 overflow-y-auto">
+      <div className="p-4 border-b border-border flex items-center justify-between">
         <h3 className="font-semibold text-[#3D434A]">Vehicle Details</h3>
         <button onClick={onClose} className="text-[#8B8FA8] hover:text-[#3D434A]">
           <X className="w-5 h-5" />

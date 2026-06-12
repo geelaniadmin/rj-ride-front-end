@@ -1,32 +1,27 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
-@theme {
-  --color-ops-sidebar: #1B2A4A;
+@theme inline {
   --color-brand-blue: #2563EB;
-  --color-danger: #E84040;
+  --color-sidebar-bg: #1B2A4A;
+  --color-page-bg: #F8FAFC;
+  --color-card-bg: #FFFFFF;
+  --color-card-border: #E8E8E8;
+  --color-text-primary: #3D434A;
+  --color-text-secondary: #6B7280;
+  --color-text-muted: #8B8FA8;
+  --color-border: #E8E8E8;
   --color-success: #1DB87A;
   --color-warning: #F0A030;
-  --color-page-bg: #F4F5F7;
-  --color-card-bg: #FFFFFF;
-  --color-text-primary: #3D434A;
-  --color-text-secondary: #8B8FA8;
-  --color-text-tertiary: #6B7F99;
-  --color-border: #E0E0E0;
-}
-
-* {
-  @apply border-[#E0E0E0];
-}
-
-html {
-  color-scheme: light;
+  --color-danger: #E84040;
+  --color-table-header: #F4F5F7;
+  --color-ops-bg: #F1F5F9;
+  --color-ops-sidebar: #1B2A4A;
 }
 
 body {
-  @apply bg-[#F4F5F7] text-[#3D434A];
-  font-size: 14px;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--color-page-bg);
+  color: var(--color-text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 button {
@@ -49,12 +44,12 @@ body ::-webkit-scrollbar-track {
 }
 
 body ::-webkit-scrollbar-thumb {
-  background: #8B8FA8;
+  background: var(--color-text-muted);
   border-radius: 4px;
 }
 
 body ::-webkit-scrollbar-thumb:hover {
-  background: #6B7F99;
+  background: var(--color-text-secondary);
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -67,12 +62,12 @@ body ::-webkit-scrollbar-thumb:hover {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #8B8FA8;
+  background: var(--color-text-muted);
   border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #6B7F99;
+  background: var(--color-text-secondary);
 }
 
 /* Animations */

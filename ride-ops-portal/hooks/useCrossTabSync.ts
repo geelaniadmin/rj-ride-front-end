@@ -11,11 +11,11 @@ export function useCrossTabSync() {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'ride-safety-alerts') {
         useSafetyAlertStore.persist.rehydrate();
-      } else if (e.key === 'ride-trips') {
+      } else      if (e.key === 'ride-ops-trips') {
         useTripStore.persist.rehydrate();
-      } else if (e.key === 'ride-rate-cards') {
+      } else if (e.key === 'ride-ops-rate-cards') {
         useRateCardStore.persist.rehydrate();
-      } else if (e.key === 'ride-customers') {
+      } else if (e.key === 'ride-ops-customers') {
         useCustomerStore.persist.rehydrate();
       }
     };

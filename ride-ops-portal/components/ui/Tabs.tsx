@@ -15,7 +15,7 @@ interface TabsProps {
 
 export function Tabs({ tabs, activeIndex, onChange, className = '' }: TabsProps) {
   return (
-    <div className={`flex gap-4 border-b border-[#E0E0E0] ${className}`}>
+    <div className={`flex gap-4 border-b border-border ${className}`}>
       {tabs.map((tab, idx) => (
         <button
           key={idx}

@@ -45,7 +45,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F4F5F7] to-[#E8ECEF] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-page-bg to-[#E8ECEF] flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-[#2563EB] text-white font-bold text-lg mb-4">
@@ -60,7 +60,7 @@ export default function LoginPage() {
             <button
               key={id}
               onClick={() => handleLogin(id as any, displayName)}
-              className="group relative bg-white border-2 border-[#E0E0E0] rounded-lg p-6 hover:border-[#2563EB] hover:shadow-lg transition-all"
+              className="group relative bg-white border-2 border-border rounded-lg p-6 hover:border-brand-blue hover:shadow-lg transition-all"
             >
               <div className={`${bgColor} w-12 h-12 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                 <Icon className={`w-6 h-6 ${color}`} />

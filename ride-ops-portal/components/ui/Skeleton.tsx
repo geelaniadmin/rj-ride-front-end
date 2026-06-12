@@ -4,7 +4,7 @@ import React from 'react';
 
 export function KpiCardSkeleton() {
   return (
-    <div className="p-4 border border-[#E0E0E0] rounded-lg bg-white animate-pulse">
+    <div className="p-4 border border-border rounded-lg bg-white animate-pulse">
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <div className="h-3 bg-gray-200 rounded w-20 mb-2"></div>
@@ -18,7 +18,7 @@ export function KpiCardSkeleton() {
 
 export function DataTableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="space-y-2 border border-[#E0E0E0] rounded-lg overflow-hidden">
+    <div className="space-y-2 border border-border rounded-lg overflow-hidden">
       {/* Header */}
       <div className="flex gap-4 p-4 bg-gray-50 border-b animate-pulse">
         {[1, 2, 3, 4, 5].map((i) => (
@@ -39,7 +39,7 @@ export function DataTableSkeleton({ rows = 5 }: { rows?: number }) {
 
 export function ChartSkeleton() {
   return (
-    <div className="w-full h-80 border border-[#E0E0E0] rounded-lg bg-white p-4 animate-pulse flex items-end gap-2">
+    <div className="w-full h-80 border border-border rounded-lg bg-white p-4 animate-pulse flex items-end gap-2">
       {Array.from({ length: 8 }).map((_, i) => (
         <div
           key={i}
@@ -53,7 +53,7 @@ export function ChartSkeleton() {
 
 export function CardSkeleton() {
   return (
-    <div className="p-6 border border-[#E0E0E0] rounded-lg bg-white animate-pulse space-y-4">
+    <div className="p-6 border border-border rounded-lg bg-white animate-pulse space-y-4">
       <div className="h-6 bg-gray-200 rounded w-32"></div>
       <div className="space-y-3">
         {[1, 2, 3].map((i) => (

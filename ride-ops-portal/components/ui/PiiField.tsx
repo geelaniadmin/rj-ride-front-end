@@ -30,7 +30,7 @@ export function PiiField({ value, type = 'name', className = '' }: PiiFieldProps
   const canReveal = !isRateManager && value;
 
   return (
-    <div className={`inline-flex items-center gap-2 ${className}`}>
+    <span className={`inline-flex items-center gap-2 ${className}`}>
       <span className="text-sm text-[#3D434A] font-mono">{display}</span>
       {canReveal && (
         <button
@@ -41,6 +41,6 @@ export function PiiField({ value, type = 'name', className = '' }: PiiFieldProps
           {revealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
         </button>
       )}
-    </div>
+    </span>
   );
 }

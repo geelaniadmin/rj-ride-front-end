@@ -188,6 +188,6 @@ export const useRateCardStore = create<RateCardStore>()(
         return get().auditLog.filter((a) => tenantRateCardIds.has(a.rateCardId));
       },
     }),
-    { name: 'ride-rate-cards' }
+    { name: 'ride-ops-rate-cards' }
   )
 );

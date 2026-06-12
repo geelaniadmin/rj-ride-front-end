@@ -78,7 +78,7 @@ export const useNotificationStore = create<NotificationStore>()(
         return get().notifications.filter((n) => n.role === role).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       },
     }),
-    { name: 'ride-notifications' }
+    { name: 'ride-ops-notifications' }
   )
 );
 

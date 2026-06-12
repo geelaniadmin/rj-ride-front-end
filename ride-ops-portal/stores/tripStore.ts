@@ -34,6 +34,6 @@ export const useTripStore = create<TripStoreState & TripStoreActions>()(
         return trip.status;
       },
     }),
-    { name: 'ride-trips' }
+    { name: 'ride-ops-trips' }
   )
 );

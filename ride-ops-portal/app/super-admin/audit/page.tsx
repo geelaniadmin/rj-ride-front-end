@@ -75,6 +75,7 @@ export default function AuditPage() {
       <Card header="Filters">
         <div className="flex flex-wrap gap-4">
           <input
+            name="dateFrom"
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
@@ -82,6 +83,7 @@ export default function AuditPage() {
           />
 
           <input
+            name="dateTo"
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
@@ -89,6 +91,7 @@ export default function AuditPage() {
           />
 
           <select
+            name="actionFilter"
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value as any)}
             className="px-3 py-2 border border-[#E0E0E0] rounded text-sm"
@@ -100,6 +103,7 @@ export default function AuditPage() {
           </select>
 
           <input
+            name="searchId"
             type="text"
             placeholder="Search resource ID..."
             value={searchId}

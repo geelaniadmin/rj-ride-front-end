@@ -252,8 +252,9 @@ function CreateVersionPageContent() {
       <Card header="Scope">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Vendor *</label>
+            <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="vendorId">Vendor *</label>
             <select
+              id="vendorId"
               value={scope.vendorId}
               onChange={(e) => setScope({ ...scope, vendorId: e.target.value })}
               className="w-full px-3 py-2 border border-[#E0E0E0] rounded text-sm"
@@ -268,8 +269,9 @@ function CreateVersionPageContent() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Customer *</label>
+            <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="customerId">Customer *</label>
             <select
+              id="customerId"
               value={scope.customerId}
               onChange={(e) => setScope({ ...scope, customerId: e.target.value })}
               className="w-full px-3 py-2 border border-[#E0E0E0] rounded text-sm"
@@ -284,8 +286,9 @@ function CreateVersionPageContent() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Vehicle Type *</label>
+            <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="vehicleTypeId">Vehicle Type *</label>
             <select
+              id="vehicleTypeId"
               value={scope.vehicleTypeId}
               onChange={(e) => setScope({ ...scope, vehicleTypeId: e.target.value })}
               className="w-full px-3 py-2 border border-[#E0E0E0] rounded text-sm"
@@ -300,8 +303,9 @@ function CreateVersionPageContent() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Valid from *</label>
+            <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="validFrom">Valid from *</label>
             <input
+              id="validFrom"
               type="date"
               value={scope.validFrom}
               onChange={(e) => setScope({ ...scope, validFrom: e.target.value })}
@@ -310,8 +314,9 @@ function CreateVersionPageContent() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Valid to</label>
+            <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="validTo">Valid to</label>
             <input
+              id="validTo"
               type="date"
               value={scope.validTo}
               onChange={(e) => setScope({ ...scope, validTo: e.target.value })}
@@ -326,7 +331,7 @@ function CreateVersionPageContent() {
         <div className="flex gap-6 mb-6">
           {(['PER_KM', 'HOURLY', 'FIXED_LOCATION_PAIR', 'PACKAGE'] as RateBasis[]).map((b) => (
             <label key={b} className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" value={b} checked={basis === b} onChange={(e) => setBasis(e.target.value as RateBasis)} />
+              <input type="radio" name="pricingBasis" value={b} checked={basis === b} onChange={(e) => setBasis(e.target.value as RateBasis)} />
               <span className="text-sm">{b === 'FIXED_LOCATION_PAIR' ? 'Fixed pair' : b === 'PER_KM' ? 'Per KM' : b}</span>
             </label>
           ))}
@@ -334,8 +339,9 @@ function CreateVersionPageContent() {
 
         {basis === 'PER_KM' && (
           <div>
-            <label className="block text-sm font-medium text-[#1B2A4A] mb-2">₹/km *</label>
+            <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="perKm">₹/km *</label>
             <input
+              id="perKm"
               type="number"
               step="1"
               value={pricing.perKm}
@@ -349,8 +355,9 @@ function CreateVersionPageContent() {
 
         {basis === 'HOURLY' && (
           <div>
-            <label className="block text-sm font-medium text-[#1B2A4A] mb-2">₹/hour *</label>
+            <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="hourlyRate">₹/hour *</label>
             <input
+              id="hourlyRate"
               type="number"
               step="1"
               value={pricing.hourlyRate}
@@ -368,8 +375,9 @@ function CreateVersionPageContent() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Minimum fare (paise)</label>
+              <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="minFare">Minimum fare (paise)</label>
               <input
+                id="minFare"
                 type="number"
                 value={modifiers.minFare}
                 onChange={(e) => setModifiers({ ...modifiers, minFare: e.target.value })}
@@ -379,8 +387,9 @@ function CreateVersionPageContent() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Night surcharge (%)</label>
+              <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="nightCharge">Night surcharge (%)</label>
               <input
+                id="nightCharge"
                 type="number"
                 value={modifiers.nightCharge}
                 onChange={(e) => setModifiers({ ...modifiers, nightCharge: e.target.value })}
@@ -392,8 +401,9 @@ function CreateVersionPageContent() {
             {modifiers.nightCharge && (
               <>
                 <div>
-                  <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Night start hour (0-23)</label>
+                  <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="nightStartHour">Night start hour (0-23)</label>
                   <input
+                    id="nightStartHour"
                     type="number"
                     min="0"
                     max="23"
@@ -404,8 +414,9 @@ function CreateVersionPageContent() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Night end hour (0-23)</label>
+                  <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="nightEndHour">Night end hour (0-23)</label>
                   <input
+                    id="nightEndHour"
                     type="number"
                     min="0"
                     max="23"
@@ -418,8 +429,9 @@ function CreateVersionPageContent() {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Waiting charge (paise/hr)</label>
+              <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="waitingPerHour">Waiting charge (paise/hr)</label>
               <input
+                id="waitingPerHour"
                 type="number"
                 value={modifiers.waitingPerHour}
                 onChange={(e) => setModifiers({ ...modifiers, waitingPerHour: e.target.value })}
@@ -430,8 +442,9 @@ function CreateVersionPageContent() {
 
             {modifiers.waitingPerHour && (
               <div>
-                <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Free waiting minutes</label>
+                <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="freeWaitingMinutes">Free waiting minutes</label>
                 <input
+                  id="freeWaitingMinutes"
                   type="number"
                   value={modifiers.freeWaitingMinutes}
                   onChange={(e) => setModifiers({ ...modifiers, freeWaitingMinutes: e.target.value })}
@@ -443,8 +456,9 @@ function CreateVersionPageContent() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
             <div>
-              <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Toll handling</label>
+              <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="tollHandling">Toll handling</label>
               <select
+                id="tollHandling"
                 value={modifiers.tollHandling}
                 onChange={(e) => setModifiers({ ...modifiers, tollHandling: e.target.value as any })}
                 className="w-full px-3 py-2 border border-[#E0E0E0] rounded text-sm"
@@ -455,8 +469,9 @@ function CreateVersionPageContent() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Parking handling</label>
+              <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="parkingHandling">Parking handling</label>
               <select
+                id="parkingHandling"
                 value={modifiers.parkingHandling}
                 onChange={(e) => setModifiers({ ...modifiers, parkingHandling: e.target.value as any })}
                 className="w-full px-3 py-2 border border-[#E0E0E0] rounded text-sm"

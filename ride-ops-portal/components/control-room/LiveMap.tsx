@@ -14,7 +14,7 @@ interface LiveMapProps {
 
 export function LiveMap({ height = '420px', onMarkerClick }: LiveMapProps) {
   return (
-    <div style={{ height }} className="rounded-lg overflow-hidden border border-[#E0E0E0] relative">
+    <div style={{ height }} className="rounded-lg overflow-hidden border border-border relative">
       <MapComponent onMarkerClick={onMarkerClick} />
     </div>
   );

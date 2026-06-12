@@ -209,6 +209,7 @@ export default function RateManagerPage() {
       <Card header="Filters">
         <div className="flex flex-wrap gap-4">
           <select
+            name="vendorFilter"
             value={vendorFilter}
             onChange={(e) => setVendorFilter(e.target.value)}
             className="px-3 py-2 border border-[#E0E0E0] rounded text-sm"
@@ -222,6 +223,7 @@ export default function RateManagerPage() {
           </select>
 
           <select
+            name="vehicleTypeFilter"
             value={vehicleTypeFilter}
             onChange={(e) => setVehicleTypeFilter(e.target.value)}
             className="px-3 py-2 border border-[#E0E0E0] rounded text-sm"
@@ -235,6 +237,7 @@ export default function RateManagerPage() {
           </select>
 
           <select
+            name="basisFilter"
             value={basisFilter}
             onChange={(e) => setBasisFilter(e.target.value)}
             className="px-3 py-2 border border-[#E0E0E0] rounded text-sm"
@@ -247,6 +250,7 @@ export default function RateManagerPage() {
           </select>
 
           <select
+            name="statusFilter"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
             className="px-3 py-2 border border-[#E0E0E0] rounded text-sm"
@@ -258,6 +262,7 @@ export default function RateManagerPage() {
 
           <input
             type="text"
+            name="searchId"
             placeholder="Search ID..."
             value={searchId}
             onChange={(e) => setSearchId(e.target.value)}

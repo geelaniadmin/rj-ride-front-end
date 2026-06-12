@@ -23,14 +23,14 @@ export function Card({
   header,
   footer,
 }: CardProps) {
-  const baseClass = 'bg-white rounded-lg border border-[#E0E0E0]';
+  const baseClass = 'bg-card-bg rounded-xl border border-card-border';
   const variantClass = variant === 'header' ? 'shadow-sm' : '';
 
   return (
     <div className={`${baseClass} ${variantClass} ${className}`}>
-      {header && <div className="border-b border-[#E0E0E0] px-4 py-3">{header}</div>}
+      {header && <div className="border-b border-border px-4 py-3">{header}</div>}
       <div className={paddingClasses[padding]}>{children}</div>
-      {footer && <div className="border-t border-[#E0E0E0] px-4 py-3">{footer}</div>}
+      {footer && <div className="border-t border-border px-4 py-3">{footer}</div>}
     </div>
   );
 }

@@ -13,6 +13,14 @@ const config: NextConfig = {
           source: "/vendor/:path*",
           destination: "http://localhost:3001/vendor/:path*",
         },
+        {
+          source: "/ops",
+          destination: "http://localhost:3002/ops",
+        },
+        {
+          source: "/ops/:path*",
+          destination: "http://localhost:3002/ops/:path*",
+        },
       ],
     };
   },

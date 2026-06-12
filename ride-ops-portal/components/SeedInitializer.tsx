@@ -18,6 +18,7 @@ export function SeedInitializer() {
   const rateCards = useRateCardStore((s) => s.rateCards);
   const vendors = useVendorStore((s) => s.vendors);
   const vehicleTypes = useVehicleTypeStore((s) => s.vehicleTypes);
+  const notifications = useNotificationStore((s) => s.notifications);
 
   const { addTripSeed } = useAddTripSeed();
   const { addSafetyAlertSeed } = useAddSafetyAlertSeed();
@@ -31,11 +32,10 @@ export function SeedInitializer() {
   }, [localTrips.length, addTripSeed]);
 
   useEffect(() => {
-    const notifs = useNotificationStore((s) => s.notifications);
-    if (notifs.length === 0) {
+    if (notifications.length === 0) {
       seedNotifications();
     }
-  }, []);
+  }, [notifications.length, seedNotifications]);
 
   useEffect(() => {
     if (safetyAlerts.length === 0) {
@@ -56,7 +56,7 @@ export function SeedInitializer() {
   const rateCardCount = rateCards.length;
 
   return (
-    <div className="fixed bottom-4 left-4 text-xs text-[#8B8FA8] bg-white border border-[#E0E0E0] rounded px-3 py-2 font-mono z-40">
+    <div className="fixed bottom-4 left-4 text-xs text-[#8B8FA8] bg-white border border-border rounded px-3 py-2 font-mono z-40">
       Trips: {tripCount} | Alerts: {alertCount} | Customers: {customerCount} | RateCards: {rateCardCount}
     </div>
   );
