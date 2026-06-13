@@ -31,7 +31,7 @@ export function Drawer({ isOpen, onClose, title, children, footer, side = 'right
 
   return (
     <div className="fixed inset-0 z-50">
-      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div
         className={`fixed ${sideClass} top-0 h-full w-96 bg-card-bg shadow-lg flex flex-col animation-slide-in-right ${className}`}
       >

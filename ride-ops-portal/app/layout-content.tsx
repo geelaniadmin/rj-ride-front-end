@@ -15,7 +15,7 @@ interface RootLayoutContentProps {
 }
 
 export function RootLayoutContent({ children }: RootLayoutContentProps) {
-  const { session } = useOpsSessionStore();
+  const { session, hydrated } = useOpsSessionStore();
   const router = useRouter();
   const pathname = usePathname();
   const trips = useTripStore((s) => s.trips);
@@ -27,9 +27,12 @@ export function RootLayoutContent({ children }: RootLayoutContentProps) {
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return; // Wait for Zustand persist to rehydrate from localStorage
+
     if (!session && pathname !== '/login') {
       router.push('/login');
-    } else if (session && pathname === '/') {
+    } else if (session && (pathname === '/login' || pathname === '/')) {
+      // Logged in but on login page or root → redirect to role dashboard
       const roleRoute = {
         'control-room': '/control-room',
         'rate-manager': '/rate-manager',
@@ -37,7 +40,7 @@ export function RootLayoutContent({ children }: RootLayoutContentProps) {
       }[session.role];
       router.push(roleRoute);
     }
-  }, [session, pathname, router]);
+  }, [session, hydrated, pathname, router]);
 
   if (pathname === '/login') {
     return <>{children}</>;

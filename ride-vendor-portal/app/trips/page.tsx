@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
-import { useSessionStore, useTripStore, useDriverStore, useVehicleStore, useVendorInfoStore } from "@ride/shared";
+import { useSessionStore, useTripStore, useDriverStore, useVehicleStore, useVendorInfoStore, useVehicleTypeStore } from "@ride/shared";
 import { useVendorTrips, type VendorTrip } from "@/hooks/useVendorTrips";
 import { useToast } from "@/components/ui/Toast";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -23,6 +23,7 @@ export default function TripsPage() {
   const declineTrip = useTripStore((s) => s.declineTrip);
   const drivers = useDriverStore((s) => s.drivers);
   const vehicles = useVehicleStore((s) => s.vehicles);
+  const vehicleTypes = useVehicleTypeStore((s) => s.vehicleTypes);
   const getVendorName = useVendorInfoStore((s) => s.getVendorName);
   const { addToast } = useToast();
 
@@ -45,6 +46,7 @@ export default function TripsPage() {
   const [showTrackModal, setShowTrackModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [acceptDriverId, setAcceptDriverId] = useState("");
+  const [acceptVehicleId, setAcceptVehicleId] = useState("");
   const [declineReason, setDeclineReason] = useState("No drivers available");
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -74,6 +76,11 @@ export default function TripsPage() {
     return drivers.filter((d) => d.vendorId === vendorSession.vendorId && d.available && d.active);
   }, [drivers, vendorSession.vendorId]);
 
+  // Available vehicles for accept modal
+  const vendorVehicles = useMemo(() => {
+    return vehicles.filter((v) => v.ownerVendorId === vendorSession.vendorId && v.active);
+  }, [vehicles, vendorSession.vendorId]);
+
   const clearFilters = useCallback(() => {
     setStatusFilter("All");
     setTypeFilter("All");
@@ -84,14 +91,14 @@ export default function TripsPage() {
 
   // Accept handler
   const handleAccept = useCallback(async () => {
-    if (!selectedTrip || !acceptDriverId) return;
+    if (!selectedTrip || !acceptDriverId || !acceptVehicleId) return;
     setIsProcessing(true);
     const driver = drivers.find((d) => d.id === acceptDriverId);
-    const vehicle = vehicles.find((v) => v.ownerVendorId === vendorSession!.vendorId && v.active);
+    const vehicle = vehicles.find((v) => v.id === acceptVehicleId);
     try {
-      const result = acceptTrip(selectedTrip.tripId, vendorSession!.vendorId, acceptDriverId, vehicle?.id || "");
+      const result = acceptTrip(selectedTrip.tripId, vendorSession!.vendorId, acceptDriverId, acceptVehicleId);
       if (result.success) {
-        addToast(`Trip ${selectedTrip.tripId.slice(0, 8)} accepted — ${driver?.name ? driver.name.split(" ")[0] + " assigned" : "driver assigned"}`, "success");
+        addToast(`Trip ${selectedTrip.tripId.slice(0, 8)} accepted — ${driver?.name ? driver.name.split(" ")[0] + " assigned" : "driver assigned"} to ${vehicle?.registrationNo || "vehicle"}`, "success");
         setShowAcceptModal(false);
         setSelectedTrip(null);
       } else {
@@ -100,7 +107,7 @@ export default function TripsPage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedTrip, acceptDriverId, drivers, vehicles, vendorSession, acceptTrip, addToast]);
+  }, [selectedTrip, acceptDriverId, acceptVehicleId, drivers, vehicles, vendorSession, acceptTrip, addToast]);
 
   // Decline handler
   const handleDecline = useCallback(async () => {
@@ -125,10 +132,26 @@ export default function TripsPage() {
     setShowDetailDrawer(true);
   };
 
+  const autoAssign = useCallback(() => {
+    const bestDriver = [...availableDrivers].sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
+    const matchingVehicle = vendorVehicles.find((v) => {
+      const vType = selectedTrip?.vehicleType?.toLowerCase();
+      return v.vehicleTypeId && vType && vehicleTypes.find((vt) => vt.id === v.vehicleTypeId && vt.name.toLowerCase() === vType);
+    }) || vendorVehicles[0];
+    setAcceptDriverId(bestDriver?.id || "");
+    setAcceptVehicleId(matchingVehicle?.id || (vendorVehicles[0]?.id || ""));
+  }, [availableDrivers, vendorVehicles, selectedTrip, vehicleTypes]);
+
   const handleAcceptClick = (trip: VendorTrip) => {
     setSelectedTrip(trip);
-    const bestDriver = availableDrivers.sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
+    // Auto-select best driver and matching vehicle
+    const bestDriver = [...availableDrivers].sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
+    const matchingVehicle = vendorVehicles.find((v) => {
+      const vType = trip.vehicleType?.toLowerCase();
+      return v.vehicleTypeId && vType && vehicleTypes.find((vt) => vt.id === v.vehicleTypeId && vt.name.toLowerCase() === vType);
+    }) || vendorVehicles[0];
     setAcceptDriverId(bestDriver?.id || "");
+    setAcceptVehicleId(matchingVehicle?.id || (vendorVehicles[0]?.id || ""));
     setShowAcceptModal(true);
   };
 
@@ -145,7 +168,7 @@ export default function TripsPage() {
   // Columns for DataTable
   const columns: Column<VendorTrip>[] = [
     { key: "tripId", header: "Trip ID", render: (t) => <span className="font-mono text-xs">{t.tripId.slice(0, 8)}</span>, sortable: true },
-    { key: "vehicleType", header: "Vehicle", render: (t) => <span className="text-sm">{t.vehicleType}</span>, sortable: true },
+    { key: "vehicleType", header: "Type", render: (t) => <span className="text-sm">{t.vehicleType}</span>, sortable: true },
     { key: "route", header: "Route", render: (t) => (
       <span className="text-xs text-text-muted truncate max-w-[200px] inline-block">
         {t.stops[0]?.address?.split(",")[0] || "?"} → {t.stops[1]?.address?.split(",")[0] || "?"}
@@ -154,6 +177,16 @@ export default function TripsPage() {
     { key: "driver", header: "Driver", render: (t) => {
       const driver = t.assignedDriverId ? drivers.find((d) => d.id === t.assignedDriverId) : undefined;
       return driver ? <PiiField value={driver.name} /> : <span className="text-text-muted">—</span>;
+    }},
+    { key: "vehicle", header: "Assigned Vehicle", render: (t) => {
+      const vehicle = t.assignedVehicleId ? vehicles.find((v) => v.id === t.assignedVehicleId) : undefined;
+      if (!vehicle) return <span className="text-text-muted">—</span>;
+      return (
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-medium text-text-primary">{vehicle.registrationNo}</span>
+          <span className="text-[10px] text-text-muted">{vehicle.make} {vehicle.model}</span>
+        </div>
+      );
     }},
     { key: "status", header: "Status", render: (t) => <StatusBadge status={t.status} />, sortable: true },
     { key: "lockedPrice", header: "Price", render: (t) => `₹${Math.round(t.lockedPrice)}`, sortable: true },
@@ -274,7 +307,7 @@ export default function TripsPage() {
       />
 
       {/* === ACCEPT MODAL === */}
-      <Modal open={showAcceptModal} onClose={() => setShowAcceptModal(false)} title={`Accept Trip ${selectedTrip?.tripId?.slice(0, 8) || ""}`}>
+      <Modal open={showAcceptModal} onClose={() => setShowAcceptModal(false)} title={`Accept Trip ${selectedTrip?.tripId?.slice(0, 8) || ""}`} size="lg">
         {selectedTrip && (
           <div className="space-y-4">
             <div className="p-4 bg-ops-bg rounded-lg space-y-2 text-sm">
@@ -286,26 +319,85 @@ export default function TripsPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">Assign Driver</label>
-              <select
-                value={acceptDriverId}
-                onChange={(e) => setAcceptDriverId(e.target.value)}
-                className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-              >
-                {availableDrivers.length === 0 && <option value="">No available drivers</option>}
-                {availableDrivers.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} — ★ {d.rating || "—"} — {d.assignedVehicleIds?.length ? "Vehicle assigned" : "No vehicle"}
-                  </option>
-                ))}
-              </select>
+            {/* Auto-assign button */}
+            <button
+              onClick={autoAssign}
+              className="w-full px-3 py-2 bg-brand-blue/10 text-brand-blue text-sm rounded-lg font-medium hover:bg-brand-blue/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Auto Assign Best Driver & Vehicle
+            </button>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Driver selector */}
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Assign Driver <span className="text-danger">*</span>
+                </label>
+                <select
+                  value={acceptDriverId}
+                  onChange={(e) => setAcceptDriverId(e.target.value)}
+                  className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                >
+                  {availableDrivers.length === 0 && <option value="">No available drivers</option>}
+                  {availableDrivers.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} — ★ {d.rating || "—"}
+                    </option>
+                  ))}
+                </select>
+                {acceptDriverId && (() => {
+                  const d = drivers.find((x) => x.id === acceptDriverId);
+                  return d ? (
+                    <div className="mt-1.5 flex items-center gap-2 text-xs text-text-muted">
+                      <span className="bg-ops-bg px-2 py-0.5 rounded">📞 {d.phone}</span>
+                      {d.assignedVehicleIds?.length ? (
+                        <span className="bg-ops-bg px-2 py-0.5 rounded">🚗 {d.assignedVehicleIds.length} vehicle(s)</span>
+                      ) : null}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+
+              {/* Vehicle selector */}
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">
+                  Assign Vehicle <span className="text-danger">*</span>
+                </label>
+                <select
+                  value={acceptVehicleId}
+                  onChange={(e) => setAcceptVehicleId(e.target.value)}
+                  className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                >
+                  {vendorVehicles.length === 0 && <option value="">No vehicles available</option>}
+                  {vendorVehicles.map((v) => {
+                    const vTypeName = vehicleTypes.find((vt) => vt.id === v.vehicleTypeId)?.name;
+                    return (
+                      <option key={v.id} value={v.id}>
+                        {v.registrationNo} — {v.make} {v.model}{vTypeName ? ` (${vTypeName})` : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+                {acceptVehicleId && (() => {
+                  const v = vehicles.find((x) => x.id === acceptVehicleId);
+                  return v ? (
+                    <div className="mt-1.5 flex items-center gap-2 text-xs text-text-muted">
+                      <span className="bg-ops-bg px-2 py-0.5 rounded">👤 Seats {v.seatingCapacity}</span>
+                      <span className="bg-ops-bg px-2 py-0.5 rounded">{v.fuelType}</span>
+                      {v.ac ? <span className="bg-ops-bg px-2 py-0.5 rounded">❄️ AC</span> : null}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
             </div>
 
             <div className="flex gap-3 pt-2">
               <button
                 onClick={handleAccept}
-                disabled={!acceptDriverId || isProcessing}
+                disabled={!acceptDriverId || !acceptVehicleId || isProcessing}
                 className="flex-1 px-4 py-2.5 bg-success text-white rounded-lg font-medium text-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isProcessing ? "Accepting..." : "Confirm Accept"}
@@ -402,29 +494,70 @@ export default function TripsPage() {
               <TripMapViewWrapper stops={selectedTrip.stops} />
             </div>
 
-            {/* Assignment */}
+            {/* Assignment — visible throughout trip lifecycle */}
             <div>
-              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Assignment</h4>
-              <div className="space-y-2 text-sm">
-                {tripDriver && (
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Driver</span>
-                    <span><PiiField value={tripDriver.name} /> <PiiField value={tripDriver.phone} /></span>
+              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
+                {tripDriver && tripVehicle ? "Assigned Crew" : "Assignment"}
+              </h4>
+              <div className={`p-4 rounded-lg ${tripDriver && tripVehicle ? "bg-emerald-50 border border-emerald-200" : "bg-ops-bg"}`}>
+                {tripDriver && tripVehicle && (
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCircle className="w-4 h-4 text-success" />
+                    <span className="text-xs font-medium text-success">Driver & Vehicle assigned</span>
                   </div>
                 )}
-                {tripVehicle && (
-                  <div className="flex justify-between">
-                    <span className="text-text-muted">Vehicle</span>
-                    <span className="text-text-primary">{tripVehicle.registrationNo} · {tripVehicle.make} {tripVehicle.model}</span>
+                <div className="space-y-3 text-sm">
+                  {tripDriver ? (
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-brand-blue/10 flex items-center justify-center shrink-0">
+                        <User className="w-4 h-4 text-brand-blue" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-text-muted">Driver</p>
+                        <p className="text-text-primary font-medium"><PiiField value={tripDriver.name} /></p>
+                        <p className="text-xs text-text-muted"><PiiField value={tripDriver.phone} /></p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-text-muted">
+                      <User className="w-4 h-4" />
+                      <span className="text-sm">No driver assigned yet</span>
+                    </div>
+                  )}
+                  <div className="border-t border-border/50" />
+                  {tripVehicle ? (
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                        <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs text-text-muted">Vehicle</p>
+                        <p className="text-text-primary font-medium">{tripVehicle.registrationNo}</p>
+                        <p className="text-xs text-text-muted">{tripVehicle.make} {tripVehicle.model} · {tripVehicle.seatingCapacity} seats · {tripVehicle.fuelType}{tripVehicle.ac ? " · AC" : ""}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-text-muted">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <span className="text-sm">No vehicle assigned yet</span>
+                    </div>
+                  )}
+                  <div className="border-t border-border/50" />
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-text-muted">Vehicle Type</span>
+                      <p className="text-text-primary font-medium">{selectedTrip.vehicleType}</p>
+                    </div>
+                    <div>
+                      <span className="text-text-muted">Scheduled</span>
+                      <p className="text-text-primary font-medium">{new Date(selectedTrip.scheduledAt).toLocaleDateString()}</p>
+                      <p className="text-text-muted">{new Date(selectedTrip.scheduledAt).toLocaleTimeString()}</p>
+                    </div>
                   </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-text-muted">Vehicle Type</span>
-                  <span className="text-text-primary">{selectedTrip.vehicleType}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-text-muted">Scheduled</span>
-                  <span className="text-text-primary">{new Date(selectedTrip.scheduledAt).toLocaleString()}</span>
                 </div>
               </div>
             </div>

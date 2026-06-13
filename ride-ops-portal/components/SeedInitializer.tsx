@@ -24,24 +24,33 @@ export function SeedInitializer() {
   const { seedRateManagerData } = useSeedRateManagerData();
   const { seedNotifications } = useSeedNotifications();
 
-  // All seeds in a single mount-only effect to avoid infinite re-render loops.
-  // The seed functions create new references on every render (no useCallback),
-  // so having them as individual effect dependencies would cause each effect
-  // to re-run on every render and create an infinite loop.
+  // Each seed effect depends on its data length so it only runs after
+  // Zustand persist has finished rehydrating from localStorage.
+  // This prevents duplicate seeding on every page refresh.
   useEffect(() => {
     if (trips.length === 0) {
       addTripSeed();
     }
+  }, [trips.length]);
+
+  useEffect(() => {
     if (safetyAlerts.length === 0) {
       addSafetyAlertSeed();
     }
-    if (customers.length === 0) {
-      seedRateManagerData();
-    }
+  }, [safetyAlerts.length]);
+
+  useEffect(() => {
     if (notifications.length === 0) {
       seedNotifications();
     }
-  }, []);
+  }, [notifications.length]);
+
+  // Rate card seeding needs vendors and vehicleTypes to be hydrated first
+  useEffect(() => {
+    if (rateCards.length === 0 && vendors.length > 0 && vehicleTypes.length > 0) {
+      seedRateManagerData();
+    }
+  }, [rateCards.length, vendors.length, vehicleTypes.length]);
 
   const tripCount = trips.length;
   const alertCount = safetyAlerts.length;

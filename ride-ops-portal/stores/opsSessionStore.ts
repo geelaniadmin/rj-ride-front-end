@@ -13,17 +13,26 @@ export interface OpsSession {
 
 interface OpsSessionStore {
   session: OpsSession | null;
+  hydrated: boolean;
   setSession: (s: OpsSession) => void;
   clearSession: () => void;
+  setHydrated: () => void;
 }
 
 export const useOpsSessionStore = create<OpsSessionStore>()(
   persist(
     (set) => ({
       session: null,
+      hydrated: false,
       setSession: (s) => set({ session: s }),
       clearSession: () => set({ session: null }),
+      setHydrated: () => set({ hydrated: true }),
     }),
-    { name: 'ride-ops-session' }
+    {
+      name: 'ride-ops-session',
+      onRehydrateStorage: () => (state) => {
+        if (state) state.setHydrated();
+      },
+    }
   )
 );

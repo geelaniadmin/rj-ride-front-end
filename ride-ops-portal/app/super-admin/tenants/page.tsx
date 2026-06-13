@@ -5,7 +5,7 @@ import { useTenantStore } from '@ride/shared';
 import { Card } from '@/components/ui/Card';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
+import { Drawer } from '@/components/ui/Drawer';
 import { Badge } from '@/components/ui/Badge';
 import { useToastStore } from '@/components/ui/Toast';
 import { Plus, Edit2 } from 'lucide-react';
@@ -16,7 +16,7 @@ export default function TenantsPage() {
   const updateTenant = useTenantStore((s) => s.updateTenant);
   const addToast = useToastStore((s) => s.addToast);
 
-  const [showModal, setShowModal] = useState(false);
+  const [showDrawer, setShowDrawer] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -39,7 +39,7 @@ export default function TenantsPage() {
       addToast({ type: 'success', message: 'Tenant created', duration: 2000 });
     }
 
-    setShowModal(false);
+    setShowDrawer(false);
     setFormData({ name: '', legalName: '', baseCity: '', contractCurrency: 'INR' });
     setEditingId(null);
   };
@@ -52,13 +52,13 @@ export default function TenantsPage() {
       contractCurrency: tenant.contractCurrency,
     });
     setEditingId(tenant.id);
-    setShowModal(true);
+    setShowDrawer(true);
   };
 
   const handleNew = () => {
     setFormData({ name: '', legalName: '', baseCity: '', contractCurrency: 'INR' });
     setEditingId(null);
-    setShowModal(true);
+    setShowDrawer(true);
   };
 
   const columns: Column<any>[] = [
@@ -96,7 +96,7 @@ export default function TenantsPage() {
         <DataTable columns={columns} data={tenants} rowKey="id" />
       </Card>
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingId ? 'Edit Tenant' : 'New Tenant'}>
+      <Drawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} title={editingId ? 'Edit Tenant' : 'New Tenant'} className="w-[480px]">
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Name *</label>
@@ -146,13 +146,13 @@ export default function TenantsPage() {
           </div>
 
           <div className="flex gap-3 justify-end pt-4">
-            <Button variant="secondary" onClick={() => setShowModal(false)}>
+            <Button variant="secondary" onClick={() => setShowDrawer(false)}>
               Cancel
             </Button>
             <Button onClick={handleSave}>{editingId ? 'Update' : 'Create'}</Button>
           </div>
         </div>
-      </Modal>
+      </Drawer>
     </div>
   );
 }
