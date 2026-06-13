@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useTenantStore } from '@/stores/tenantStore';
-import { useTripStore } from '@/stores/tripStore';
+import { useTenantStore } from '@ride/shared';
+import { useTripStore } from '@ride/shared';
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { KpiCardSkeleton, ChartSkeleton } from '@/components/ui/Skeleton';

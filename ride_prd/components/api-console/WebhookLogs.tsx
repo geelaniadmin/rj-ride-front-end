@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useWebhookStore } from "@/stores/webhookStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Clock, CheckCircle, AlertCircle, TrendingUp } from "lucide-react";

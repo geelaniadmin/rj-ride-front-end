@@ -1,10 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useSafetyAlertStore } from '@ride/shared';
-import { useTripStore } from '@/stores/tripStore';
+import { useSafetyAlertStore, useTripStore, useCustomerStore, useTenantStore } from '@ride/shared';
 import { useRateCardStore } from '@/stores/rateCardStore';
-import { useCustomerStore } from '@/stores/customerStore';
 
 export function useCrossTabSync() {
   useEffect(() => {
@@ -17,6 +15,8 @@ export function useCrossTabSync() {
         useRateCardStore.persist.rehydrate();
       } else if (e.key === 'ride-ops-customers') {
         useCustomerStore.persist.rehydrate();
+      } else if (e.key === 'ride-tenant') {
+        useTenantStore.persist.rehydrate();
       }
     };
 

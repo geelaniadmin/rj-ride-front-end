@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { useTenantStore } from '@/stores/tenantStore';
-import { useTripStore } from '@/stores/tripStore';
+import { useTenantStore } from '@ride/shared';
+import { useTripStore } from '@ride/shared';
 import { useSafetyAlertStore } from '@ride/shared';
 import { useRateCardStore } from '@/stores/rateCardStore';
 import { Card } from '@/components/ui/Card';

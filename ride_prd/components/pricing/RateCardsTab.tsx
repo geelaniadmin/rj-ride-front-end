@@ -3,9 +3,9 @@
 import React, { useState, useMemo } from "react";
 import { useRateCardStore } from "@/stores/rateCardStore";
 import { useVendorStore } from "@/stores/vendorStore";
-import { useCustomerStore } from "@/stores/customerStore";
+import { useCustomerStore } from "@ride/shared";
 import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";

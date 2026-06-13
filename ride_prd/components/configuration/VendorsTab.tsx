@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useVendorStore } from "@/stores/vendorStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";

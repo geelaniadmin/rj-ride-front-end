@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from "react";
 import { useTripStore } from "@/stores/tripStore";
-import { useCustomerStore } from "@/stores/customerStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useCustomerStore } from "@ride/shared";
+import { useTenantStore } from "@ride/shared";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";

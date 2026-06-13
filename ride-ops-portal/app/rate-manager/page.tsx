@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRateCardStore } from '@/stores/rateCardStore';
 import { useVendorStore, useVehicleTypeStore } from '@ride/shared';
-import { useCustomerStore } from '@/stores/customerStore';
+
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { KpiCardSkeleton, DataTableSkeleton } from '@/components/ui/Skeleton';

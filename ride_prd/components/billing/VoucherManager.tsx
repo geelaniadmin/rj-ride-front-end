@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { useBillingStore } from "@/stores/billingStore";
 import { useTripStore } from "@/stores/tripStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";

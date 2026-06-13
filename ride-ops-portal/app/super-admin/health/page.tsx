@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useTripStore } from '@/stores/tripStore';
+import { useTripStore } from '@ride/shared';
 import { useSafetyAlertStore } from '@ride/shared';
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/ui/KpiCard';
@@ -20,8 +20,9 @@ export default function HealthPage() {
     const inProgress = trips.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'ASSIGNED').length;
 
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    const onTimeRate = Math.round(Math.random() * 20 + 85); // Mock: 85-95%
-    const avgResolutionTime = Math.round(Math.random() * 30 + 5); // Mock: 5-35 minutes
+    // Deterministic mock values (no Math.random - avoids hydration mismatch)
+    const onTimeRate = 92;
+    const avgResolutionTime = 18;
 
     const activeAlerts = safetyAlerts.filter((a) => a.status === 'ACTIVE').length;
     const sosAlerts = safetyAlerts.filter((a) => a.type === 'SOS').length;
@@ -29,12 +30,12 @@ export default function HealthPage() {
     const dailyMetrics = Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
-      const dateStr = d.toISOString().split('T')[0];
       return {
         date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        uptime: Math.round(Math.random() * 5 + 95),
-        alerts: Math.floor(Math.random() * 10),
-        errors: Math.floor(Math.random() * 5),
+        // Deterministic mock values based on index — no Math.random (avoids hydration mismatch)
+        uptime: [99, 98, 97, 99, 96, 98, 95][i],
+        alerts: [2, 5, 1, 3, 4, 0, 2][i],
+        errors: [1, 0, 2, 1, 0, 0, 1][i],
       };
     });
 

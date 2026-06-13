@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { useTripStore } from "@/stores/tripStore";
 import { useVehicleStore } from "@/stores/vehicleStore";
 import { useDriverStore } from "@/stores/driverStore";

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Bell, ChevronDown, Menu } from "lucide-react";
 import { useSessionStore, useAlertStore, useVendorInfoStore } from "@ride/shared";
+import { NotificationDrawer } from "@/components/notifications/NotificationDrawer";
 
 interface HeaderProps {
   title: string;
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleMobile }) => {
   const vendorInfo = useVendorInfoStore((s) => s.vendorInfo);
 
   const [showSwitcher, setShowSwitcher] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   if (!vendorSession) return null;
 
@@ -53,7 +55,10 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleMobile }) => {
 
       <div className="flex items-center gap-3 lg:gap-4">
         {/* Bell */}
-        <button className="relative p-2 hover:bg-ops-bg rounded-lg transition-colors">
+        <button
+          onClick={() => setShowNotifications(true)}
+          className="relative p-2 hover:bg-ops-bg rounded-lg transition-colors"
+        >
           <Bell className="w-5 h-5 text-text-secondary" />
           {unreadCount > 0 && (
             <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-danger text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -98,6 +103,12 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleMobile }) => {
           )}
         </div>
       </div>
+
+      <NotificationDrawer
+        open={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        vendorId={vendorId}
+      />
     </header>
   );
 };

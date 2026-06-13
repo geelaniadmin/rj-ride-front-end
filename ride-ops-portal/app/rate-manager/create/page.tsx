@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRateCardStore, RateBasis, RateCard } from '@/stores/rateCardStore';
 import { useVendorStore, useVehicleTypeStore } from '@ride/shared';
-import { useCustomerStore } from '@/stores/customerStore';
+import { useCustomerStore } from '@ride/shared';
 import { useToastStore } from '@/components/ui/Toast';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';

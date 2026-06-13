@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { useDriverStore } from "@/stores/driverStore";
 import { useVendorStore } from "@/stores/vendorStore";
 import { useVehicleStore } from "@/stores/vehicleStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { useToastStore } from "@/stores/toastStore";
 import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";

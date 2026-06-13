@@ -34,9 +34,14 @@ const severityColors = {
 
 export function NotificationDrawer({ isOpen, onClose, role }: NotificationDrawerProps) {
   const router = useRouter();
+  // Select raw array (stable reference) + derive filtered list with useMemo
+  // to avoid creating a new array reference on every store check, which
+  // triggers React's "getSnapshot should be cached to avoid an infinite loop" warning.
   const allNotifications = useNotificationStore((s) => s.notifications);
   const notifications = useMemo(
-    () => allNotifications.filter((n) => n.role === role).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    () => allNotifications
+      .filter((n) => n.role === role)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
     [allNotifications, role]
   );
   const markAsRead = useNotificationStore((s) => s.markAsRead);
@@ -57,7 +62,7 @@ export function NotificationDrawer({ isOpen, onClose, role }: NotificationDrawer
     <Drawer isOpen={isOpen} onClose={onClose} title="Notifications" side="right">
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="flex justify-between items-center p-4 border-b border-border">
+        <div className="flex justify-between items-center p-4 border-b border-[#E0E0E0]">
           <p className="text-sm font-semibold text-[#1B2A4A]">
             {unreadCount > 0 ? `${unreadCount} New` : 'All read'}
           </p>
@@ -84,7 +89,7 @@ export function NotificationDrawer({ isOpen, onClose, role }: NotificationDrawer
                   onClick={() => handleNotificationClick(notification)}
                   className={`p-3 rounded border cursor-pointer transition-colors ${
                     notification.isRead
-                      ? 'bg-white border-border hover:bg-gray-50'
+                      ? 'bg-white border-[#E0E0E0] hover:bg-gray-50'
                       : `bg-${color}-50 border-${color}-200 hover:bg-${color}-100`
                   }`}
                 >

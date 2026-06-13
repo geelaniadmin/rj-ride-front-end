@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useTenantStore } from '@/stores/tenantStore';
+import { useTenantStore } from '@ride/shared';
 import { Card } from '@/components/ui/Card';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { Button } from '@/components/ui/Button';

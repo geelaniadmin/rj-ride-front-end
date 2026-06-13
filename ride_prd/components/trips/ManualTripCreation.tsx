@@ -2,10 +2,10 @@
 
 import React, { useState, useMemo } from "react";
 import { useTripStore } from "@/stores/tripStore";
-import { useCustomerStore } from "@/stores/customerStore";
+import { useCustomerStore } from "@ride/shared";
 import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
 import { useVendorStore } from "@/stores/vendorStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { useToastStore } from "@/stores/toastStore";
 import { getOffers } from "@/lib/quote";
 import { createTripVehicle, calculateReverseScheduleTime } from "@/lib/tripHelpers";

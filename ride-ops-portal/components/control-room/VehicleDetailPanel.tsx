@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { X } from 'lucide-react';
-import { useTripStore } from '@/stores/tripStore';
+import { useTripStore } from '@ride/shared';
 import { useSafetyAlertStore } from '@ride/shared';
 import { Button } from '@/components/ui/Button';
 import { PiiField } from '@/components/ui/PiiField';

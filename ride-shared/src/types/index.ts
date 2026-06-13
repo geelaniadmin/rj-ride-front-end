@@ -173,6 +173,7 @@ export interface Customer {
   approvedVehicleTypeIds?: ID[];
   defaultCostCenter?: string;
   active: boolean;
+  createdAt?: string;
 }
 
 export interface VehicleTypeConfig {

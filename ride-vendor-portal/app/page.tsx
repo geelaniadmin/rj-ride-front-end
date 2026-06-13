@@ -7,7 +7,7 @@ import { useVendorTrips } from "@/hooks/useVendorTrips";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { PiiField } from "@/components/ui/PiiField";
-import { CalendarCheck, Truck, Users, DollarSign, ArrowRight, Clock } from "lucide-react";
+import { CalendarCheck, Truck, Users, DollarSign, ArrowRight, Clock, Bell, CircleDollarSign, Percent } from "lucide-react";
 
 export default function DashboardPage() {
   const vendorSession = useSessionStore((s) => s.vendorSession);
@@ -15,7 +15,11 @@ export default function DashboardPage() {
 
   if (!vendorSession) return null;
 
+  const vendorId = vendorSession.vendorId;
+  const drivers = useDriverStore((s) => s.drivers);
+
   const {
+    vendorTrips,
     tripsToday,
     activeNow,
     driversOnDuty,
@@ -23,26 +27,167 @@ export default function DashboardPage() {
     needingAttention,
     activeTrips,
     recentEvents,
-  } = useVendorTrips(vendorSession.vendorId);
+  } = useVendorTrips(vendorId);
+
+  // Fleet status bar
+  const vendorDrivers = useMemo(
+    () => drivers.filter((d) => d.vendorId === vendorId),
+    [drivers, vendorId]
+  );
+  const totalDrivers = vendorDrivers.length;
+  const availableDrivers = vendorDrivers.filter((d) => d.available && d.active).length;
+  const onTripDrivers = vendorDrivers.filter((d) => !d.available && d.active).length;
+  const offlineDrivers = vendorDrivers.filter((d) => !d.active).length;
+
+  const availablePct = totalDrivers > 0 ? Math.round((availableDrivers / totalDrivers) * 100) : 0;
+  const onTripPct = totalDrivers > 0 ? Math.round((onTripDrivers / totalDrivers) * 100) : 0;
+  const offlinePct = totalDrivers > 0 ? Math.round((offlineDrivers / totalDrivers) * 100) : 0;
+
+  // Acceptance rate KPI
+  const acceptedCount = vendorTrips.filter((t) =>
+    ["DRIVER_ACCEPTED", "EN_ROUTE_PICKUP", "AT_PICKUP", "PAX_PICKED", "IN_TRANSIT", "AT_DROP", "PAX_DROPPED", "COMPLETED"].includes(t.status)
+  ).length;
+  const totalResponded = acceptedCount + vendorTrips.filter((t) => t.status === "CANCELLED").length;
+  const acceptanceRate = totalResponded > 0 ? Math.round((acceptedCount / totalResponded) * 100) : 0;
+
+  const acceptanceColor =
+    acceptanceRate >= 90 ? "text-success" : acceptanceRate >= 70 ? "text-warning" : "text-danger";
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-text-primary">
-          Welcome back, {getVendorName(vendorSession.vendorId)}
+          Welcome back, {getVendorName(vendorId)}
         </h2>
         <p className="text-sm text-text-muted mt-1">
           Real-time data shared with admin portal — no page refresh needed
         </p>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Cards - 5 cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard label="Trips Today" value={tripsToday} icon={CalendarCheck} accentColor="text-brand-blue" />
         <KpiCard label="Active Now" value={activeNow} icon={Truck} accentColor="text-success" />
         <KpiCard label="Drivers on Duty" value={driversOnDuty} icon={Users} accentColor="text-warning" />
         <KpiCard label="Earnings Today" value={`₹${earningsToday}`} icon={DollarSign} accentColor="text-brand-blue" />
+        <KpiCard
+          label="Acceptance Rate"
+          value={`${totalResponded > 0 ? acceptanceRate : "—"}${totalResponded > 0 ? "%" : ""}`}
+          icon={Percent}
+          accentColor={acceptanceColor}
+        />
       </div>
+
+      {/* Quick actions row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Link
+          href="/trips?status=ASSIGNED"
+          className="flex items-center gap-3 px-4 py-3 bg-card-bg border border-card-border rounded-xl hover:shadow-md hover:border-brand-blue/30 transition-all group"
+        >
+          <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center group-hover:bg-warning/20 transition-colors">
+            <Clock className="w-5 h-5 text-warning" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-text-primary">Pending Trips</p>
+            <p className="text-xs text-text-muted">{needingAttention.length} awaiting action</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/trips"
+          className="flex items-center gap-3 px-4 py-3 bg-card-bg border border-card-border rounded-xl hover:shadow-md hover:border-brand-blue/30 transition-all group"
+        >
+          <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center group-hover:bg-success/20 transition-colors">
+            <Truck className="w-5 h-5 text-success" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-text-primary">Active Trips</p>
+            <p className="text-xs text-text-muted">{activeTrips.length} in progress</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/alerts"
+          className="flex items-center gap-3 px-4 py-3 bg-card-bg border border-card-border rounded-xl hover:shadow-md hover:border-brand-blue/30 transition-all group"
+        >
+          <div className="w-10 h-10 rounded-lg bg-danger/10 flex items-center justify-center group-hover:bg-danger/20 transition-colors">
+            <Bell className="w-5 h-5 text-danger" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-text-primary">Alerts</p>
+            <p className="text-xs text-text-muted">View fleet alerts</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/earnings"
+          className="flex items-center gap-3 px-4 py-3 bg-card-bg border border-card-border rounded-xl hover:shadow-md hover:border-brand-blue/30 transition-all group"
+        >
+          <div className="w-10 h-10 rounded-lg bg-brand-blue/10 flex items-center justify-center group-hover:bg-brand-blue/20 transition-colors">
+            <CircleDollarSign className="w-5 h-5 text-brand-blue" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-text-primary">Earnings</p>
+            <p className="text-xs text-text-muted">View revenue</p>
+          </div>
+        </Link>
+      </div>
+
+      {/* Fleet Status Bar */}
+      {totalDrivers > 0 && (
+        <div className="bg-card-bg border border-card-border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-text-primary flex items-center gap-2">
+              <Users className="w-4 h-4 text-text-muted" />
+              Fleet Status
+            </h3>
+            <span className="text-xs text-text-muted">
+              {availableDrivers} of {totalDrivers} drivers available
+            </span>
+          </div>
+
+          {/* Segmented bar */}
+          <div className="h-4 w-full rounded-full overflow-hidden flex">
+            {availableDrivers > 0 && (
+              <div
+                className="bg-success transition-all duration-500"
+                style={{ width: `${availablePct}%` }}
+                title={`${availableDrivers} Available (${availablePct}%)`}
+              />
+            )}
+            {onTripDrivers > 0 && (
+              <div
+                className="bg-warning transition-all duration-500"
+                style={{ width: `${onTripPct}%` }}
+                title={`${onTripDrivers} On Trip (${onTripPct}%)`}
+              />
+            )}
+            {offlineDrivers > 0 && (
+              <div
+                className="bg-text-muted transition-all duration-500"
+                style={{ width: `${offlinePct}%` }}
+                title={`${offlineDrivers} Offline (${offlinePct}%)`}
+              />
+            )}
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-5 mt-3 text-xs text-text-muted">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-success" />
+              <span>Available ({availableDrivers})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-warning" />
+              <span>On Trip ({onTripDrivers})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-text-muted" />
+              <span>Offline ({offlineDrivers})</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Trips columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

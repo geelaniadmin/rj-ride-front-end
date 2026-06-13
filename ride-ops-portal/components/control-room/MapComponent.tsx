@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useTripStore } from '@/stores/tripStore';
+import { useTripStore } from '@ride/shared';
 import { useSafetyAlertStore } from '@ride/shared';
 
 interface MapComponentProps {

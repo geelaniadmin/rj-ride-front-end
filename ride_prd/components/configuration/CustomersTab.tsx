@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useCustomerStore } from "@/stores/customerStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useCustomerStore } from "@ride/shared";
+import { useTenantStore } from "@ride/shared";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";

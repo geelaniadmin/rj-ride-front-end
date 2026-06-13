@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { useTripStore } from "@/stores/tripStore";
-import { useCustomerStore } from "@/stores/customerStore";
+import { useCustomerStore } from "@ride/shared";
 import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { useToastStore } from "@/stores/toastStore";
 import { getOffers } from "@/lib/quote";
 import { parseCSV, ParsedBulkRow, BulkTripRow } from "@/lib/csvParser";

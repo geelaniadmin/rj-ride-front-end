@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { useToastStore } from "@/stores/toastStore";
 import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";

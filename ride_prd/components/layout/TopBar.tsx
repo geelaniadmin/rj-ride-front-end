@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { ChevronDown, LogOut } from "lucide-react";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { Badge } from "@/components/ui/Badge";
 import { PII } from "@/components/ui/PII";
 

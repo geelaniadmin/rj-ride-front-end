@@ -13,6 +13,8 @@ export { useAlertStore } from './stores/alertStore';
 export { useSafetyAlertStore } from './stores/safetyAlertStore';
 export type { SafetyAlert, SafetyAlertType, SafetyAlertStatus, SafetyTimeline } from './stores/safetyAlertStore';
 export { useSessionStore } from './stores/sessionStore';
+export { useCustomerStore } from './stores/customerStore';
+export { useTenantStore } from './stores/tenantStore';
 
 // Helpers
 export { id } from './helpers';

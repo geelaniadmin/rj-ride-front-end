@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useRateCardStore } from '@/stores/rateCardStore';
 import { useVendorStore, useVehicleTypeStore } from '@ride/shared';
-import { useCustomerStore } from '@/stores/customerStore';
+import { useCustomerStore } from '@ride/shared';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Drawer } from '@/components/ui/Drawer';

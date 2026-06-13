@@ -9,6 +9,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { PiiField } from "@/components/ui/PiiField";
 import { Drawer } from "@/components/ui/Drawer";
+import { useDebounce } from "@/hooks/useDebounce";
 import { EmptyState } from "@/components/ui/EmptyState";
 import {
   Truck, Users, AlertTriangle, FileText, Search, X,
@@ -51,6 +52,7 @@ export default function FleetPage() {
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [alertSeverity, setAlertSeverity] = useState<string>("ALL");
 
   // Drawer state
@@ -73,8 +75,8 @@ export default function FleetPage() {
   // === VEHICLE TAB ===
 
   const filteredVehicles = useMemo(() => {
-    if (!searchQuery) return vendorVehicles;
-    const q = searchQuery.toLowerCase();
+    if (!debouncedSearchQuery) return vendorVehicles;
+    const q = debouncedSearchQuery.toLowerCase();
     return vendorVehicles.filter(
       (v) =>
         v.registrationNo.toLowerCase().includes(q) ||
@@ -82,7 +84,7 @@ export default function FleetPage() {
         v.model.toLowerCase().includes(q) ||
         v.fuelType.toLowerCase().includes(q)
     );
-  }, [vendorVehicles, searchQuery]);
+  }, [vendorVehicles, debouncedSearchQuery]);
 
   const findDriverForVehicle = useCallback(
     (vehicleId: string) => vendorDrivers.find((d) => d.assignedVehicleIds?.includes(vehicleId)),
@@ -106,15 +108,15 @@ export default function FleetPage() {
   // === DRIVER TAB ===
 
   const filteredDrivers = useMemo(() => {
-    if (!searchQuery) return vendorDrivers;
-    const q = searchQuery.toLowerCase();
+    if (!debouncedSearchQuery) return vendorDrivers;
+    const q = debouncedSearchQuery.toLowerCase();
     return vendorDrivers.filter(
       (d) =>
         d.name.toLowerCase().includes(q) ||
         d.phone.includes(q) ||
         d.licenceNo.toLowerCase().includes(q)
     );
-  }, [vendorDrivers, searchQuery]);
+  }, [vendorDrivers, debouncedSearchQuery]);
 
   const findVehicleForDriver = useCallback(
     (driverId: string) => {

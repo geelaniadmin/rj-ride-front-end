@@ -19,6 +19,7 @@ export interface VendorTrip {
   status: VehicleStatus;
   createdAt: string;
   vehicleIndex: number;
+  vendorDeclineLog?: Array<{ vendorId: string; reason: string; declinedAt: string }>;
 }
 
 export function useVendorTrips(vendorId: string) {
@@ -63,6 +64,7 @@ export function useVendorTrips(vendorId: string) {
             status: tv.status,
             createdAt: trip.createdAt,
             vehicleIndex,
+            vendorDeclineLog: trip.vendorDeclineLog,
           });
         }
       });

@@ -1,16 +1,24 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useSessionStore, useEarningsStore, usePayoutStore } from "@ride/shared";
 import { useVendorTrips } from "@/hooks/useVendorTrips";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell
-} from "recharts";
+const EarningsChart = dynamic(
+  () => import("@/components/earnings/EarningsChart").then((m) => m.EarningsChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-64 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-brand-blue border-t-transparent rounded-full animate-spin" />
+      </div>
+    ),
+  }
+);
 import {
   DollarSign, TrendingUp, Receipt, BarChart3,
   ChevronDown, Calendar, Clock
@@ -274,45 +282,7 @@ export default function EarningsPage() {
             </p>
           </div>
         ) : (
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  tickLine={false}
-                  axisLine={{ stroke: "#e2e8f0" }}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: "#64748b" }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(val: number) => `₹${val}`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#ffffff",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                    fontSize: "13px",
-                  }}
-                  formatter={(value: any) => [`₹${(value as number).toLocaleString()}`, 'Earnings']}
-                  labelFormatter={(label: any) => `Date: ${label}`}
-                />
-                <Bar
-                  dataKey="earnings"
-                  radius={[4, 4, 0, 0]}
-                  maxBarSize={48}
-                >
-                  {chartData.map((_, idx) => (
-                    <Cell key={idx} fill={chartColors.earnings} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <EarningsChart data={chartData} />
         )}
 
         {/* Period summary */}

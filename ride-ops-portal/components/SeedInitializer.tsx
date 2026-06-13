@@ -2,10 +2,9 @@
 
 import { useEffect } from 'react';
 import { useTripStore, useAlertStore, useSafetyAlertStore, useVendorStore, useVehicleTypeStore } from '@ride/shared';
-import { useTenantStore } from '@/stores/tenantStore';
-import { useTripStore as useLocalTripStore } from '@/stores/tripStore';
+import { useTenantStore } from '@ride/shared';
 import { useRateCardStore } from '@/stores/rateCardStore';
-import { useCustomerStore } from '@/stores/customerStore';
+import { useCustomerStore } from '@ride/shared';
 import { useNotificationStore } from '@/stores/notificationStore';
 
 export function SeedInitializer() {
@@ -13,11 +12,11 @@ export function SeedInitializer() {
   const alerts = useAlertStore((s) => s.alerts);
   const tenants = useTenantStore((s) => s.tenants);
   const safetyAlerts = useSafetyAlertStore((s) => s.safetyAlerts);
-  const localTrips = useLocalTripStore((s) => s.trips);
   const customers = useCustomerStore((s) => s.customers);
   const rateCards = useRateCardStore((s) => s.rateCards);
   const vendors = useVendorStore((s) => s.vendors);
   const vehicleTypes = useVehicleTypeStore((s) => s.vehicleTypes);
+
   const notifications = useNotificationStore((s) => s.notifications);
 
   const { addTripSeed } = useAddTripSeed();
@@ -25,54 +24,47 @@ export function SeedInitializer() {
   const { seedRateManagerData } = useSeedRateManagerData();
   const { seedNotifications } = useSeedNotifications();
 
+  // All seeds in a single mount-only effect to avoid infinite re-render loops.
+  // The seed functions create new references on every render (no useCallback),
+  // so having them as individual effect dependencies would cause each effect
+  // to re-run on every render and create an infinite loop.
   useEffect(() => {
-    if (localTrips.length === 0) {
+    if (trips.length === 0) {
       addTripSeed();
     }
-  }, [localTrips.length, addTripSeed]);
-
-  useEffect(() => {
-    if (notifications.length === 0) {
-      seedNotifications();
-    }
-  }, [notifications.length, seedNotifications]);
-
-  useEffect(() => {
     if (safetyAlerts.length === 0) {
       addSafetyAlertSeed();
     }
-  }, [safetyAlerts.length, addSafetyAlertSeed]);
-
-  useEffect(() => {
     if (customers.length === 0) {
       seedRateManagerData();
     }
+    if (notifications.length === 0) {
+      seedNotifications();
+    }
   }, []);
 
-  const tripCount = localTrips.length;
+  const tripCount = trips.length;
   const alertCount = safetyAlerts.length;
   const tenantCount = tenants.length;
   const customerCount = customers.length;
   const rateCardCount = rateCards.length;
 
   return (
-    <div className="fixed bottom-4 left-4 text-xs text-[#8B8FA8] bg-white border border-border rounded px-3 py-2 font-mono z-40">
+    <div className="fixed bottom-4 left-4 text-xs text-[#8B8FA8] bg-white border border-[#E0E0E0] rounded px-3 py-2 font-mono z-40">
       Trips: {tripCount} | Alerts: {alertCount} | Customers: {customerCount} | RateCards: {rateCardCount}
     </div>
   );
 }
 
 function useAddTripSeed() {
-  const setTrips = useLocalTripStore((s) => s.setTrips);
-  const addTripFn = useTripStore((s) => s.addTrip);
+  const addTrip = useTripStore((s) => s.addTrip);
 
   return {
     addTripSeed: () => {
       const baseTime = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2 hours ago
 
-      const trips = [
+      const tripData = [
         {
-          id: 'RIDE-SEED-001',
           tenantId: 'T1',
           customerId: 'C1',
           createdVia: 'MANUAL' as const,
@@ -112,10 +104,8 @@ function useAddTripSeed() {
           status: 'ASSIGNED' as const,
           autoAssign: false,
           reference: 'BOOKING-001',
-          createdAt: baseTime.toISOString(),
         },
         {
-          id: 'RIDE-SEED-002',
           tenantId: 'T1',
           customerId: 'C2',
           createdVia: 'MANUAL' as const,
@@ -155,10 +145,8 @@ function useAddTripSeed() {
           status: 'IN_PROGRESS' as const,
           autoAssign: false,
           reference: 'BOOKING-002',
-          createdAt: baseTime.toISOString(),
         },
         {
-          id: 'RIDE-SEED-003',
           tenantId: 'T1',
           customerId: 'C3',
           createdVia: 'MANUAL' as const,
@@ -198,11 +186,10 @@ function useAddTripSeed() {
           status: 'CONFIRMED' as const,
           autoAssign: false,
           reference: 'BOOKING-003',
-          createdAt: baseTime.toISOString(),
         },
       ];
 
-      setTrips(trips as any);
+      tripData.forEach((trip) => addTrip(trip as any));
     },
   };
 }
@@ -306,9 +293,9 @@ function useSeedRateManagerData() {
       // Add customers
       const customerIds: { [key: string]: string } = {};
       const customerData = [
-        { name: 'IndiGo Airlines', code: 'INDIGO', billingCycle: 'MONTHLY', tenantId, active: true },
-        { name: 'Acme Logistics', code: 'ACME-LOG', billingCycle: 'FORTNIGHTLY', tenantId, active: true },
-        { name: 'TechCorp India', code: 'TECHCORP', billingCycle: 'WEEKLY', tenantId, active: true },
+        { name: 'IndiGo Airlines', code: 'INDIGO', billingCycle: 'MONTHLY' as const, tenantId, active: true },
+        { name: 'Acme Logistics', code: 'ACME-LOG', billingCycle: 'FORTNIGHTLY' as const, tenantId, active: true },
+        { name: 'TechCorp India', code: 'TECHCORP', billingCycle: 'WEEKLY' as const, tenantId, active: true },
       ];
       customerData.forEach((c) => {
         const id = addCustomer(c);

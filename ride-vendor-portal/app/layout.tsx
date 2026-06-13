@@ -3,11 +3,12 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
-import { useSessionStore } from "@ride/shared";
+import { useSessionStore, useAlertStore } from "@ride/shared";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { OfflineBanner } from "@/components/ui/OfflineBanner";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useCrossTabSync } from "@/hooks/useCrossTabSync";
 import "./globals.css";
@@ -38,6 +39,39 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
   // Cross-tab sync: auto-detect changes from admin portal in real time
   useCrossTabSync();
+
+  // Seed notifications on first load
+  useEffect(() => {
+    const addNotification = useAlertStore.getState().addNotification;
+    const notifications = useAlertStore.getState().notifications;
+    if (notifications.filter((n) => n.vendorId === "V1").length > 0) return;
+
+    [
+      {
+        vendorId: "V1", type: "TRIP_ASSIGNED" as const, title: "New trip assigned",
+        message: "T-V1-001: KIA Bengaluru → ITC Gardenia for IndiGo Airlines",
+        tripId: "T-V1-001", read: false,
+      },
+      {
+        vendorId: "V1", type: "DOC_EXPIRY" as const, title: "Insurance expiring",
+        message: "KA-05-CH-1124 Insurance expiring in 7 days", read: false,
+      },
+      {
+        vendorId: "V1", type: "TRIP_COMPLETED" as const, title: "Trip completed",
+        message: "T-V1-003 completed — ₹3,400 earned (net)",
+        tripId: "T-V1-003", read: true,
+      },
+      {
+        vendorId: "V1", type: "DRIVER_OFFLINE" as const, title: "Driver went offline",
+        message: "Rajesh Kumar (D1) went offline at 2:30 PM", read: true,
+      },
+      {
+        vendorId: "V1", type: "FAILOVER" as const, title: "Trip reassigned (failover)",
+        message: "T-V1-004 reassigned to you — Urban Drivers Co declined",
+        tripId: "T-V1-004", read: true,
+      },
+    ].forEach((n) => addNotification(n));
+  }, []);
 
   const handleShortcutNavigate = useCallback(
     (path: string) => {
@@ -70,6 +104,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
           title={title}
           onToggleMobile={() => setMobileSidebarOpen((p) => !p)}
         />
+        <OfflineBanner />
         <main className="flex-1 p-4 lg:p-6 overflow-x-hidden">
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>

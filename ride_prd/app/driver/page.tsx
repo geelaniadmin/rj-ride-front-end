@@ -3,9 +3,9 @@
 import React, { useMemo, useState } from "react";
 import { useTripStore } from "@/stores/tripStore";
 import { useDriverStore } from "@/stores/driverStore";
-import { useCustomerStore } from "@/stores/customerStore";
+import { useCustomerStore } from "@ride/shared";
 import { useQuoteStore } from "@/stores/quoteStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { useToastStore } from "@/stores/toastStore";
 import { getTraccarSimulator } from "@/lib/mock/traccar";
 import { checkTime } from "@/lib/preflight";

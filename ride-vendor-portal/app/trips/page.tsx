@@ -10,7 +10,10 @@ import { PiiField } from "@/components/ui/PiiField";
 import { Modal } from "@/components/ui/Modal";
 import { Drawer } from "@/components/ui/Drawer";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Search, X, Filter, MapPin, Route, User, DollarSign, ChevronDown, Star, CheckCircle, XCircle } from "lucide-react";
+import { TripMapViewWrapper } from "@/components/trips/TripMapViewWrapper";
+import { ReceiptModal } from "@/components/trips/ReceiptModal";
+import { useDebounce } from "@/hooks/useDebounce";
+import { Search, X, Filter, MapPin, Route, User, DollarSign, ChevronDown, Star, CheckCircle, XCircle, Receipt } from "lucide-react";
 
 const VEHICLE_TYPES = ["All", "Sedan", "SUV", "Tempo Traveller", "Coach"];
 
@@ -31,6 +34,7 @@ export default function TripsPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [showFilters, setShowFilters] = useState(false);
 
   // Modals
@@ -39,6 +43,7 @@ export default function TripsPage() {
   const [showDeclineModal, setShowDeclineModal] = useState(false);
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
   const [showTrackModal, setShowTrackModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [acceptDriverId, setAcceptDriverId] = useState("");
   const [declineReason, setDeclineReason] = useState("No drivers available");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -53,8 +58,8 @@ export default function TripsPage() {
     return vendorTrips.filter((t) => {
       if (statusFilter !== "All" && t.status !== statusFilter) return false;
       if (typeFilter !== "All" && t.vehicleType !== typeFilter) return false;
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
+      if (debouncedSearchQuery) {
+        const q = debouncedSearchQuery.toLowerCase();
         const matchId = t.tripId.toLowerCase().includes(q);
         const matchCustomer = t.customerId.toLowerCase().includes(q);
         const matchRoute = t.stops.some((s) => s.address.toLowerCase().includes(q));
@@ -62,7 +67,7 @@ export default function TripsPage() {
       }
       return true;
     });
-  }, [vendorTrips, statusFilter, typeFilter, searchQuery]);
+  }, [vendorTrips, statusFilter, typeFilter, debouncedSearchQuery]);
 
   // Available drivers for accept modal
   const availableDrivers = useMemo(() => {
@@ -167,6 +172,24 @@ export default function TripsPage() {
               className="px-2.5 py-1 bg-danger/10 text-danger text-xs rounded-md hover:bg-danger/20 transition-colors font-medium"
             >
               Decline
+            </button>
+          </div>
+        );
+      }
+      if (t.status === "COMPLETED") {
+        return (
+          <div className="flex gap-1.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowDetailDrawer(false); setSelectedTrip(t); setShowReceiptModal(true); }}
+              className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs rounded-md hover:bg-emerald-100 transition-colors font-medium flex items-center gap-1"
+            >
+              <Receipt className="w-3 h-3" /> Receipt
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setSelectedTrip(t); setShowDetailDrawer(true); }}
+              className="px-2.5 py-1 text-xs text-brand-blue hover:bg-brand-blue/5 rounded-md transition-colors font-medium"
+            >
+              View
             </button>
           </div>
         );
@@ -342,6 +365,7 @@ export default function TripsPage() {
       </Modal>
 
       {/* === TRIP DETAIL DRAWER === */}
+      {/* TRIP DETAIL DRAWER */}
       <Drawer open={showDetailDrawer} onClose={() => setShowDetailDrawer(false)} title={`Trip Details`} width="max-w-xl">
         {selectedTrip && (
           <div className="space-y-6">
@@ -370,6 +394,12 @@ export default function TripsPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Mini Map — lazy loaded Leaflet */}
+            <div>
+              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Route Map</h4>
+              <TripMapViewWrapper stops={selectedTrip.stops} />
             </div>
 
             {/* Assignment */}
@@ -411,6 +441,51 @@ export default function TripsPage() {
               </div>
             </div>
 
+            {/* Billing section for completed trips */}
+            {selectedTrip.status === "COMPLETED" && (
+              <div>
+                <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Billing</h4>
+                <div className="p-3 bg-ops-bg rounded-lg space-y-1.5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text-muted">Gross Fare</span>
+                    <span className="text-text-primary">₹{Math.round(selectedTrip.lockedPrice)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-text-muted">Operator Fee (15%)</span>
+                    <span className="text-danger">-₹{Math.round(selectedTrip.lockedPrice * 0.15)}</span>
+                  </div>
+                  <div className="border-t border-border pt-1.5 flex justify-between text-sm font-semibold">
+                    <span className="text-text-primary">Net to Vendor</span>
+                    <span className="text-success">₹{Math.round(selectedTrip.lockedPrice * 0.85)}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setShowDetailDrawer(false); setSelectedTrip(selectedTrip); setShowReceiptModal(true); }}
+                  className="mt-2 w-full px-3 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Receipt className="w-4 h-4" /> View Receipt
+                </button>
+              </div>
+            )}
+
+            {/* Dispatch history — vendor decline log */}
+            {selectedTrip.vendorDeclineLog && selectedTrip.vendorDeclineLog.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Dispatch History</h4>
+                <div className="space-y-2">
+                  {selectedTrip.vendorDeclineLog.map((entry: { vendorId: string; reason: string; declinedAt: string }, idx: number) => (
+                    <div key={idx} className="flex items-start gap-2 text-xs p-2 bg-amber-50 rounded-lg">
+                      <div className="w-1.5 h-1.5 rounded-full bg-warning mt-1.5 shrink-0" />
+                      <div>
+                        <p className="text-amber-800 font-medium">{getVendorName(entry.vendorId)} declined</p>
+                        <p className="text-amber-600">{entry.reason} · {new Date(entry.declinedAt).toLocaleTimeString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Action buttons */}
             {(selectedTrip.status === "ASSIGNED" || selectedTrip.status === "PENDING") && (
               <div className="flex gap-3 pt-2">
@@ -431,6 +506,14 @@ export default function TripsPage() {
           </div>
         )}
       </Drawer>
+
+      {/* === RECEIPT MODAL === */}
+      <ReceiptModal
+        open={showReceiptModal}
+        onClose={() => setShowReceiptModal(false)}
+        trip={selectedTrip}
+        vendorName={getVendorName(vendorSession.vendorId)}
+      />
     </div>
   );
 }

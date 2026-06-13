@@ -2,10 +2,10 @@
 
 import React, { useMemo, useState } from "react";
 import { TripRequest, VehicleStatus, TripStatus } from "@/lib/types";
-import { useCustomerStore } from "@/stores/customerStore";
+import { useCustomerStore } from "@ride/shared";
 import { useVehicleStore } from "@/stores/vehicleStore";
 import { useDriverStore } from "@/stores/driverStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import { useTenantStore } from "@ride/shared";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { StatusBadge } from "@/components/ui/StatusBadge";

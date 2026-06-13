@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { useTenantStore } from "@/stores/tenantStore";
-import { useCustomerStore } from "@/stores/customerStore";
+import { useTenantStore } from "@ride/shared";
+import { useCustomerStore } from "@ride/shared";
 import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
 import { partnerApi, CreateTripFromPaxRequest, CreateTripFromVehicleCountRequest, ApiResponse } from "@/lib/api/partnerApi";
 import { Card } from "@/components/ui/Card";

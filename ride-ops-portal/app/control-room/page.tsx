@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useTripStore } from '@/stores/tripStore';
-import { useTenantStore } from '@/stores/tenantStore';
-import { useSafetyAlertStore } from '@ride/shared';
+import { useTripStore, useSafetyAlertStore } from '@ride/shared';
+import { useTenantStore } from '@ride/shared';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { KpiCardSkeleton } from '@/components/ui/Skeleton';
 import { Card } from '@/components/ui/Card';

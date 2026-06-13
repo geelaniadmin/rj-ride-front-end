@@ -2,26 +2,14 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-
-export interface Customer {
-  id: string;
-  tenantId: string;
-  name: string;
-  code: string;
-  billingCycle?: string; // WEEKLY, FORTNIGHTLY, MONTHLY
-  spocName?: string;
-  phone?: string;
-  email?: string;
-  approvedVehicleTypeIds?: string[];
-  defaultCostCenter?: string;
-  active: boolean;
-  createdAt: string;
-}
+import { Customer } from '../types';
 
 interface CustomerStore {
   customers: Customer[];
   setCustomers: (customers: Customer[]) => void;
-  addCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => string;
+  addCustomer: (customer: Omit<Customer, 'id'>) => string;
+  updateCustomer: (id: string, updates: Partial<Customer>) => void;
+  toggleCustomer: (id: string) => void;
   getCustomersByTenant: (tenantId: string) => Customer[];
   getCustomerById: (id: string) => Customer | undefined;
 }
@@ -50,6 +38,18 @@ export const useCustomerStore = create<CustomerStore>()(
         return id;
       },
 
+      updateCustomer: (cid, updates) => {
+        set((state) => ({
+          customers: state.customers.map((c) => (c.id === cid ? { ...c, ...updates } : c)),
+        }));
+      },
+
+      toggleCustomer: (cid) => {
+        set((state) => ({
+          customers: state.customers.map((c) => (c.id === cid ? { ...c, active: !c.active } : c)),
+        }));
+      },
+
       getCustomersByTenant: (tenantId) => {
         return get().customers.filter((c) => c.tenantId === tenantId);
       },
@@ -58,6 +58,6 @@ export const useCustomerStore = create<CustomerStore>()(
         return get().customers.find((c) => c.id === id);
       },
     }),
-    { name: 'ride-ops-customers' }
+    { name: 'ride-customers' }
   )
 );
