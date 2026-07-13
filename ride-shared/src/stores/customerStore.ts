@@ -1,8 +1,9 @@
 'use client';
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Customer } from '../types';
+import { encryptedStorage } from '../encryptedStorage';
 
 interface CustomerStore {
   customers: Customer[];
@@ -12,6 +13,7 @@ interface CustomerStore {
   toggleCustomer: (id: string) => void;
   getCustomersByTenant: (tenantId: string) => Customer[];
   getCustomerById: (id: string) => Customer | undefined;
+  deduplicateCustomers: () => void;
 }
 
 export const useCustomerStore = create<CustomerStore>()(
@@ -57,7 +59,21 @@ export const useCustomerStore = create<CustomerStore>()(
       getCustomerById: (id) => {
         return get().customers.find((c) => c.id === id);
       },
+
+      deduplicateCustomers: () => {
+        set((state) => {
+          const seen = new Map<string, Customer>();
+          // Keep the FIRST entry for each customer name (case-insensitive)
+          for (const c of state.customers) {
+            const key = c.name.toLowerCase().trim();
+            if (!seen.has(key)) {
+              seen.set(key, c);
+            }
+          }
+          return { customers: Array.from(seen.values()) };
+        });
+      },
     }),
-    { name: 'ride-customers' }
+    { name: 'ride-customers', storage: createJSONStorage(() => encryptedStorage()) }
   )
 );

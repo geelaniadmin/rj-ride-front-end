@@ -8,17 +8,22 @@ function generateId(): string {
 
 interface VehicleStore {
   vehicles: Vehicle[];
+  setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Omit<Vehicle, 'id'>) => void;
   updateVehicle: (id: ID, updates: Partial<Vehicle>) => void;
   toggleVehicle: (id: ID) => void;
   getVehiclesByTenant: (tenantId: ID) => Vehicle[];
   getVehiclesByVendor: (vendorId: ID) => Vehicle[];
+  deduplicateVehicles: () => void;
 }
 
 export const useVehicleStore = create<VehicleStore>()(
   persist(
     (set, get) => ({
       vehicles: [],
+      setVehicles: (vehicles) => {
+        set({ vehicles });
+      },
       addVehicle: (vehicle) => {
         set((state) => ({ vehicles: [...state.vehicles, { ...vehicle, id: generateId() }] }));
       },
@@ -34,7 +39,20 @@ export const useVehicleStore = create<VehicleStore>()(
       },
       getVehiclesByTenant: (tenantId) => get().vehicles.filter((v) => v.tenantId === tenantId),
       getVehiclesByVendor: (vendorId) => get().vehicles.filter((v) => v.ownerVendorId === vendorId),
+
+      deduplicateVehicles: () => {
+        set((state) => {
+          const seen = new Map<string, Vehicle>();
+          for (const v of state.vehicles) {
+            const key = v.registrationNo.toLowerCase().trim();
+            if (!seen.has(key)) {
+              seen.set(key, v);
+            }
+          }
+          return { vehicles: Array.from(seen.values()) };
+        });
+      },
     }),
-    { name: 'ride-vehicles' } // SAME key as ride_prd
+    { name: 'ride-vehicles' }
   )
 );

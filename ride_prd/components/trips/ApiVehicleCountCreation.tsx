@@ -29,6 +29,10 @@ interface VehicleCountPayload {
   vehicle_type?: string;
   auto_assign?: boolean;
   reference?: string;
+  coordinator?: { name?: string; phone?: string };
+  viewers?: string[];
+  costCenter?: string;
+  pos?: string;
 }
 
 const SAMPLE_PAYLOAD: VehicleCountPayload = {
@@ -44,6 +48,9 @@ const SAMPLE_PAYLOAD: VehicleCountPayload = {
   vehicle_type: "SUV",
   auto_assign: true,
   reference: "CLASS-EVT456-20260620",
+  coordinator: { name: "Event Coordinator", phone: "+91-9876543111" },
+  costCenter: "EVENT-MKTG-2026",
+  pos: "EVENT_API",
 };
 
 export const ApiVehicleCountCreation: React.FC<ApiVehicleCountCreationProps> = ({ onCreated }) => {
@@ -147,6 +154,10 @@ export const ApiVehicleCountCreation: React.FC<ApiVehicleCountCreationProps> = (
         status: "DRAFT",
         autoAssign: parsed.auto_assign ?? false,
         reference: parsed.reference,
+        coordinator: (parsed.coordinator?.name || parsed.coordinator?.phone) ? parsed.coordinator : undefined,
+        viewers: parsed.viewers && parsed.viewers.length > 0 ? parsed.viewers : undefined,
+        costCenter: parsed.costCenter || undefined,
+        pos: parsed.pos || undefined,
       });
 
       addToast(`Trip created with ${parsed.vehicle_count} vehicle slots: ${tripId}`, "success");

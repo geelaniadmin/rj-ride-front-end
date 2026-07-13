@@ -3,10 +3,20 @@ import { persist } from "zustand/middleware";
 import { RateCard, ID } from "@/lib/types";
 import { id } from "@/lib/mock";
 
+export interface AuditLogEntry {
+  id: string;
+  action: 'CREATED' | 'VERSIONED' | 'UPDATED';
+  actor: string;
+  rateCardId?: ID;
+  description: string;
+  timestamp: string;
+}
+
 interface RateCardStore {
   rateCards: RateCard[];
-  addRateCard: (rc: Omit<RateCard, "id">) => void;
-  createNewVersion: (rateCardId: ID, updates: Partial<RateCard>) => void;
+  auditLog: AuditLogEntry[];
+  addRateCard: (rc: Omit<RateCard, "id">, actor?: string) => void;
+  createNewVersion: (rateCardId: ID, updates: Partial<RateCard>, actor?: string) => void;
   getRateCardsByTenant: (tenantId: ID) => RateCard[];
   getRateCardVersionHistory: (tenantId: ID, vendorId: ID, customerId: ID, vehicleTypeId: ID) => RateCard[];
   getApplicableRateCard: (tenantId: ID, vendorId: ID, customerId: ID, vehicleTypeId: ID, date: string) => RateCard | undefined;
@@ -15,6 +25,13 @@ interface RateCardStore {
 const nextYear = new Date();
 nextYear.setFullYear(nextYear.getFullYear() + 1);
 const nextYearStr = nextYear.toISOString().split("T")[0];
+
+function describeRateCard(rc: { basis?: string; vendorId?: string; customerId?: string; vehicleTypeId?: string; perKm?: number; hourlyRate?: number }): { rcDescription: string } {
+  const parts = [rc.basis || "?"];
+  if (rc.perKm) parts.push(`₹${rc.perKm}/km`);
+  if (rc.hourlyRate) parts.push(`₹${rc.hourlyRate}/hr`);
+  return { rcDescription: parts.join(" ") };
+}
 
 const SEED_RATE_CARDS: RateCard[] = [
   {
@@ -142,12 +159,26 @@ export const useRateCardStore = create<RateCardStore>()(
   persist(
     (set, get) => ({
       rateCards: SEED_RATE_CARDS,
-      addRateCard: (rc) => {
+      auditLog: [],
+      addRateCard: (rc, actor = "admin") => {
+        const newId = id();
+        const { rcDescription } = describeRateCard(rc);
         set((state) => ({
-          rateCards: [...state.rateCards, { ...rc, id: id() }],
+          rateCards: [...state.rateCards, { ...rc, id: newId }],
+          auditLog: [
+            {
+              id: id(),
+              action: 'CREATED',
+              actor,
+              rateCardId: newId,
+              description: `Created rate card: ${rcDescription}`,
+              timestamp: new Date().toISOString(),
+            },
+            ...state.auditLog,
+          ],
         }));
       },
-      createNewVersion: (rateCardId, updates) => {
+      createNewVersion: (rateCardId, updates, actor = "admin") => {
         const original = get().rateCards.find((r) => r.id === rateCardId);
         if (!original) return;
 
@@ -166,8 +197,21 @@ export const useRateCardStore = create<RateCardStore>()(
           validTo: updates.validTo ?? original.validTo,
         } as RateCard;
 
+        const { rcDescription } = describeRateCard(newRateCard);
+
         set((state) => ({
           rateCards: [...state.rateCards, newRateCard],
+          auditLog: [
+            {
+              id: id(),
+              action: 'VERSIONED',
+              actor,
+              rateCardId: newRateCard.id,
+              description: `Created v${newRateCard.version} from v${original.version}: ${rcDescription}`,
+              timestamp: new Date().toISOString(),
+            },
+            ...state.auditLog,
+          ],
         }));
       },
       getRateCardsByTenant: (tenantId) => {

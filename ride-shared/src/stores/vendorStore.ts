@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Vendor, ID, VendorInfo } from '../types';
 import { id } from '../helpers';
+import { encryptedStorage } from '../encryptedStorage';
 
 interface VendorStore {
   vendors: Vendor[];
@@ -60,6 +61,7 @@ export const useVendorStore = create<VendorStore>()(
     }),
     {
       name: 'ride-vendors',
+      storage: createJSONStorage(() => encryptedStorage()),
       merge: (persisted, initial) => {
         // Zustand persist unwraps { state, version } before calling merge,
         // so persisted is already the unwrapped state (e.g. { vendors: [...] })
@@ -105,6 +107,6 @@ export const useVendorInfoStore = create<VendorInfoStore>()(
       getVendorName: (vendorId) => get().vendorInfo.find((v) => v.vendorId === vendorId)?.name || vendorId,
       getVendorInfo: (vendorId) => get().vendorInfo.find((v) => v.vendorId === vendorId),
     }),
-    { name: 'ride-vendor-info' }
+    { name: 'ride-vendor-info', storage: createJSONStorage(() => encryptedStorage()) }
   )
 );

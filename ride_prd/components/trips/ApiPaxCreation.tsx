@@ -36,6 +36,10 @@ interface PaxPayload {
   }>;
   vehicle_type?: string;
   reference?: string;
+  coordinator?: { name?: string; phone?: string };
+  viewers?: string[];
+  costCenter?: string;
+  pos?: string;
 }
 
 const SAMPLE_PAYLOAD: PaxPayload = {
@@ -54,6 +58,10 @@ const SAMPLE_PAYLOAD: PaxPayload = {
   ],
   vehicle_type: "Sedan",
   reference: "RISMA-FL123-20260615",
+  coordinator: { name: "Airline Ops", phone: "+91-9876543000" },
+  viewers: ["dispatch@airline.com", "ops@airline.com"],
+  costCenter: "DEPT-AIR-001",
+  pos: "RISMA_API",
 };
 
 export const ApiPaxCreation: React.FC<ApiPaxCreationProps> = ({ onCreated }) => {
@@ -166,6 +174,10 @@ export const ApiPaxCreation: React.FC<ApiPaxCreationProps> = ({ onCreated }) => 
         status: "DRAFT",
         autoAssign: false,
         reference: parsed.reference,
+        coordinator: (parsed.coordinator?.name || parsed.coordinator?.phone) ? parsed.coordinator : undefined,
+        viewers: parsed.viewers && parsed.viewers.length > 0 ? parsed.viewers : undefined,
+        costCenter: parsed.costCenter || undefined,
+        pos: parsed.pos || undefined,
       });
 
       addToast(`Trip created from ${parsed.pax.length} pax in ${vehicleCount} vehicle(s): ${tripId}`, "success");

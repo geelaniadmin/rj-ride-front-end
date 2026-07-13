@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { VendorSession } from '../types';
+import { encryptedStorage } from '../encryptedStorage';
 
 interface SessionStore {
   vendorSession: VendorSession | null;
@@ -17,6 +18,6 @@ export const useSessionStore = create<SessionStore>()(
       clearSession: () => set({ vendorSession: null }),
       getVendorId: () => get().vendorSession?.vendorId || null,
     }),
-    { name: 'ride-vendor-session' }
+    { name: 'ride-vendor-session', storage: createJSONStorage(() => encryptedStorage()) }
   )
 );

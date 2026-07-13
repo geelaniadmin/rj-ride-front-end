@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import type { TripRequest, TripVehicle, ID, TripStatus, VehicleStatus, VendorDeclineEntry, EventLogEntry, AuditLogEntry } from '../types';
+import { encryptedStorage } from '../encryptedStorage';
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -201,7 +202,7 @@ export const useTripStore = create<TripStore>()(
             if (t.id !== tripId) return t;
             const vehicles = t.vehicles.map((v, i) =>
               i === vehicleIndex
-                ? { ...v, status: 'DRIVER_ACCEPTED' as VehicleStatus, driverId, vehicleId }
+                ? { ...v, status: 'ASSIGNED' as VehicleStatus, driverId, vehicleId }
                 : v
             );
             return { ...t, vehicles, status: 'ASSIGNED' as TripStatus };
@@ -261,6 +262,6 @@ export const useTripStore = create<TripStore>()(
         set((state) => ({ auditLog: [auditEntry, ...state.auditLog].slice(0, 200) }));
       },
     }),
-    { name: 'ride-trips' }
+    { name: 'ride-trips', storage: createJSONStorage(() => encryptedStorage()) }
   )
 );

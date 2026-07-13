@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { CurrencyCode, CurrencyConfig, BillingEvent } from "@/lib/types";
 
 export type BillingStatus = "UNBILLED" | "STATEMENTED" | "RECONCILED";
 export type OperatorFeeType = "FLAT" | "PERCENT" | "TIERED";
@@ -19,10 +20,13 @@ export interface BillingLine {
   lockedRateCardVersion: number;
   customerId: string;
   currency: string;
+  contractCurrency?: string;  // FR-BL-6: Contract currency fallback
+  exchangeRate?: number;      // FR-BL-6: Rate to contract currency
   status: BillingStatus;
   createdAt: string;
-  statemented?: string; // ISO timestamp when statemented
+  statemented?: string;
   reconciled?: string;
+  voided?: boolean;           // FR-BL-7: Soft-delete via void
 }
 
 export interface BillableTrip {
@@ -35,6 +39,8 @@ export interface BillableTrip {
   operatorFee: number;
   total: number;
   currency: string;
+  contractCurrency?: string;
+  exchangeRate?: number;
   status: BillingStatus;
   createdAt: string;
   statemented?: string;
@@ -92,14 +98,23 @@ interface BillingStore {
   reconciliations: ReconciliationMatch[];
   adjustments: Adjustment[];
   vouchers: Voucher[];
+  billingEvents: BillingEvent[];  // FR-BL-7: Immutable event log
+  currencyConfigs: Record<string, CurrencyConfig>;  // FR-BL-6: Per-tenant currency config
+  baseCurrency: CurrencyCode;
 
   // Operator fee management
   setOperatorFeeConfig: (tenantId: string, config: OperatorFeeConfig) => void;
   getOperatorFeeConfig: (tenantId: string) => OperatorFeeConfig;
 
+  // FR-BL-6: Currency management
+  setCurrencyConfig: (tenantId: string, config: { code: CurrencyCode; symbol: string; exchangeRate: number }) => void;
+  getCurrencyConfig: (tenantId: string) => { code: CurrencyCode; symbol: string; exchangeRate: number };
+  convertToBaseCurrency: (amount: number, fromCurrency: string) => number;
+
   // Billing line operations
   addBillingLine: (line: Omit<BillingLine, "id" | "createdAt">) => BillingLine;
   updateBillingLineStatus: (id: string, status: BillingStatus, statemented?: string) => void;
+  voidBillingLine: (id: string, reason: string, actor: string) => void;  // FR-BL-7
 
   // Billable trips
   createBillableTrip: (trip: Omit<BillableTrip, "id" | "createdAt">) => BillableTrip;
@@ -110,9 +125,13 @@ interface BillingStore {
   uploadSubVendorInvoice: (invoice: Omit<SubVendorInvoice, "id" | "uploadedAt">) => SubVendorInvoice;
   reconcileInvoice: (invoiceId: string) => ReconciliationMatch[];
 
-  // Adjustments
-  addAdjustment: (adjustment: Omit<Adjustment, "id" | "createdAt">) => Adjustment;
+  // FR-BL-7: Adjustments with audit
+  addAdjustment: (adjustment: Omit<Adjustment, "id" | "createdAt" | "amount"> & { amount: number }, actor: string) => Adjustment;
   getAdjustmentsByBillingLine: (billingLineId: string) => Adjustment[];
+
+  // FR-BL-7: Immutable event log
+  pushBillingEvent: (event: Omit<BillingEvent, "id" | "createdAt">) => void;
+  getBillingEventsByLine: (billingLineId: string) => BillingEvent[];
 
   // Vouchers
   generateVouchers: (tripId: string, paxIds?: string[], language?: string) => Voucher[];
@@ -140,6 +159,30 @@ export const useBillingStore = create<BillingStore>()(
       reconciliations: [],
       adjustments: [],
       vouchers: [],
+      billingEvents: [],
+      currencyConfigs: {
+        T1: { code: "INR", symbol: "₹", exchangeRate: 1 },
+        T2: { code: "USD", symbol: "$", exchangeRate: 83 },
+        T3: { code: "EUR", symbol: "€", exchangeRate: 90 },
+      },
+      baseCurrency: "INR",
+
+      // ── FR-BL-6: Currency Management ──
+      setCurrencyConfig: (tenantId, config) => {
+        set((state) => ({
+          currencyConfigs: { ...state.currencyConfigs, [tenantId]: { ...config, code: config.code as CurrencyCode } },
+        }));
+      },
+
+      getCurrencyConfig: (tenantId) => {
+        return get().currencyConfigs[tenantId] || { code: "INR" as CurrencyCode, symbol: "₹", exchangeRate: 1 };
+      },
+
+      convertToBaseCurrency: (amount, fromCurrency) => {
+        const config = Object.values(get().currencyConfigs).find((c) => c.code === fromCurrency);
+        if (!config || config.code === get().baseCurrency) return amount;
+        return amount / config.exchangeRate;
+      },
 
       setOperatorFeeConfig: (tenantId, config) => {
         set((state) => ({
@@ -160,14 +203,78 @@ export const useBillingStore = create<BillingStore>()(
         set((state) => ({
           billingLines: [...state.billingLines, newLine],
         }));
+
+        // FR-BL-7: Log creation event
+        const event: BillingEvent = {
+          id: `EVT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          billingLineId: newLine.id,
+          type: "CREATED",
+          newState: newLine as unknown as Record<string, unknown>,
+          reason: "Billing line created from trip completion",
+          actor: "system",
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          billingEvents: [...state.billingEvents, event],
+        }));
+
         return newLine;
       },
 
       updateBillingLineStatus: (id, status, statemented) => {
+        const line = get().billingLines.find((l) => l.id === id);
+        if (!line) return;
+
+        const previousState = { ...line };
+
         set((state) => ({
-          billingLines: state.billingLines.map((line) =>
-            line.id === id ? { ...line, status, statemented: statemented || line.statemented } : line
+          billingLines: state.billingLines.map((l) =>
+            l.id === id ? { ...l, status, statemented: statemented || l.statemented } : l
           ),
+        }));
+
+        // FR-BL-7: Log status change event
+        const event: BillingEvent = {
+          id: `EVT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          billingLineId: id,
+          type: status === "STATEMENTED" ? "STATEMENTED" : status === "RECONCILED" ? "RECONCILED" : "CORRECTED",
+          previousState: previousState as unknown as Record<string, unknown>,
+          newState: { ...get().billingLines.find((l) => l.id === id)! } as unknown as Record<string, unknown>,
+          reason: `Status changed from ${previousState.status} to ${status}`,
+          actor: "system",
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          billingEvents: [...state.billingEvents, event],
+        }));
+      },
+
+      // FR-BL-7: Void a billing line (soft-delete)
+      voidBillingLine: (id, reason, actor) => {
+        const line = get().billingLines.find((l) => l.id === id);
+        if (!line) return;
+
+        const previousState = { ...line };
+
+        set((state) => ({
+          billingLines: state.billingLines.map((l) =>
+            l.id === id ? { ...l, voided: true, status: "RECONCILED" } : l
+          ),
+        }));
+
+        const event: BillingEvent = {
+          id: `EVT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          billingLineId: id,
+          type: "VOIDED",
+          previousState: previousState as unknown as Record<string, unknown>,
+          newState: { ...get().billingLines.find((l) => l.id === id)! } as unknown as Record<string, unknown>,
+          delta: -line.lockedPrice,
+          reason,
+          actor,
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          billingEvents: [...state.billingEvents, event],
         }));
       },
 
@@ -260,7 +367,23 @@ export const useBillingStore = create<BillingStore>()(
         return matches;
       },
 
-      addAdjustment: (adjustment) => {
+      // FR-BL-7: Adjustments with audit trail
+      pushBillingEvent: (event) => {
+        const fullEvent: BillingEvent = {
+          ...event,
+          id: `EVT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          createdAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          billingEvents: [...state.billingEvents, fullEvent].slice(-5000),
+        }));
+      },
+
+      getBillingEventsByLine: (billingLineId) => {
+        return get().billingEvents.filter((e) => e.billingLineId === billingLineId);
+      },
+
+      addAdjustment: (adjustment, actor) => {
         const newAdjustment: Adjustment = {
           ...adjustment,
           id: `ADJ-${Date.now()}`,
@@ -270,6 +393,15 @@ export const useBillingStore = create<BillingStore>()(
         set((state) => ({
           adjustments: [...state.adjustments, newAdjustment],
         }));
+
+        // Log to immutable event log
+        get().pushBillingEvent({
+          billingLineId: adjustment.billingLineId,
+          type: "ADJUSTED",
+          delta: adjustment.amount,
+          reason: adjustment.reason,
+          actor: actor || "system",
+        });
 
         return newAdjustment;
       },

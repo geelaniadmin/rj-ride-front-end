@@ -19,6 +19,23 @@ export interface ApiResponse<T> {
   error?: ApiError;
 }
 
+// FR-AP-5: Rate limiting
+export interface RateLimitConfig {
+  windowMs: number;      // Time window in milliseconds
+  maxRequests: number;    // Max requests per window
+  current: number;        // Current count in window
+  windowStart: number;    // When the current window started
+}
+
+// FR-AP-6: Sandbox environment
+interface SandboxConfig {
+  enabled: boolean;
+  tenantId: string;
+  quota: number;           // Max API calls in sandbox
+  quotaUsed: number;
+  expiresAt: string;
+}
+
 // Partner authentication
 export interface PartnerCredentials {
   partnerId: string;
@@ -61,17 +78,115 @@ export interface CreateTripFromVehicleCountRequest {
   reference?: string;
 }
 
+// FR-AP-5: Idempotency store
+export interface IdempotencyRecord {
+  key: string;
+  result: ApiResponse<unknown>;
+  expiresAt: number;
+}
+
+const idempotencyCache: Map<string, IdempotencyRecord> = new Map();
+const rateLimits: Map<string, RateLimitConfig> = new Map();
+
+const SANDBOX_CONFIG: SandboxConfig = {
+  enabled: true,
+  tenantId: "SANDBOX_T1",
+  quota: 100,
+  quotaUsed: 0,
+  expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+};
+
+function checkRateLimit(partnerId: string): boolean {
+  const now = Date.now();
+  let limit = rateLimits.get(partnerId);
+
+  if (!limit || now - limit.windowStart > limit.windowMs) {
+    limit = { windowMs: 60000, maxRequests: 100, current: 0, windowStart: now };
+    rateLimits.set(partnerId, limit);
+  }
+
+  limit.current++;
+  return limit.current <= limit.maxRequests;
+}
+
+function checkIdempotency(key: string): ApiResponse<unknown> | null {
+  const record = idempotencyCache.get(key);
+  if (record && record.expiresAt > Date.now()) {
+    return record.result;
+  }
+  return null;
+}
+
+function cacheIdempotency(key: string, result: ApiResponse<unknown>): void {
+  idempotencyCache.set(key, {
+    key,
+    result,
+    expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24h TTL
+  });
+  // Prune expired entries
+  if (idempotencyCache.size > 10000) {
+    const now = Date.now();
+    for (const [k, v] of idempotencyCache) {
+      if (v.expiresAt < now) idempotencyCache.delete(k);
+    }
+  }
+}
+
 // Partner API class
 export class PartnerAPIServer {
   private webhookStore = useWebhookStore;
   private tripStore = useTripStore;
   private customerStore = useCustomerStore;
   private vehicleTypeStore = useVehicleTypeStore;
+  private sandboxEnabled: boolean = false;
+
+  // FR-AP-6: Sandbox toggle
+  setSandboxMode(enabled: boolean) {
+    this.sandboxEnabled = enabled;
+  }
+
+  isSandboxMode(): boolean {
+    return this.sandboxEnabled;
+  }
+
+  getSandboxConfig(): SandboxConfig {
+    if (this.sandboxEnabled) {
+      SANDBOX_CONFIG.quotaUsed++;
+    }
+    return { ...SANDBOX_CONFIG, quotaUsed: this.sandboxEnabled ? SANDBOX_CONFIG.quotaUsed : 0 };
+  }
 
   // Authenticate partner
-  authenticate(credentials: PartnerCredentials): boolean {
+  authenticate(credentials: PartnerCredentials): { success: boolean; tenantId?: string; error?: ApiError } {
+    // Sandbox mode: allow any key with sk_sandbox prefix
+    if (this.sandboxEnabled && credentials.apiKey.startsWith("sk_sandbox_")) {
+      SANDBOX_CONFIG.quotaUsed++;
+      if (SANDBOX_CONFIG.quotaUsed > SANDBOX_CONFIG.quota) {
+        return {
+          success: false,
+          error: { name: "SANDBOX_QUOTA_EXCEEDED", message: `Sandbox quota (${SANDBOX_CONFIG.quota} calls) exceeded`, code: "E_SANDBOX_QUOTA", status: 429 },
+        };
+      }
+      return { success: true, tenantId: SANDBOX_CONFIG.tenantId };
+    }
+
+    // FR-AP-5: Check rate limit on auth
+    if (!checkRateLimit(credentials.partnerId)) {
+      return {
+        success: false,
+        error: { name: "RATE_LIMIT_EXCEEDED", message: "Rate limit exceeded. Max 100 requests per minute", code: "E_RATE_LIMIT", status: 429 },
+      };
+    }
+
     const endpoint = this.webhookStore.getState().endpoints.find((e) => e.apiKey === credentials.apiKey && e.active);
-    return !!endpoint;
+    if (!endpoint) {
+      return {
+        success: false,
+        error: { name: "AUTH_FAILED", message: "Invalid or inactive API key", code: "E_AUTH_FAILED", status: 401 },
+      };
+    }
+
+    return { success: true, tenantId: endpoint.tenantId };
   }
 
   // Create trip from pax (API_PAX method)
@@ -135,6 +250,13 @@ export class PartnerAPIServer {
         });
       }
 
+      // FR-AP-5: Idempotency check for this request type
+      if (request.reference) {
+        const idempKey = `pax-create-${request.reference}`;
+        const cached = checkIdempotency(idempKey);
+        if (cached) return cached as ApiResponse<{ tripId: string }>;
+      }
+
       const tripId = this.tripStore.getState().addTrip({
         tenantId,
         customerId: request.customerId,
@@ -163,6 +285,11 @@ export class PartnerAPIServer {
         autoAssign: false,
         reference: request.reference,
       });
+
+      // Cache for idempotency
+      if (request.reference) {
+        cacheIdempotency(`pax-create-${request.reference}`, { result: { tripId } });
+      }
 
       // Trigger webhook
       this.triggerWebhook("TRIP_CREATED", { tripId, createdVia: "API_PAX", paxCount: request.pax.length }, tenantId);
@@ -233,6 +360,13 @@ export class PartnerAPIServer {
         });
       }
 
+      // FR-AP-5: Idempotency check
+      if (request.reference) {
+        const idempKey = `vc-create-${request.reference}`;
+        const cached = checkIdempotency(idempKey);
+        if (cached) return cached as ApiResponse<{ tripId: string }>;
+      }
+
       const tripId = this.tripStore.getState().addTrip({
         tenantId,
         customerId: request.customerId,
@@ -262,10 +396,54 @@ export class PartnerAPIServer {
         reference: request.reference,
       });
 
+      // Cache for idempotency
+      if (request.reference) {
+        cacheIdempotency(`vc-create-${request.reference}`, { result: { tripId } });
+      }
+
       // Trigger webhook
       this.triggerWebhook("TRIP_CREATED", { tripId, createdVia: "API_VEHICLE_COUNT", vehicleCount: request.vehicleCount }, tenantId);
 
       return { result: { tripId } };
+    } catch (err) {
+      return {
+        error: {
+          name: "INTERNAL_ERROR",
+          message: err instanceof Error ? err.message : "Unknown error",
+          code: "E_INTERNAL",
+          status: 500,
+        },
+      };
+    }
+  }
+
+  // FR-AP-7: Customer read API (no login) by reference
+  getCustomerByCode(tenantId: string, code: string): ApiResponse<{ id: string; name: string; code: string; billingCycle?: string; defaultCostCenter?: string }> {
+    try {
+      const customers = this.customerStore.getState().customers || [];
+      const customer = customers.find((c) => c.code === code && c.tenantId === tenantId);
+
+      if (!customer) {
+        return {
+          error: {
+            name: "CUSTOMER_NOT_FOUND",
+            message: `Customer with code "${code}" not found`,
+            code: "E_CUSTOMER_NOT_FOUND",
+            status: 404,
+          },
+        };
+      }
+
+      // Only expose non-PII fields — no SPOC name/phone/email
+      return {
+        result: {
+          id: customer.id,
+          name: customer.name,
+          code: customer.code,
+          billingCycle: customer.billingCycle,
+          defaultCostCenter: customer.defaultCostCenter,
+        },
+      };
     } catch (err) {
       return {
         error: {

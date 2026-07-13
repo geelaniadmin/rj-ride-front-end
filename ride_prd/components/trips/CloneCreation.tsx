@@ -85,6 +85,10 @@ export const CloneCreation: React.FC<CloneCreationProps> = ({ onCreated }) => {
         status: "DRAFT",
         autoAssign: false,
         reference: `CLONE-${selectedTrip.id.substring(0, 8)}`,
+        coordinator: selectedTrip.coordinator,
+        viewers: selectedTrip.viewers,
+        costCenter: selectedTrip.costCenter,
+        pos: selectedTrip.pos,
       });
 
       addToast(`Cloned trip from ${selectedTrip.id.substring(0, 8)}: ${tripId}`, "success");

@@ -10,9 +10,12 @@ import {
   Route,
   Radio,
   MapPin,
-  Smartphone,
+  SmartphoneNfc,
+  Users,
   Receipt,
   Code2,
+  ClipboardList,
+  GitBranch,
 } from "lucide-react";
 
 interface NavItem {
@@ -28,7 +31,10 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Trip Requests", icon: Route, href: "/trips" },
   { label: "Dispatch", icon: Radio, href: "/dispatch" },
   { label: "Tracking", icon: MapPin, href: "/tracking" },
-  { label: "Driver App", icon: Smartphone, href: "/driver" },
+  { label: "Driver Mobile", icon: SmartphoneNfc, href: "/driver-mobile" },
+  { label: "Passenger Mobile", icon: Users, href: "/passenger-mobile" },
+  { label: "Rosters", icon: ClipboardList, href: "/rosters" },
+  { label: "Pooling", icon: GitBranch, href: "/pooling" },
   { label: "Billing", icon: Receipt, href: "/billing" },
   { label: "API Console", icon: Code2, href: "/api-console" },
 ];

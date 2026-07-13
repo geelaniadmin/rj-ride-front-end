@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { Toaster } from "@/components/ui/Toaster";
 import { SeedInitializer } from "@/components/layout/SeedInitializer";
+import { CrossTabSync } from "@/components/layout/CrossTabSync";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,6 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <CrossTabSync />
         <SeedInitializer />
         <div className="flex h-screen bg-ops-bg">
           <Sidebar />

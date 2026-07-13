@@ -1,11 +1,25 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import { TripRequest, TripVehicle, Stop, ID, CreationMethod, TripStatus, Pax, VehicleStatus } from "@/lib/types";
 import { id } from "@/lib/mock";
+import { encryptedStorage } from "@ride/shared";
 import { deriveTripStatus, isTransitionAllowed } from "@/lib/lifecycle";
 import { checkCancel, checkUpdate } from "@/lib/preflight";
 import { useQuoteStore } from "@/stores/quoteStore";
 import { useBillingStore } from "@/stores/billingStore";
+import { useVehicleStore } from "@/stores/vehicleStore";
+import { useDriverStore } from "@/stores/driverStore";
+
+// Return type for vehicle swap
+export interface SwapResult {
+  success: boolean;
+  message: string;
+  replacementVehicleId?: string;
+  replacementDriverId?: string;
+  replacementVehiclePlate?: string;
+  replacementDriverName?: string;
+  replacementVendorId?: string;
+}
 
 interface TripStore {
   trips: TripRequest[];
@@ -17,6 +31,9 @@ interface TripStore {
   getDerivedTripStatus: (tripId: ID) => TripStatus;
   advanceVehicleStatus: (tripId: ID, vehicleIndex: number, nextStatus: VehicleStatus) => { success: boolean; message: string };
   cancelVehicle: (tripId: ID, vehicleIndex: number) => { success: boolean; message: string; penalty?: number };
+  verifyOtp: (tripId: ID, vehicleIndex: number, phase: "pickup" | "drop", otp: string) => { success: boolean; message: string; blocked?: boolean; remainingAttempts?: number };
+  reportBreakdown: (tripId: ID, vehicleIndex: number, reason: string) => { success: boolean; message: string };
+  performVehicleSwap: (tripId: ID, vehicleIndex: number, reason: string) => SwapResult;
 }
 
 export const useTripStore = create<TripStore>()(
@@ -196,9 +213,191 @@ export const useTripStore = create<TripStore>()(
           penalty,
         };
       },
+
+      verifyOtp: (tripId, vehicleIndex, phase, otp) => {
+        const trip = get().getTripById(tripId);
+        if (!trip) return { success: false, message: "Trip not found" };
+
+        const vehicle = trip.vehicles[vehicleIndex];
+        if (!vehicle) return { success: false, message: "Vehicle not found" };
+
+        const expectedOTP = vehicle.otp?.[phase] || "1234";
+        const MAX_ATTEMPTS = 3;
+
+        // Count existing failed attempts
+        const failedAttempts = vehicle.otpFailedAttempts?.length || 0;
+        const remainingAttempts = MAX_ATTEMPTS - failedAttempts;
+
+        if (failedAttempts >= MAX_ATTEMPTS) {
+          return {
+            success: false,
+            message: "OTP blocked — too many failed attempts. Dispatcher alerted.",
+            blocked: true,
+            remainingAttempts: 0,
+          };
+        }
+
+        if (otp !== expectedOTP) {
+          const attemptLog = { attemptedAt: new Date().toISOString(), enteredOtp: otp };
+          const newFailedAttempts = [...(vehicle.otpFailedAttempts || []), attemptLog];
+          const newRemaining = MAX_ATTEMPTS - newFailedAttempts.length;
+
+          set((state) => ({
+            trips: state.trips.map((t) => {
+              if (t.id !== tripId) return t;
+              return {
+                ...t,
+                vehicles: t.vehicles.map((v, i) =>
+                  i === vehicleIndex ? { ...v, otpFailedAttempts: newFailedAttempts } : v
+                ),
+              };
+            }),
+          }));
+
+          const msg =
+            newRemaining <= 0
+              ? "⚠️ Too many failed OTP attempts! Dispatcher has been notified."
+              : `Incorrect OTP. ${newRemaining} attempt(s) remaining.`;
+
+          return { success: false, message: msg, remainingAttempts: newRemaining };
+        }
+
+        // Correct OTP — mark verified
+        set((state) => ({
+          trips: state.trips.map((t) => {
+            if (t.id !== tripId) return t;
+            return {
+              ...t,
+              vehicles: t.vehicles.map((v, i) =>
+                i === vehicleIndex
+                  ? {
+                      ...v,
+                      otp: {
+                        ...v.otp,
+                        [phase === "pickup" ? "pickupVerified" : "dropVerified"]: true,
+                        [phase]: v.otp?.[phase] || expectedOTP,
+                      },
+                      otpFailedAttempts: [], // Reset attempts on success
+                    }
+                  : v
+              ),
+            };
+          }),
+        }));
+
+        return { success: true, message: `${phase === "pickup" ? "Pickup" : "Drop"} OTP verified successfully` };
+      },
+
+      reportBreakdown: (tripId, vehicleIndex, reason) => {
+        const trip = get().getTripById(tripId);
+        if (!trip) return { success: false, message: "Trip not found" };
+
+        const vehicle = trip.vehicles[vehicleIndex];
+        if (!vehicle) return { success: false, message: "Vehicle not found" };
+
+        set((state) => ({
+          trips: state.trips.map((t) => {
+            if (t.id !== tripId) return t;
+            return {
+              ...t,
+              vehicles: t.vehicles.map((v, i) =>
+                i === vehicleIndex
+                  ? { ...v, status: "BREAKDOWN" as VehicleStatus, breakdownReason: reason }
+                  : v
+              ),
+            };
+          }),
+        }));
+
+        return { success: true, message: `Breakdown reported: ${reason}` };
+      },
+
+      performVehicleSwap: (tripId, vehicleIndex, reason) => {
+        const trip = get().getTripById(tripId);
+        if (!trip) return { success: false, message: "Trip not found" };
+
+        const vehicle = trip.vehicles[vehicleIndex];
+        if (!vehicle) return { success: false, message: "Vehicle not found" };
+
+        const vehicleStore = useVehicleStore.getState();
+        const driverStore = useDriverStore.getState();
+
+        // 1. Find a replacement vehicle of the same type, not the current one, and active
+        const currentVehicleMeta = vehicle.vehicleId
+          ? vehicleStore.vehicles.find((v) => v.id === vehicle.vehicleId)
+          : null;
+        const requestedTypeId = vehicle.requestedVehicleTypeId;
+
+        // Find available vehicles of the same type, excluding the current one
+        const sameTypeVehicles = vehicleStore.vehicles.filter(
+          (v) =>
+            v.vehicleTypeId === requestedTypeId &&
+            v.active &&
+            v.id !== vehicle.vehicleId &&
+            v.tenantId === trip.tenantId
+        );
+
+        if (sameTypeVehicles.length === 0) {
+          return {
+            success: false,
+            message: `No replacement vehicle available for type ${requestedTypeId}`,
+          };
+        }
+
+        // Pick the first available replacement
+        const replacementVehicle = sameTypeVehicles[0];
+        if (!replacementVehicle) {
+          return { success: false, message: "No replacement vehicle found" };
+        }
+
+        // 2. Find an available driver
+        const availableDrivers = driverStore.drivers.filter(
+          (d) =>
+            d.tenantId === trip.tenantId &&
+            d.available &&
+            d.active &&
+            d.id !== vehicle.driverId
+        );
+
+        const replacementDriver = availableDrivers.length > 0 ? availableDrivers[0] : null;
+
+        // 3. Perform the swap — preserve TripVehicle.id, priceId, lockedPrice, OTP
+        set((state) => ({
+          trips: state.trips.map((t) => {
+            if (t.id !== tripId) return t;
+            return {
+              ...t,
+              vehicles: t.vehicles.map((v, i) =>
+                i === vehicleIndex
+                  ? {
+                      ...v,
+                      vehicleId: replacementVehicle.id,
+                      driverId: replacementDriver?.id || v.driverId,
+                      vendorId: replacementVehicle.ownerVendorId,
+                      status: "VEHICLE_SWAP" as VehicleStatus,
+                      breakdownReason: reason,
+                      // Preserve price, OTP, id — unchanged
+                    }
+                  : v
+              ),
+            };
+          }),
+        }));
+
+        return {
+          success: true,
+          message: `Vehicle swapped to ${replacementVehicle.make} ${replacementVehicle.model} (${replacementVehicle.registrationNo})`,
+          replacementVehicleId: replacementVehicle.id,
+          replacementDriverId: replacementDriver?.id,
+          replacementVehiclePlate: replacementVehicle.registrationNo,
+          replacementDriverName: replacementDriver?.name,
+          replacementVendorId: replacementVehicle.ownerVendorId,
+        };
+      },
     }),
     {
       name: "ride-trips",
+      storage: createJSONStorage(() => encryptedStorage()),
     }
   )
 );

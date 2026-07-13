@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 
-type PiiType = "name" | "phone" | "email" | "id" | "pnr" | "licence";
+type PiiType = "name" | "phone" | "email" | "id" | "pnr" | "licence" | "registration";
 
 interface PIIProps {
   value: string;
@@ -28,6 +28,8 @@ const maskValue = (value: string, type: PiiType): string => {
     case "pnr":
       return `***${value.slice(-3)}`;
     case "licence":
+      return `***${value.slice(-4)}`;
+    case "registration":
       return `***${value.slice(-4)}`;
     case "id":
       return `***${value.slice(-5)}`;

@@ -7,8 +7,8 @@ import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { getLocationRequiredFields, getLocationTypeLabel } from "@/lib/tripHelpers";
-import { Trash2 } from "lucide-react";
+import { getLocationRequiredFields, getLocationTypeLabel, calculateReverseScheduleTime } from "@/lib/tripHelpers";
+import { Trash2, Clock } from "lucide-react";
 
 interface StopEditorProps {
   stop: Stop;
@@ -62,6 +62,18 @@ export const StopEditor: React.FC<StopEditorProps> = ({ stop, index, onUpdate, o
       <FormField label="Planned Time (optional)">
         <Input type="datetime-local" value={stop.plannedTime || ""} onChange={(e) => onUpdate(index, { plannedTime: e.target.value || undefined })} />
       </FormField>
+
+      {/* Reverse Schedule Suggestion */}
+      {stop.plannedTime && stop.type === "DROP" && (
+        <div className="flex items-center gap-2 p-2 bg-brand-blue/5 border border-brand-blue/20 rounded text-xs">
+          <Clock className="w-3.5 h-3.5 text-brand-blue shrink-0" />
+          <span className="text-text-secondary">
+            If arrival by <strong>{new Date(stop.plannedTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</strong>,
+            dispatch by <strong>{new Date(calculateReverseScheduleTime(stop.plannedTime, 20, 60)).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</strong>
+            (20 min travel + 60 min buffer)
+          </span>
+        </div>
+      )}
 
       {/* Conditional Fields */}
       {requiredFields.flightNumberRequired && (

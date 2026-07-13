@@ -8,16 +8,21 @@ function generateId(): string {
 
 interface VehicleTypeStore {
   vehicleTypes: VehicleTypeConfig[];
+  setVehicleTypes: (vehicleTypes: VehicleTypeConfig[]) => void;
   addVehicleType: (vt: Omit<VehicleTypeConfig, 'id'>) => void;
   updateVehicleType: (id: ID, updates: Partial<VehicleTypeConfig>) => void;
   toggleVehicleType: (id: ID) => void;
   getVehicleTypesByTenant: (tenantId: ID) => VehicleTypeConfig[];
+  deduplicateVehicleTypes: () => void;
 }
 
 export const useVehicleTypeStore = create<VehicleTypeStore>()(
   persist(
     (set, get) => ({
       vehicleTypes: [],
+      setVehicleTypes: (vehicleTypes) => {
+        set({ vehicleTypes });
+      },
       addVehicleType: (vt) => {
         set((state) => ({
           vehicleTypes: [...state.vehicleTypes, { ...vt, id: generateId() }],
@@ -35,6 +40,19 @@ export const useVehicleTypeStore = create<VehicleTypeStore>()(
       },
       getVehicleTypesByTenant: (tenantId) => {
         return get().vehicleTypes.filter((v) => v.tenantId === tenantId);
+      },
+
+      deduplicateVehicleTypes: () => {
+        set((state) => {
+          const seen = new Map<string, VehicleTypeConfig>();
+          for (const vt of state.vehicleTypes) {
+            const key = vt.name.toLowerCase().trim();
+            if (!seen.has(key)) {
+              seen.set(key, vt);
+            }
+          }
+          return { vehicleTypes: Array.from(seen.values()) };
+        });
       },
     }),
     {

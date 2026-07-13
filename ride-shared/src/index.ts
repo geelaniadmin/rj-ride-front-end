@@ -15,6 +15,15 @@ export type { SafetyAlert, SafetyAlertType, SafetyAlertStatus, SafetyTimeline } 
 export { useSessionStore } from './stores/sessionStore';
 export { useCustomerStore } from './stores/customerStore';
 export { useTenantStore } from './stores/tenantStore';
+export { useTraccarStore } from './stores/traccarStore';
+
+// Traccar service & types
+export { traccarService } from './services/traccarService';
+export type { TraccarPosition, TraccarDevice } from './services/traccarService';
+
+// Encryption utilities
+export { encrypt, decrypt, clearKey } from './crypto';
+export { encryptedStorage } from './encryptedStorage';
 
 // Helpers
 export { id } from './helpers';

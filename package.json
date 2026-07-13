@@ -1,0 +1,13 @@
+{
+  "name": "Ride_polish",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node dev.js",
+    "dev:prd": "cd ride_prd && npm run dev",
+    "dev:vendor": "cd ride-vendor-portal && npm run dev",
+    "dev:ops": "cd ride-ops-portal && npm run dev",
+    "build": "cd ride_prd && npm run build && cd ../ride-vendor-portal && npm run build && cd ../ride-ops-portal && npm run build"
+  },
+  "description": "RIDE — 3-portal unified dev server"
+}

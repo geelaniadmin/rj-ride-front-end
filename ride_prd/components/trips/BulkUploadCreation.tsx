@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
+import { TripMetadata } from "@/components/trips/TripMetadata";
 import { Upload } from "lucide-react";
 
 interface BulkUploadCreationProps {
@@ -31,6 +32,12 @@ export const BulkUploadCreation: React.FC<BulkUploadCreationProps> = ({ onCreate
 
   const [parsedRows, setParsedRows] = useState<ParsedBulkRow[]>([]);
   const [isCommitting, setIsCommitting] = useState(false);
+  const [metadata, setMetadata] = useState<{ coordinator: { name?: string; phone?: string }; viewers: string[]; costCenter: string; pos: string }>({
+    coordinator: {},
+    viewers: [],
+    costCenter: "",
+    pos: "",
+  });
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -138,6 +145,10 @@ export const BulkUploadCreation: React.FC<BulkUploadCreationProps> = ({ onCreate
             status: "DRAFT",
             autoAssign: false,
             reference: row.reference,
+            coordinator: (metadata.coordinator.name || metadata.coordinator.phone) ? metadata.coordinator : undefined,
+            viewers: metadata.viewers.length > 0 ? metadata.viewers : undefined,
+            costCenter: metadata.costCenter || undefined,
+            pos: metadata.pos || undefined,
           });
 
           createdCount++;
@@ -246,6 +257,17 @@ export const BulkUploadCreation: React.FC<BulkUploadCreationProps> = ({ onCreate
             )}
           </div>
         </Card>
+      )}
+
+      {/* Trip Metadata — applies to all created trips */}
+      {validRows.length > 0 && (
+        <TripMetadata
+          coordinator={metadata.coordinator}
+          viewers={metadata.viewers}
+          costCenter={metadata.costCenter}
+          pos={metadata.pos}
+          onUpdate={(updates) => setMetadata((prev) => ({ ...prev, ...updates }))}
+        />
       )}
 
       {/* Actions */}

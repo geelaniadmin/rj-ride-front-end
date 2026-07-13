@@ -220,11 +220,13 @@ export interface PayoutEntry {
 export interface VendorAlert {
   id: string;
   vendorId: string;
-  severity: 'HIGH' | 'MEDIUM' | 'LOW';
-  type: 'DOC_EXPIRY' | 'VEHICLE_BREAKDOWN' | 'DRIVER_OFFLINE' | 'TRIP_ISSUE';
+  severity: 'HIGH' | 'MEDIUM' | 'LOW' | 'critical';
+  type: 'DOC_EXPIRY' | 'VEHICLE_BREAKDOWN' | 'DRIVER_OFFLINE' | 'TRIP_ISSUE' | 'SOS_RAISED' | 'OTP_BLOCKED';
   message: string;
   entityId?: string;
   entityType?: 'driver' | 'vehicle';
+  tenantId?: string;
+  tripId?: string;
   daysRemaining?: number;
   read: boolean;
   createdAt: string;
@@ -233,7 +235,7 @@ export interface VendorAlert {
 export interface Notification {
   id: string;
   vendorId: string;
-  type: 'TRIP_ASSIGNED' | 'TRIP_ACCEPTED' | 'TRIP_COMPLETED' | 'VEHICLE_BREAKDOWN' | 'DOC_EXPIRY' | 'DRIVER_OFFLINE' | 'FAILOVER';
+  type: 'TRIP_ASSIGNED' | 'TRIP_ACCEPTED' | 'TRIP_COMPLETED' | 'VEHICLE_BREAKDOWN' | 'DOC_EXPIRY' | 'DRIVER_OFFLINE' | 'FAILOVER' | 'DRIVER_ARRIVED';
   title: string;
   message: string;
   tripId?: string;

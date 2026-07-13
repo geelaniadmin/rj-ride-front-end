@@ -17,7 +17,9 @@ import { Badge } from "@/components/ui/Badge";
 import { TripMapView } from "@/components/trips/TripMapView";
 import { VehicleStatus } from "@/lib/types";
 import { getTraccarSimulator, getETA } from "@/lib/mock/traccar";
-import { Users, Navigation, AlertCircle, Phone, MapPin, Lock, AlertTriangle, MapIcon } from "lucide-react";
+import { startAnomalyDetectionLoop } from "@/lib/anomalyDetector";
+import { useAnomalyStore } from "@/stores/anomalyStore";
+import { Users, Navigation, AlertCircle, Phone, MapPin, Lock, AlertTriangle, MapIcon, Shield } from "lucide-react";
 
 const DEMO_DRIVER_ID = "D1";
 
@@ -36,6 +38,19 @@ export default function TrackingPage() {
   const customers = useMemo(() => allCustomers.filter((c) => c.tenantId === activeTenantId), [allCustomers, activeTenantId]);
   const updateTrip = useTripStore((s) => s.updateTrip);
   const addToast = useToastStore((s) => s.addToast);
+
+  // ── Anomaly Detection ──
+  const anomalyEvents = useAnomalyStore((s) => s.events);
+  const config = useAnomalyStore((s) => s.config);
+  const updateConfig = useAnomalyStore((s) => s.updateConfig);
+  const resolveEvent = useAnomalyStore((s) => s.resolveEvent);
+  const activeAnomalies = useMemo(() => anomalyEvents.filter((e) => !e.resolved), [anomalyEvents]);
+
+  // Start anomaly detection loop
+  useEffect(() => {
+    const cleanup = startAnomalyDetectionLoop(activeTenantId);
+    return cleanup;
+  }, [activeTenantId]);
 
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [showDriverApp, setShowDriverApp] = useState(false);
@@ -217,6 +232,118 @@ export default function TrackingPage() {
         </div>
       </div>
 
+      {/* ── Anomaly Detection Panel ── */}
+      <div className="bg-gradient-to-r from-amber-500/5 to-red-500/5 border border-amber-200/30 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-amber-500" />
+            <h3 className="text-sm font-semibold text-text-primary">Anomaly Detection</h3>
+            <Badge variant={config.enabled ? "green" : "amber"} className="text-[9px]">
+              {config.enabled ? "Active" : "Paused"}
+            </Badge>
+            {activeAnomalies.length > 0 && (
+              <Badge variant="red" className="text-[9px]">
+                {activeAnomalies.length} active
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => updateConfig({ enabled: !config.enabled })}
+              className={`text-[11px] px-2 py-1 rounded-lg border transition-colors ${
+                config.enabled
+                  ? "border-amber-200 text-amber-600 hover:bg-amber-50"
+                  : "border-green-200 text-green-600 hover:bg-green-50"
+              }`}
+            >
+              {config.enabled ? "Pause" : "Resume"}
+            </button>
+          </div>
+        </div>
+
+        {/* Config sliders (compact) */}
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          <div>
+            <p className="text-[10px] text-text-secondary mb-1">Deviation: {config.deviationThresholdKm}km</p>
+            <input
+              type="range"
+              min={0.5}
+              max={10}
+              step={0.5}
+              value={config.deviationThresholdKm}
+              onChange={(e) => updateConfig({ deviationThresholdKm: parseFloat(e.target.value) })}
+              className="w-full h-1.5 rounded-full appearance-none bg-border cursor-pointer"
+            />
+          </div>
+          <div>
+            <p className="text-[10px] text-text-secondary mb-1">Stop: {config.prolongedStopMinutes}m</p>
+            <input
+              type="range"
+              min={2}
+              max={30}
+              step={1}
+              value={config.prolongedStopMinutes}
+              onChange={(e) => updateConfig({ prolongedStopMinutes: parseInt(e.target.value) })}
+              className="w-full h-1.5 rounded-full appearance-none bg-border cursor-pointer"
+            />
+          </div>
+          <div>
+            <p className="text-[10px] text-text-secondary mb-1">No-show: {config.noShowMinutes}m</p>
+            <input
+              type="range"
+              min={5}
+              max={60}
+              step={5}
+              value={config.noShowMinutes}
+              onChange={(e) => updateConfig({ noShowMinutes: parseInt(e.target.value) })}
+              className="w-full h-1.5 rounded-full appearance-none bg-border cursor-pointer"
+            />
+          </div>
+        </div>
+
+        {/* Active anomalies */}
+        {activeAnomalies.length > 0 && (
+          <div className="space-y-1.5 mt-2 pt-2 border-t border-border">
+            <p className="text-[10px] font-medium text-text-secondary uppercase tracking-wider">Active Anomalies</p>
+            {activeAnomalies.slice(0, 5).map((event) => (
+              <div
+                key={event.id}
+                className={`flex items-start justify-between gap-2 px-2.5 py-1.5 rounded-lg text-[11px] ${
+                  event.severity === "CRITICAL" || event.severity === "HIGH"
+                    ? "bg-danger/5 border border-danger/20"
+                    : "bg-amber-50 border border-amber-200"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <AlertTriangle className={`w-3 h-3 shrink-0 ${
+                    event.severity === "CRITICAL" || event.severity === "HIGH"
+                      ? "text-danger" : "text-amber-500"
+                  }`} />
+                  <span className="text-text-primary">{event.message}</span>
+                </div>
+                <button
+                  onClick={() => resolveEvent(event.id)}
+                  className="shrink-0 text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {activeAnomalies.length > 5 && (
+              <p className="text-[10px] text-text-secondary text-center">
+                +{activeAnomalies.length - 5} more anomalies
+              </p>
+            )}
+          </div>
+        )}
+
+        {activeAnomalies.length === 0 && config.enabled && (
+          <p className="text-[11px] text-text-secondary/60 text-center py-1">
+            ✓ All vehicles on track — no anomalies detected
+          </p>
+        )}
+      </div>
+
       {/* View Mode Toggle */}
       <div className="flex gap-2">
         <Button
@@ -263,24 +390,27 @@ export default function TrackingPage() {
             <p className="text-xs text-text-secondary mb-3">Click a vehicle to see its trip details</p>
             <div className="space-y-2">
               {activeTrips.map((item) => (
-                <button
+                <div
                   key={`${item.tripId}-${item.vehicleIndex}`}
                   onClick={() => setSelectedTripId(item.tripId)}
-                  className="w-full text-left p-3 rounded-lg border border-border hover:border-brand-blue hover:bg-brand-blue/5 transition-colors"
+                  onKeyDown={(e) => e.key === 'Enter' && setSelectedTripId(item.tripId)}
+                  role="button"
+                  tabIndex={0}
+                  className="w-full text-left p-3 rounded-lg border border-border hover:border-brand-blue hover:bg-brand-blue/5 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-text-primary">
+                      <div className="text-sm font-medium text-text-primary">
                         {item.fleetVehicle ? `${item.fleetVehicle.make} ${item.fleetVehicle.model}` : "Unassigned"} — {item.customer?.name}
-                      </p>
-                      <p className="text-xs text-text-secondary mt-1">Driver: {item.driver ? <PII value={item.driver.name} type="name" /> : "Unassigned"}</p>
+                      </div>
+                      <div className="text-xs text-text-secondary mt-1">Driver: {item.driver ? <PII value={item.driver.name} type="name" /> : "Unassigned"}</div>
                     </div>
                     <div className="text-right">
                       <StatusBadge status={item.vehicle.status} />
-                      {item.eta && <p className="text-xs text-brand-blue mt-1">ETA: {item.eta}m</p>}
+                      {item.eta && <div className="text-xs text-brand-blue mt-1">ETA: {item.eta}m</div>}
                     </div>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </Card>
@@ -420,8 +550,8 @@ export default function TrackingPage() {
                             <p className="text-text-primary">{fleetVehicle ? `${fleetVehicle.make} ${fleetVehicle.model}` : "Unassigned"}</p>
                           </div>
                           <div>
-                            <p className="text-text-secondary">Driver</p>
-                            <p className="text-text-primary">{driver ? <PII value={driver.name} type="name" /> : "Unassigned"}</p>
+                            <div className="text-text-secondary">Driver</div>
+                            <div className="text-text-primary">{driver ? <PII value={driver.name} type="name" /> : "Unassigned"}</div>
                           </div>
                         </div>
                         {eta && (

@@ -2,7 +2,7 @@
 
 import React, { ReactNode } from 'react';
 import Link from 'next/link';
-import { Zap, Layout, AlertCircle, BarChart3, Settings, DollarSign, Users, HeartHandshake, CheckCircle, LayoutList, PlusCircle, History, Calculator, FileText } from 'lucide-react';
+import { Zap, Layout, AlertCircle, BarChart3, Settings, DollarSign, Users, HeartHandshake, CheckCircle, LayoutList, PlusCircle, History, Calculator, FileText, MapPin } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useSafetyAlertStore } from '@ride/shared';
 import { Badge } from '../ui/Badge';
@@ -90,6 +90,7 @@ export function SuperAdminSidebar() {
         <NavLink href="/super-admin/tenants" icon={Users} label="Tenants" />
         <NavLink href="/super-admin/billing" icon={DollarSign} label="Billing" />
         <NavLink href="/super-admin/health" icon={HeartHandshake} label="System Health" />
+        <NavLink href="/super-admin/traccar" icon={MapPin} label="GPS Tracking" />
         <NavLink href="/super-admin/audit" icon={Settings} label="Audit Log" />
       </nav>
     </aside>
@@ -122,6 +123,7 @@ export function getSuperAdminNavItems(): NavItem[] {
     { href: '/super-admin/tenants', icon: Users, label: 'Tenants' },
     { href: '/super-admin/billing', icon: DollarSign, label: 'Billing' },
     { href: '/super-admin/health', icon: HeartHandshake, label: 'System Health' },
+    { href: '/super-admin/traccar', icon: MapPin, label: 'GPS Tracking' },
     { href: '/super-admin/audit', icon: Settings, label: 'Audit Log' },
   ];
 }

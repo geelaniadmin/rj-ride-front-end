@@ -2,9 +2,10 @@ import { useTripStore } from "@/stores/tripStore";
 import { useQuoteStore } from "@/stores/quoteStore";
 import { useVehicleStore } from "@/stores/vehicleStore";
 import { useDriverStore } from "@/stores/driverStore";
+import { useBillingStore } from "@/stores/billingStore";
 import { Offer } from "@/lib/types";
 
-const SEED_PRICES = [45000, 52000, 38000];
+const SEED_PRICES = [45000, 52000, 38000, 27500, 64000];
 
 export function seedTrips() {
   const tripStore = useTripStore.getState();
@@ -14,7 +15,22 @@ export function seedTrips() {
 
   // Only seed if no trips exist for the default tenant
   const existing = tripStore.getTripsByTenant("T1");
-  if (existing.length > 0) return;
+  if (existing.length > 0) {
+    // Ensure Trip 1 has a pax with id "PAX001" for PassengerApp demo
+    const hasPax001 = existing.some((t) => t.vehicles.some((v) => v.pax.some((p) => p.id === "PAX001")));
+    if (!hasPax001) {
+      const trip1 = existing.find((t) => t.vehicles.some((v) => v.driverId === "D1"));
+      if (trip1) {
+        const updated = trip1.vehicles.map((v) =>
+          v.driverId === "D1" && v.pax.length > 0
+            ? { ...v, pax: v.pax.map((p) => ({ ...p, id: "PAX001" })) }
+            : v
+        );
+        tripStore.updateTrip(trip1.id, { vehicles: updated });
+      }
+    }
+    return;
+  }
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -82,7 +98,7 @@ export function seedTrips() {
         status: "ASSIGNED",
         pax: [
           {
-            id: "SEED-P1",
+            id: "PAX001", // Matches DEMO_PAX_ID in PassengerApp
             name: "Priya Sharma",
             phone: "+919123456789",
             email: "priya@indigo.local",
@@ -205,4 +221,154 @@ export function seedTrips() {
     reference: "RIDE-SEED-003",
     costCenter: "TECH-BNG-001",
   });
+
+  // ── Trip 4: IndiGo → KIA to Hilton BLR (COMPLETED — billing auto-created) ──
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 2);
+  yesterday.setHours(10, 0, 0, 0);
+  const yesterdayISO = yesterday.toISOString();
+
+  const priceId4 = createOffer(SEED_PRICES[3]!, "T1", "C1", "VT1");
+  const trip4Id = tripStore.addTrip({
+    tenantId: "T1",
+    customerId: "C1",
+    createdVia: "API_PAX",
+    stops: [
+      {
+        seq: 0,
+        type: "PICKUP",
+        locationType: "AIRPORT",
+        address: "Kempegowda International Airport, Bengaluru",
+        lat: 13.1979,
+        lng: 77.7063,
+        plannedTime: yesterdayISO,
+        flightNumber: "6E-456",
+      },
+      {
+        seq: 1,
+        type: "DROP",
+        locationType: "HOTEL",
+        address: "Hilton Bengaluru, Embassy Golf Links",
+        lat: 12.9344,
+        lng: 77.6106,
+      },
+    ],
+    vehicles: [
+      {
+        id: "SEED-V4",
+        requestedVehicleTypeId: "VT1",
+        priceId: priceId4,
+        lockedPrice: SEED_PRICES[3],
+        lockedRateCardVersion: 1,
+        vehicleId: "VH1",
+        driverId: "D1",
+        status: "COMPLETED",
+        pax: [
+          { id: "SEED-P4", name: "Ravi Desai", phone: "+919876543210", pnr: "6E-BLR-004" },
+        ],
+        otp: { pickup: "4821", drop: "4821", pickupVerified: true, dropVerified: true },
+      },
+    ],
+    schedule: { type: "ONE_OFF", when: yesterdayISO },
+    status: "COMPLETED",
+    autoAssign: true,
+    reference: "RIDE-SEED-004",
+    costCenter: "AIR-HUB-001",
+  });
+
+  // ── Trip 5: Acme Logistics → BLR to Whitefield (COMPLETED — billing auto-created, multi-currency demo) ──
+  const priceId5 = createOffer(SEED_PRICES[4]!, "T1", "C2", "VT2");
+  const trip5Id = tripStore.addTrip({
+    tenantId: "T1",
+    customerId: "C2",
+    createdVia: "API_VEHICLE_COUNT",
+    stops: [
+      {
+        seq: 0,
+        type: "PICKUP",
+        locationType: "ADDRESS",
+        address: "Manyata Tech Park, Nagawara, Bengaluru",
+        lat: 13.0327,
+        lng: 77.6255,
+        plannedTime: yesterdayISO,
+      },
+      {
+        seq: 1,
+        type: "DROP",
+        locationType: "ADDRESS",
+        address: "Whitefield Main Road, Bengaluru",
+        lat: 12.9698,
+        lng: 77.7499,
+      },
+    ],
+    vehicles: [
+      {
+        id: "SEED-V5",
+        requestedVehicleTypeId: "VT2",
+        priceId: priceId5,
+        lockedPrice: SEED_PRICES[4],
+        lockedRateCardVersion: 1,
+        vehicleId: "VH2",
+        driverId: "D2",
+        status: "COMPLETED",
+        pax: [
+          { id: "SEED-P5", name: "Meera Nair", phone: "+919123450987", employeeId: "EMP-ACM-002" },
+        ],
+        otp: { pickup: "1234", drop: "5678", pickupVerified: true, dropVerified: true },
+      },
+    ],
+    schedule: { type: "ONE_OFF", when: yesterdayISO },
+    status: "COMPLETED",
+    autoAssign: true,
+    reference: "RIDE-SEED-005",
+    costCenter: "LOG-KA-002",
+  });
+
+  // Auto-create billing for completed trips after seeding
+  // The advanceVehicleStatus doesn't auto-fire on seed, so we create billing directly
+  const billingStore = useBillingStore.getState();
+
+  for (const [tripIdx, tripId] of [trip4Id, trip5Id].entries()) {
+    const trip = tripStore.getTripById(tripId);
+    if (!trip) continue;
+
+    const subtotal = trip.vehicles.reduce((sum, v) => sum + (v.lockedPrice || 0), 0);
+    const config = billingStore.getOperatorFeeConfig(trip.tenantId);
+    let operatorFee = 0;
+    if (config.type === "FLAT") {
+      operatorFee = config.amount || 0;
+    } else if (config.type === "PERCENT") {
+      operatorFee = (subtotal * (config.amount || 0)) / 100;
+    } else if (config.type === "TIERED") {
+      const tier = config.tiers?.find((t) => subtotal >= t.minAmount && (!t.maxAmount || subtotal < t.maxAmount));
+      operatorFee = tier ? (subtotal * tier.feePercent) / 100 : 0;
+    }
+
+    const billingLines = trip.vehicles.map((v) =>
+      billingStore.addBillingLine({
+        tripId: trip.id,
+        vehicleId: v.id,
+        priceId: v.priceId || "",
+        lockedPrice: v.lockedPrice || 0,
+        lockedRateCardVersion: v.lockedRateCardVersion || 1,
+        customerId: trip.customerId,
+        currency: "INR",
+        status: "UNBILLED",
+      })
+    );
+
+    billingStore.createBillableTrip({
+      tenantId: trip.tenantId,
+      tripId: trip.id,
+      customerId: trip.customerId,
+      lines: billingLines,
+      subtotal,
+      operatorFee,
+      total: subtotal + operatorFee,
+      currency: "INR",
+      status: "UNBILLED",
+    });
+
+    tripStore.updateTrip(tripId, { status: "BILLED" });
+  }
 }

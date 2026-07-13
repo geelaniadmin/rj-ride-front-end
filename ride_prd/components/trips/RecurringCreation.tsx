@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
+import { TripMetadata } from "@/components/trips/TripMetadata";
 
 interface RecurringCreationProps {
   onCreated?: () => void;
@@ -43,6 +44,13 @@ export const RecurringCreation: React.FC<RecurringCreationProps> = ({ onCreated 
   const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
   const [scheduleTime, setScheduleTime] = useState("08:00");
+
+  const [metadata, setMetadata] = useState<{ coordinator: { name?: string; phone?: string }; viewers: string[]; costCenter: string; pos: string }>({
+    coordinator: {},
+    viewers: [],
+    costCenter: "",
+    pos: "",
+  });
 
   const [isCommitting, setIsCommitting] = useState(false);
 
@@ -127,6 +135,10 @@ export const RecurringCreation: React.FC<RecurringCreationProps> = ({ onCreated 
             schedule: { type: "ONE_OFF", when: `${date}T${scheduleTime}:00Z` },
             status: "DRAFT",
             autoAssign: false,
+            coordinator: (metadata.coordinator.name || metadata.coordinator.phone) ? metadata.coordinator : undefined,
+            viewers: metadata.viewers.length > 0 ? metadata.viewers : undefined,
+            costCenter: metadata.costCenter || undefined,
+            pos: metadata.pos || undefined,
           });
 
           createdCount++;
@@ -252,6 +264,15 @@ export const RecurringCreation: React.FC<RecurringCreationProps> = ({ onCreated 
       </Card>
 
       {/* Preview */}
+      {/* Trip Metadata — applies to all created trips */}
+      <TripMetadata
+        coordinator={metadata.coordinator}
+        viewers={metadata.viewers}
+        costCenter={metadata.costCenter}
+        pos={metadata.pos}
+        onUpdate={(updates) => setMetadata((prev) => ({ ...prev, ...updates }))}
+      />
+
       <Card padding="lg" header={<h3 className="font-semibold">Preview ({dates.length} trips)</h3>}>
         <div className="space-y-2 max-h-40 overflow-y-auto">
           {dates.length === 0 ? (

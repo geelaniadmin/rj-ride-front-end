@@ -14,7 +14,10 @@ import { PII } from "@/components/ui/PII";
 import { Modal } from "@/components/ui/Modal";
 import { TripStatus, VehicleStatus } from "@/lib/types";
 import { getNextValidTransitions, getStatusDescription } from "@/lib/lifecycle";
-import { MapPin, AlertCircle, ChevronRight, Lock, X, AlertTriangle } from "lucide-react";
+import { executeAutoDispatch, AutoAssignResult } from "@/lib/dispatchEngine";
+import { DispatchRulesPanel } from "@/components/dispatch/DispatchRulesPanel";
+import { useDispatchStore } from "@/stores/dispatchStore";
+import { MapPin, AlertCircle, ChevronRight, Lock, X, AlertTriangle, Zap, CheckCircle2 } from "lucide-react";
 
 const DISPATCH_STATUSES: VehicleStatus[] = ["ASSIGNED", "DRIVER_ACCEPTED", "EN_ROUTE_PICKUP", "AT_PICKUP", "PAX_PICKED", "IN_TRANSIT", "AT_DROP", "PAX_DROPPED"];
 
@@ -32,6 +35,10 @@ export default function DispatchPage() {
   const allDrivers = useDriverStore((s) => s.drivers) || [];
   const drivers = useMemo(() => allDrivers.filter((d) => d.tenantId === activeTenantId), [allDrivers, activeTenantId]);
   const addToast = useToastStore((s) => s.addToast);
+
+  // Auto-dispatch state
+  const [showAutoAssignResult, setShowAutoAssignResult] = useState<AutoAssignResult | null>(null);
+  const [isAutoAssigning, setIsAutoAssigning] = useState(false);
 
   const [filterStatus, setFilterStatus] = useState<VehicleStatus | "ALL">("ALL");
   const [actionModal, setActionModal] = useState<{ tripId: string; vehicleIndex: number; nextStatus: VehicleStatus } | null>(null);
@@ -159,6 +166,77 @@ export default function DispatchPage() {
       <div>
         <h1 className="text-3xl font-bold text-text-primary">Dispatch Dashboard</h1>
         <p className="text-sm text-text-secondary mt-1">Real-time trip tracking and vehicle management with lifecycle validation</p>
+      </div>
+
+      {/* ── Auto-Dispatch Panel ── */}
+      <DispatchRulesPanel />
+
+      {/* ── Auto-Assign Controls ── */}
+      <div className="bg-gradient-to-r from-brand-blue/5 to-indigo-500/5 border border-brand-blue/20 rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
+              <Zap className="w-4 h-4 text-brand-blue" /> Auto-Dispatch Engine
+            </h3>
+            <p className="text-[11px] text-text-secondary mt-0.5">
+              Scans all pending vehicle slots and auto-assigns available vehicles + drivers across own fleet and sub-vendors.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={async () => {
+                setIsAutoAssigning(true);
+                // Small delay for visual feedback
+                await new Promise((r) => setTimeout(r, 300));
+                const result = executeAutoDispatch(activeTenantId);
+                setShowAutoAssignResult(result);
+                setIsAutoAssigning(false);
+                addToast(result.summary, result.success ? "success" : "info");
+              }}
+              variant="primary"
+              disabled={isAutoAssigning}
+              className="flex items-center gap-2"
+            >
+              <Zap className="w-4 h-4" />
+              {isAutoAssigning ? "Dispatching..." : "Run Auto-Dispatch"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Auto-Assign Result */}
+        {showAutoAssignResult && (
+          <div className="mt-3 pt-3 border-t border-brand-blue/10 space-y-2">
+            <p className="text-xs font-medium text-text-primary">
+              {showAutoAssignResult.assignments.length > 0
+                ? `✅ ${showAutoAssignResult.assignments.length} vehicle(s) assigned`
+                : "ℹ️ No vehicles were auto-assigned"}
+            </p>
+            {showAutoAssignResult.assignments.length > 0 && (
+              <div className="space-y-1.5">
+                {showAutoAssignResult.assignments.map((a, i) => (
+                  <div key={i} className="flex items-center gap-2 text-[11px] bg-success/5 border border-success/20 rounded-lg px-3 py-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
+                    <span className="text-text-primary">
+                      {a.vehicleName} → driver <strong>{a.driverName}</strong>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {showAutoAssignResult.failed.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[11px] text-danger font-medium">
+                  ❌ {showAutoAssignResult.failed.length} failed
+                </p>
+                {showAutoAssignResult.failed.map((f, i) => (
+                  <p key={i} className="text-[10px] text-danger/70 ml-1">
+                    {f.reason}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}
