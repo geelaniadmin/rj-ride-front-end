@@ -5,7 +5,7 @@ import { useDriverStore } from "@/stores/driverStore";
 import { useBillingStore } from "@/stores/billingStore";
 import { Offer } from "@/lib/types";
 
-const SEED_PRICES = [45000, 52000, 38000, 27500, 64000];
+const SEED_PRICES = [2800, 3500, 2200, 1800, 4200]; // INR: Sedan, SUV, Sedan, Sedan, SUV
 
 export function seedTrips() {
   const tripStore = useTripStore.getState();
