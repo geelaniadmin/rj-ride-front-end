@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useLanguageStore, t } from "@ride/shared";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -13,9 +14,10 @@ import { ApiVehicleCountCreation } from "@/components/trips/ApiVehicleCountCreat
 import { RecurringCreation } from "@/components/trips/RecurringCreation";
 import { CloneCreation } from "@/components/trips/CloneCreation";
 
-const TABS = [{ id: "list", label: "Trip Requests" }];
+const TABS = [{ id: "list", labelKey: "tripRequests" as const }];
 
 export default function TripsPage() {
+  const language = useLanguageStore((s) => s.language);
   const [activeTab, setActiveTab] = useState("list");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creationMethod, setCreationMethod] = useState<"MANUAL" | "BULK_UPLOAD" | "API_PAX" | "API_VEHICLE_COUNT" | "RECURRING" | "CLONE" | null>(null);
@@ -29,46 +31,45 @@ export default function TripsPage() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-text-primary">Trip Requests</h1>
-          <p className="text-sm text-text-secondary mt-1">Manage convoy-based transport requests with price-locked booking</p>
+          <h1 className="text-3xl font-bold text-text-primary">{t("tripRequests", language)}</h1>
+          <p className="text-sm text-text-secondary mt-1">{t("manageConvoyBasedRequests", language)}</p>
         </div>
         <Button onClick={() => setShowCreateModal(true)} variant="primary">
-          New Trip Request
+          {t("newTripRequest", language)}
         </Button>
       </div>
 
       <Card padding="md" className="bg-brand-blue/5 border-brand-blue/20">
         <p className="text-xs text-text-tertiary">
-          <span className="font-semibold text-brand-blue">Convoy Model:</span> All vehicles share the same stop sequence. Each vehicle is independently quoted and
-          booked against a frozen `priceId`. Confirm is blocked until every vehicle has a valid, unexpired offer.
+          <span className="font-semibold text-brand-blue">{t("convoyModel", language)}:</span> {t("convoyModelDescription", language)}
         </p>
       </Card>
 
-      <Tabs tabs={TABS} activeTab={activeTab} onChange={setActiveTab}>
+      <Tabs tabs={TABS.map((tab) => ({ id: tab.id, label: t(tab.labelKey, language) }))} activeTab={activeTab} onChange={setActiveTab}>
         {activeTab === "list" && <TripsListTab />}
       </Tabs>
 
-      <Drawer open={showCreateModal} onClose={() => setShowCreateModal(false)} title="Create Trip Request" width="2xl">
+      <Drawer open={showCreateModal} onClose={() => setShowCreateModal(false)} title={t("createTripRequest", language)} width="2xl">
         {!creationMethod ? (
           <div className="flex flex-col justify-center h-full space-y-4 px-2">
-            <p className="text-sm text-text-secondary text-center mb-2">Choose how to create this trip:</p>
+            <p className="text-sm text-text-secondary text-center mb-2">{t("chooseCreationMethod", language)}:</p>
             <Button onClick={() => setCreationMethod("MANUAL")} variant="primary" className="w-full justify-start py-3">
-              Manual Entry
+              {t("manualEntry", language)}
             </Button>
             <Button onClick={() => setCreationMethod("BULK_UPLOAD")} variant="secondary" className="w-full justify-start py-3">
-              Bulk Upload (CSV)
+              {t("bulkUploadCSV", language)}
             </Button>
             <Button onClick={() => setCreationMethod("API_PAX")} variant="secondary" className="w-full justify-start py-3">
-              API — Pax-based (RISMA/ROMA)
+              {t("apiPaxBased", language)}
             </Button>
             <Button onClick={() => setCreationMethod("API_VEHICLE_COUNT")} variant="secondary" className="w-full justify-start py-3">
-              API — Vehicle Count
+              {t("apiVehicleCount", language)}
             </Button>
             <Button onClick={() => setCreationMethod("RECURRING")} variant="secondary" className="w-full justify-start py-3">
-              Recurring Generator
+              {t("recurringGenerator", language)}
             </Button>
             <Button onClick={() => setCreationMethod("CLONE")} variant="secondary" className="w-full justify-start py-3">
-              Clone Existing Trip
+              {t("cloneExistingTrip", language)}
             </Button>
           </div>
         ) : (
@@ -77,7 +78,7 @@ export default function TripsPage() {
               onClick={() => setCreationMethod(null)}
               className="text-sm text-brand-blue hover:text-brand-blue/80 mb-4 self-start"
             >
-              ← Back to methods
+              ← {t("backToMethods", language)}
             </button>
             <div className="flex-1 overflow-y-auto -mx-4 px-4">
               {creationMethod === "MANUAL" && <ManualTripCreation onCreated={handleTripCreated} />}

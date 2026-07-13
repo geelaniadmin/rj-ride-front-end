@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import { Bell, ChevronDown, Menu } from "lucide-react";
-import { useSessionStore, useAlertStore, useVendorInfoStore } from "@ride/shared";
+import { useSessionStore, useAlertStore, useVendorInfoStore, useLanguageStore } from "@ride/shared";
 import { NotificationDrawer } from "@/components/notifications/NotificationDrawer";
+import { LanguageToggle } from "@/components/ui/LanguageToggle";
 
 interface HeaderProps {
   title: string;
@@ -54,6 +55,8 @@ export const Header: React.FC<HeaderProps> = ({ title, onToggleMobile }) => {
       </div>
 
       <div className="flex items-center gap-3 lg:gap-4">
+        <LanguageToggle />
+
         {/* Bell */}
         <button
           onClick={() => setShowNotifications(true)}

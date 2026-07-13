@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useTripStore } from '@ride/shared';
+import { useTripStore, useLanguageStore, t } from '@ride/shared';
 import { useSafetyAlertStore } from '@ride/shared';
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/ui/KpiCard';
@@ -10,6 +10,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 import { Activity, AlertCircle, CheckCircle, TrendingDown } from 'lucide-react';
 
 export default function HealthPage() {
+  const language = useLanguageStore((s) => s.language);
   const trips = useTripStore((s) => s.trips);
   const safetyAlerts = useSafetyAlertStore((s) => s.safetyAlerts);
 
@@ -45,58 +46,58 @@ export default function HealthPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-[#1B2A4A]">System Health</h1>
-        <p className="text-sm text-[#8B8FA8] mt-1">Uptime, performance, and SLA metrics</p>
+        <h1 className="text-3xl font-bold text-[#1B2A4A]">{t('systemHealth', language)}</h1>
+        <p className="text-sm text-[#8B8FA8] mt-1">{t('systemHealthDesc', language)}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard label="Completion rate" value={`${health.completionRate}%`} icon={<CheckCircle />} trend={{ direction: 'up', value: '+2% from last week' }} />
-        <KpiCard label="On-time rate" value={`${health.onTimeRate}%`} icon={<Activity />} />
-        <KpiCard label="Avg resolution time" value={`${health.avgResolutionTime} min`} icon={<TrendingDown />} />
-        <KpiCard label="Active SOS alerts" value={health.sosAlerts} icon={<AlertCircle />} trend={health.sosAlerts > 0 ? { direction: 'down', value: 'Attention needed' } : undefined} />
+        <KpiCard label={t('completionRate', language)} value={`${health.completionRate}%`} icon={<CheckCircle />} trend={{ direction: 'up', value: '+2% from last week' }} />
+        <KpiCard label={t('onTimeRate', language)} value={`${health.onTimeRate}%`} icon={<Activity />} />
+        <KpiCard label={t('avgResolutionTime', language)} value={`${health.avgResolutionTime} min`} icon={<TrendingDown />} />
+        <KpiCard label={t('activeSOSAlerts', language)} value={health.sosAlerts} icon={<AlertCircle />} trend={health.sosAlerts > 0 ? { direction: 'down', value: 'Attention needed' } : undefined} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card header="Trip status breakdown">
+        <Card header={t('tripStatusBreakdown', language)}>
           <div className="space-y-3">
             <div className="flex justify-between items-center p-3 bg-green-50 rounded">
-              <span className="font-medium">Completed</span>
+              <span className="font-medium">{t('statusCompleted', language)}</span>
               <span className="font-bold text-green-600">{health.completed}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-blue-50 rounded">
-              <span className="font-medium">In Progress</span>
+              <span className="font-medium">{t('inProgress', language)}</span>
               <span className="font-bold text-blue-600">{health.inProgress}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-orange-50 rounded">
-              <span className="font-medium">Cancelled</span>
+              <span className="font-medium">{t('statusCancelled', language)}</span>
               <span className="font-bold text-orange-600">{health.cancelled}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-              <span className="font-medium">Total</span>
+              <span className="font-medium">{t('total', language)}</span>
               <span className="font-bold">{health.total}</span>
             </div>
           </div>
         </Card>
 
-        <Card header="Safety metrics">
+        <Card header={t('safetyMetrics', language)}>
           <div className="space-y-3">
             <div className="flex justify-between items-center p-3 bg-red-50 rounded">
-              <span className="font-medium">Active SOS</span>
+              <span className="font-medium">{t('activeSOS', language)}</span>
               <Badge variant={health.sosAlerts > 0 ? 'red' : 'green'} className="font-bold">{health.sosAlerts}</Badge>
             </div>
             <div className="flex justify-between items-center p-3 bg-yellow-50 rounded">
-              <span className="font-medium">All active alerts</span>
+              <span className="font-medium">{t('allActiveAlerts', language)}</span>
               <Badge variant="default" className="font-bold">{health.activeAlerts}</Badge>
             </div>
             <div className="flex justify-between items-center p-3 bg-green-50 rounded">
-              <span className="font-medium">Status</span>
-              <Badge variant="green">Operational</Badge>
+              <span className="font-medium">{t('status', language)}</span>
+              <Badge variant="green">{t('operational', language)}</Badge>
             </div>
           </div>
         </Card>
       </div>
 
-      <Card header="System uptime (Last 7 days)">
+      <Card header={t('systemUptime', language)}>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={health.dailyMetrics}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -109,7 +110,7 @@ export default function HealthPage() {
         </ResponsiveContainer>
       </Card>
 
-      <Card header="Incidents & errors">
+      <Card header={t('incidentsAndErrors', language)}>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={health.dailyMetrics}>
             <CartesianGrid strokeDasharray="3 3" />

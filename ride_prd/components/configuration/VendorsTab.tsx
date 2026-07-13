@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useLanguageStore, t } from "@ride/shared";
 import { useVendorStore } from "@/stores/vendorStore";
 import { useTenantStore } from "@ride/shared";
 import { useToastStore } from "@/stores/toastStore";
@@ -22,6 +23,7 @@ interface VendorsTabProps {
 }
 
 export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
+  const language = useLanguageStore((s) => s.language);
   const activeTenantId = useTenantStore((s) => s.activeTenantId);
   const allVendors = useVendorStore((s) => s.vendors);
   const vendors = useMemo(() => {
@@ -68,51 +70,51 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
 
   const handleSave = () => {
     if (!formData.name) {
-      addToast("Vendor name is required", "error");
+      addToast(t("vendorNameRequired", language), "error");
       return;
     }
     if (editingVendor?.id) {
       updateVendor(editingVendor.id, formData);
-      addToast("Vendor updated", "success");
+      addToast(t("vendorUpdated", language), "success");
     } else {
       addVendor(formData);
-      addToast("Vendor created", "success");
+      addToast(t("vendorCreated", language), "success");
     }
     setDrawerOpen(false);
   };
 
   const columns: Column[] = [
-    { key: "name", header: "Vendor Name", sortable: true },
-    { key: "type", header: "Type", sortable: true, render: (val): React.ReactNode => <Badge variant={val === "SELF" ? "blue" : "purple"}>{val as string}</Badge> },
-    { key: "contactName", header: "Contact", sortable: true, render: (val): React.ReactNode => val ? <PII value={val as string} type="name" /> : "-" },
-    { key: "phone", header: "Phone", render: (val): React.ReactNode => val ? <PII value={val as string} type="phone" /> : "-" },
-    { key: "active", header: "Status", render: (val): React.ReactNode => <Badge variant={val ? "green" : "red"}>{val ? "Active" : "Inactive"}</Badge> },
+    { key: "name", header: t("vendorName", language), sortable: true },
+    { key: "type", header: t("vendorType", language), sortable: true, render: (val): React.ReactNode => <Badge variant={val === "SELF" ? "blue" : "purple"}>{val as string}</Badge> },
+    { key: "contactName", header: t("contact", language), sortable: true, render: (val): React.ReactNode => val ? <PII value={val as string} type="name" /> : t("dash", language) },
+    { key: "phone", header: t("phone", language), render: (val): React.ReactNode => val ? <PII value={val as string} type="phone" /> : t("dash", language) },
+    { key: "active", header: t("status", language), render: (val): React.ReactNode => <Badge variant={val ? "green" : "red"}>{val ? t("active", language) : t("inactive", language)}</Badge> },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-ops-sidebar">Vendors ({vendors.length})</h3>
+        <h3 className="font-semibold text-ops-sidebar">{t("vendors", language)} ({vendors.length})</h3>
         <Button onClick={openCreate} variant="primary" size="sm">
-          New Vendor
+          {t("newVendor", language)}
         </Button>
       </div>
 
-      <DataTable columns={columns} data={vendors.map(v => ({ ...v })) as Record<string, unknown>[]} pageSize={10} emptyMessage="No vendors" />
+      <DataTable columns={columns} data={vendors.map(v => ({ ...v })) as Record<string, unknown>[]} pageSize={10} emptyMessage={t("noVendors", language)} />
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editingVendor ? "Edit Vendor" : "New Vendor"} width="lg">
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editingVendor ? t("editVendor", language) : t("newVendor", language)} width="lg">
         <div className="space-y-4">
-          <FormField label="Vendor Name" required>
-            <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Vendor name" />
+          <FormField label={t("vendorName", language)} required>
+            <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t("vendorNamePlaceholder", language)} />
           </FormField>
 
-          <FormField label="Type">
+          <FormField label={t("vendorType", language)}>
             <Select
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value as "SELF" | "SUB_VENDOR" })}
               options={[
-                { value: "SELF", label: "Self (Operator)" },
-                { value: "SUB_VENDOR", label: "Sub-Vendor" },
+                { value: "SELF", label: t("selfOperator", language) },
+                { value: "SUB_VENDOR", label: t("subVendor", language) },
               ]}
             />
           </FormField>
@@ -121,11 +123,11 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
             <Input value={formData.gstin || ""} onChange={(e) => setFormData({ ...formData, gstin: e.target.value || undefined })} placeholder="29ABCDE1234F1Z5" />
           </FormField>
 
-          <FormField label="Contact Name">
-            <Input value={formData.contactName || ""} onChange={(e) => setFormData({ ...formData, contactName: e.target.value || undefined })} placeholder="Contact person" />
+          <FormField label={t("contactName", language)}>
+            <Input value={formData.contactName || ""} onChange={(e) => setFormData({ ...formData, contactName: e.target.value || undefined })} placeholder={t("contactPerson", language)} />
           </FormField>
 
-          <FormField label="Phone">
+          <FormField label={t("phone", language)}>
             <Input
               value={formData.phone || ""}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value || undefined })}
@@ -133,7 +135,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
             />
           </FormField>
 
-          <FormField label="Email">
+          <FormField label={t("email", language)}>
             <Input
               type="email"
               value={formData.email || ""}
@@ -144,10 +146,10 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
 
           <div className="flex gap-2 pt-4">
             <Button onClick={handleSave} variant="primary">
-              {editingVendor ? "Update" : "Create"}
+              {editingVendor ? t("update", language) : t("create", language)}
             </Button>
             <Button onClick={() => setDrawerOpen(false)} variant="secondary">
-              Cancel
+              {t("cancel", language)}
             </Button>
           </div>
         </div>
@@ -161,10 +163,10 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
                 <p className="text-sm font-medium text-ops-sidebar">{vendor.name}</p>
                 <div className="flex gap-2">
                   <Button size="sm" variant="ghost" onClick={() => openEdit(vendor)}>
-                    Edit
+                    {t("edit", language)}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => { toggleVendor(vendor.id); addToast(`Vendor ${vendor.active ? "deactivated" : "activated"}`, "success"); }}>
-                    {vendor.active ? "Deactivate" : "Activate"}
+                  <Button size="sm" variant="ghost" onClick={() => { toggleVendor(vendor.id); addToast(t(vendor.active ? "vendorDeactivated" : "vendorActivated", language), "success"); }}>
+                    {vendor.active ? t("deactivate", language) : t("activate", language)}
                   </Button>
                 </div>
               </div>

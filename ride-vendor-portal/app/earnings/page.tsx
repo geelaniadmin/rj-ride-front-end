@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useSessionStore, useEarningsStore, usePayoutStore } from "@ride/shared";
+import { useSessionStore, useEarningsStore, usePayoutStore, useLanguageStore, t } from "@ride/shared";
 import { useVendorTrips } from "@/hooks/useVendorTrips";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -26,18 +26,18 @@ import {
 
 type Period = "today" | "week" | "month" | "lastMonth";
 
-const PERIOD_OPTIONS: { value: Period; label: string }[] = [
-  { value: "today", label: "Today" },
-  { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" },
-  { value: "lastMonth", label: "Last Month" },
-];
+const PERIOD_OPTIONS = [
+  { value: "today" as const, labelKey: "today" as const },
+  { value: "week" as const, labelKey: "thisWeek" as const },
+  { value: "month" as const, labelKey: "thisMonth" as const },
+  { value: "lastMonth" as const, labelKey: "lastMonth" as const },
+] as const;
 
 export default function EarningsPage() {
   const vendorSession = useSessionStore((s) => s.vendorSession);
   const earnings = useEarningsStore((s) => s.earnings);
   const getPayoutsForVendor = usePayoutStore((s) => s.getPayoutsForVendor);
-
+  const language = useLanguageStore((s) => s.language);
 
   if (!vendorSession) return null;
 
@@ -45,10 +45,8 @@ export default function EarningsPage() {
   const [period, setPeriod] = useState<Period>("month");
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
 
-  // Get all completed vendor trips for trip detail lookups
   const { vendorTrips } = useVendorTrips(vendorId);
 
-  // Filter earnings by vendor and period
   const vendorEarnings = useMemo(
     () => earnings.filter((e) => e.vendorId === vendorId),
     [earnings, vendorId]
@@ -79,7 +77,6 @@ export default function EarningsPage() {
     });
   }, [vendorEarnings, period]);
 
-  // KPI calculations
   const totalEarnings = filteredEarnings.reduce((sum, e) => sum + e.netToVendor, 0);
   const totalFares = filteredEarnings.reduce((sum, e) => sum + e.fare, 0);
   const pendingAmount = vendorEarnings
@@ -88,7 +85,6 @@ export default function EarningsPage() {
   const completedCount = filteredEarnings.length;
   const avgPerTrip = completedCount > 0 ? Math.round(totalEarnings / completedCount) : 0;
 
-  // Payout history
   const payouts = useMemo(
     () => getPayoutsForVendor(vendorId),
     [getPayoutsForVendor, vendorId]
@@ -96,11 +92,10 @@ export default function EarningsPage() {
   const totalPaid = payouts
     .filter((p) => p.status === "PAID")
     .reduce((sum, p) => sum + p.amount, 0);
-  const pendingPayouts = payouts
+  const pendingPayoutsTotal = payouts
     .filter((p) => p.status === "PENDING")
     .reduce((sum, p) => sum + p.amount, 0);
 
-  // Chart data: daily aggregates for the selected period
   const chartData = useMemo(() => {
     const daily: Record<string, { date: string; ts: number; earnings: number; trips: number }> = {};
     for (const e of filteredEarnings) {
@@ -117,119 +112,64 @@ export default function EarningsPage() {
     return Object.values(daily).sort((a, b) => a.ts - b.ts);
   }, [filteredEarnings]);
 
-  // Find trip details for an earning
   const findTripForEarning = useCallback(
     (tripId: string) => vendorTrips.find((vt) => vt.tripId === tripId),
     [vendorTrips]
   );
 
-  // Earnings table columns
+  const matchedOption = PERIOD_OPTIONS.find((o) => o.value === period);
+  const periodLabel = t(matchedOption?.labelKey ?? "thisMonth", language);
+
   const earningsColumns: Column<(typeof filteredEarnings)[0]>[] = [
-    {
-      key: "earningId", header: "Earning ID", render: (e) => (
-        <span className="font-mono text-xs">{e.earningId}</span>
-      ), sortable: true,
-    },
-    {
-      key: "date", header: "Date", render: (e) => (
-        <span className="text-sm">{new Date(e.completedAt).toLocaleDateString()}</span>
-      ), sortable: true,
-    },
-    {
-      key: "trip", header: "Trip", render: (e) => {
-        const trip = findTripForEarning(e.tripId);
-        return (
-          <span className="font-mono text-xs text-text-muted">
-            {e.tripId.slice(0, 8)}
-            {trip && (
-              <span className="text-text-muted ml-2">
-                {trip.stops[0]?.address?.split(",")[0] || "?"} → {trip.stops[1]?.address?.split(",")[0] || "?"}
-              </span>
-            )}
-          </span>
-        );
-      },
-    },
-    {
-      key: "fare", header: "Fare", render: (e) => (
-        <span className="text-sm font-medium">₹{e.fare}</span>
-      ), sortable: true,
-    },
-    {
-      key: "operatorFee", header: "Operator Fee (15%)", render: (e) => (
-        <span className="text-sm text-text-muted">-₹{e.operatorFee}</span>
-      ),
-    },
-    {
-      key: "net", header: "Net to Vendor", render: (e) => (
-        <span className="text-sm font-semibold text-success">₹{e.netToVendor}</span>
-      ), sortable: true,
-    },
-    {
-      key: "status", header: "Status", render: (e) => (
-        <StatusBadge status={e.status} />
-      ), sortable: true,
-    },
+    { key: "earningId", header: "Earning ID", render: (e) => <span className="font-mono text-xs">{e.earningId}</span>, sortable: true },
+    { key: "date", header: t("date", language), render: (e) => <span className="text-sm">{new Date(e.completedAt).toLocaleDateString()}</span>, sortable: true },
+    { key: "trip", header: t("trip", language), render: (e) => {
+      const trip = findTripForEarning(e.tripId);
+      return (
+        <span className="font-mono text-xs text-text-muted">
+          {e.tripId.slice(0, 8)}
+          {trip && (
+            <span className="text-text-muted ml-2">
+              {trip.stops[0]?.address?.split(",")[0] || "?"} → {trip.stops[1]?.address?.split(",")[0] || "?"}
+            </span>
+          )}
+        </span>
+      );
+    }},
+    { key: "fare", header: t("fare", language), render: (e) => <span className="text-sm font-medium">₹{e.fare}</span>, sortable: true },
+    { key: "operatorFee", header: t("operatorFeeLabel", language), render: (e) => <span className="text-sm text-text-muted">-₹{e.operatorFee}</span> },
+    { key: "net", header: t("netToVendor", language), render: (e) => <span className="text-sm font-semibold text-success">₹{e.netToVendor}</span>, sortable: true },
+    { key: "status", header: t("status", language), render: (e) => <StatusBadge status={e.status} />, sortable: true },
   ];
 
-  // Payout table columns
   const payoutColumns: Column<(typeof payouts)[0]>[] = [
     { key: "id", header: "Payout ID", render: (p) => <span className="font-mono text-xs">{p.id}</span>, sortable: true },
-    { key: "date", header: "Date", render: (p) => <span className="text-sm">{new Date(p.payoutDate).toLocaleDateString()}</span>, sortable: true },
-    { key: "period", header: "Period", render: (p) => (
+    { key: "date", header: t("date", language), render: (p) => <span className="text-sm">{new Date(p.payoutDate).toLocaleDateString()}</span>, sortable: true },
+    { key: "period", header: t("period", language), render: (p) => (
       <span className="text-sm">
         {new Date(p.periodStart).toLocaleDateString()} – {new Date(p.periodEnd).toLocaleDateString()}
       </span>
     )},
-    { key: "trips", header: "Trips", render: (p) => <span className="text-sm">{p.tripsIncluded}</span>, sortable: true },
-    { key: "amount", header: "Amount", render: (p) => <span className="text-sm font-semibold">₹{p.amount}</span>, sortable: true },
-    { key: "status", header: "Status", render: (p) => <StatusBadge status={p.status} />, sortable: true },
+    { key: "trips", header: t("trips", language), render: (p) => <span className="text-sm">{p.tripsIncluded}</span>, sortable: true },
+    { key: "amount", header: t("amount", language), render: (p) => <span className="text-sm font-semibold">₹{p.amount}</span>, sortable: true },
+    { key: "status", header: t("status", language), render: (p) => <StatusBadge status={p.status} />, sortable: true },
   ];
-
-  // Chart colors
-  const chartColors = {
-    earnings: "#2563eb", // brand-blue
-    earningsHover: "#1d4ed8",
-  };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text-primary">Earnings</h2>
-          <p className="text-sm text-text-muted mt-1">
-            Track trip revenue, operator fees, and payout history
-          </p>
+          <h2 className="text-2xl font-bold text-text-primary">{t("earnings", language)}</h2>
+          <p className="text-sm text-text-muted mt-1">{t("trackTripRevenue", language)}</p>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          label={`Earnings (${PERIOD_OPTIONS.find((o) => o.value === period)?.label || ""})`}
-          value={`₹${totalEarnings.toLocaleString()}`}
-          icon={DollarSign}
-          accentColor="text-brand-blue"
-        />
-        <KpiCard
-          label="Pending Payout"
-          value={`₹${(pendingAmount + pendingPayouts).toLocaleString()}`}
-          icon={Clock}
-          accentColor="text-warning"
-        />
-        <KpiCard
-          label="Trips Completed"
-          value={completedCount}
-          icon={Receipt}
-          accentColor="text-success"
-        />
-        <KpiCard
-          label="Avg per Trip"
-          value={`₹${avgPerTrip.toLocaleString()}`}
-          icon={TrendingUp}
-          accentColor="text-brand-blue"
-        />
+        <KpiCard label={`${t("earningsPeriod", language)} (${periodLabel})`} value={`₹${totalEarnings.toLocaleString()}`} icon={DollarSign} accentColor="text-brand-blue" />
+        <KpiCard label={t("pendingPayout", language)} value={`₹${(pendingAmount + pendingPayoutsTotal).toLocaleString()}`} icon={Clock} accentColor="text-warning" />
+        <KpiCard label={t("tripsCompleted", language)} value={completedCount} icon={Receipt} accentColor="text-success" />
+        <KpiCard label={t("avgPerTrip", language)} value={`₹${avgPerTrip.toLocaleString()}`} icon={TrendingUp} accentColor="text-brand-blue" />
       </div>
 
       {/* Period Filter + Summary */}
@@ -237,17 +177,16 @@ export default function EarningsPage() {
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
             <BarChart3 className="w-5 h-5 text-brand-blue" />
-            <h3 className="font-semibold text-text-primary">Daily Earnings</h3>
+            <h3 className="font-semibold text-text-primary">{t("dailyEarnings", language)}</h3>
           </div>
 
-          {/* Period dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowPeriodDropdown(!showPeriodDropdown)}
               className="flex items-center gap-2 px-3 py-1.5 bg-page-bg border border-border rounded-lg text-sm text-text-primary hover:bg-ops-bg transition-colors"
             >
               <Calendar className="w-4 h-4 text-text-muted" />
-              {PERIOD_OPTIONS.find((o) => o.value === period)?.label}
+              {periodLabel}
               <ChevronDown className="w-3.5 h-3.5 text-text-muted" />
             </button>
 
@@ -263,7 +202,7 @@ export default function EarningsPage() {
                         period === opt.value ? "text-brand-blue font-medium" : "text-text-primary"
                       }`}
                     >
-                      {opt.label}
+                      {t(opt.labelKey, language)}
                     </button>
                   ))}
                 </div>
@@ -272,32 +211,28 @@ export default function EarningsPage() {
           </div>
         </div>
 
-        {/* Bar Chart */}
         {chartData.length === 0 ? (
           <div className="py-12 flex flex-col items-center justify-center">
             <BarChart3 className="w-10 h-10 text-text-muted mb-3" />
-            <p className="text-sm text-text-muted">No earnings data for this period</p>
-            <p className="text-xs text-text-muted mt-1">
-              Earnings appear here when admin marks trips as completed
-            </p>
+            <p className="text-sm text-text-muted">{t("noEarningsData", language)}</p>
+            <p className="text-xs text-text-muted mt-1">{t("earningsAppearWhenAdminMarks", language)}</p>
           </div>
         ) : (
           <EarningsChart data={chartData} />
         )}
 
-        {/* Period summary */}
         {completedCount > 0 && (
           <div className="mt-4 pt-4 border-t border-border grid grid-cols-3 gap-4 text-sm">
             <div>
-              <p className="text-text-muted text-xs">Gross Fares</p>
+              <p className="text-text-muted text-xs">{t("grossFares", language)}</p>
               <p className="text-text-primary font-semibold">₹{totalFares.toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-text-muted text-xs">Operator Fee (15%)</p>
+              <p className="text-text-muted text-xs">{t("operatorFeeLabel", language)}</p>
               <p className="text-text-primary font-semibold">₹{(totalFares - totalEarnings).toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-text-muted text-xs">Net to You</p>
+              <p className="text-text-muted text-xs">{t("netToYou", language)}</p>
               <p className="text-success font-semibold">₹{totalEarnings.toLocaleString()}</p>
             </div>
           </div>
@@ -306,47 +241,35 @@ export default function EarningsPage() {
 
       {/* Earnings Table */}
       <div>
-        <h3 className="font-semibold text-text-primary mb-4">Completed Trips</h3>
-        <DataTable
-          columns={earningsColumns}
-          data={filteredEarnings}
-          pageSize={10}
-          emptyMessage="No completed trips yet. Earnings appear here when trips are completed and billed."
-        />
+        <h3 className="font-semibold text-text-primary mb-4">{t("completedTrips", language)}</h3>
+        <DataTable columns={earningsColumns} data={filteredEarnings} pageSize={10} emptyMessage={t("noCompletedTrips", language)} />
       </div>
 
       {/* Payout History */}
       <div>
-        <h3 className="font-semibold text-text-primary mb-4">Payout History</h3>
+        <h3 className="font-semibold text-text-primary mb-4">{t("payoutHistory", language)}</h3>
         <DataTable
           columns={payoutColumns}
           data={payouts}
           pageSize={10}
-          emptyMessage={
-            vendorEarnings.length === 0
-              ? "No payouts yet. Earnings appear first, then payouts are processed on your billing cycle."
-              : "No payout history yet. Your earnings will be paid out on your billing cycle."
-          }
+          emptyMessage={vendorEarnings.length === 0 ? t("noPayoutsYet", language) : t("noPayoutHistory", language)}
         />
       </div>
 
-      {/* Summary cards at the bottom */}
       {payouts.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-card-bg border border-card-border rounded-xl p-5">
-            <p className="text-sm text-text-muted">Total Paid Out</p>
+            <p className="text-sm text-text-muted">{t("totalPaidOut", language)}</p>
             <p className="text-2xl font-bold text-text-primary mt-1">₹{totalPaid.toLocaleString()}</p>
           </div>
           <div className="bg-card-bg border border-card-border rounded-xl p-5">
-            <p className="text-sm text-text-muted">Pending Payouts</p>
-            <p className="text-2xl font-bold text-warning mt-1">₹{(pendingAmount + pendingPayouts).toLocaleString()}</p>
+            <p className="text-sm text-text-muted">{t("pendingPayouts", language)}</p>
+            <p className="text-2xl font-bold text-warning mt-1">₹{(pendingAmount + pendingPayoutsTotal).toLocaleString()}</p>
           </div>
           <div className="bg-card-bg border border-card-border rounded-xl p-5">
-            <p className="text-sm text-text-muted">Next Cycle</p>
+            <p className="text-sm text-text-muted">{t("nextCycle", language)}</p>
             <p className="text-lg font-bold text-text-primary mt-1">
-              {pendingAmount > 0
-                ? `₹${pendingAmount.toLocaleString()} unbilled`
-                : "Up to date"}
+              {pendingAmount > 0 ? `₹${pendingAmount.toLocaleString()} ${t("unbilled", language)}` : t("upToDate", language)}
             </p>
           </div>
         </div>

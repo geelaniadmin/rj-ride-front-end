@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useLanguageStore, t } from "@ride/shared";
 import { useRateCardStore } from "@/stores/rateCardStore";
 import { useVendorStore } from "@/stores/vendorStore";
 import { useCustomerStore } from "@ride/shared";
@@ -24,6 +25,7 @@ interface RateCardsTabProps {
 }
 
 export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) => {
+  const language = useLanguageStore((s) => s.language);
   const activeTenantId = useTenantStore((s) => s.activeTenantId);
   const allRateCards = useRateCardStore((s) => s.rateCards) || [];
   const rateCards = useMemo(() => {
@@ -88,33 +90,33 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
 
   const handleSave = () => {
     if (!formData.vendorId || !formData.customerId || !formData.vehicleTypeId) {
-      addToast("Vendor, customer, and vehicle type are required", "error");
+      addToast(t("vendorCustomerVehicleRequired", language), "error");
       return;
     }
     if (editingRateCard) {
       createNewVersion(editingRateCard.id, formData);
-      addToast("New version created", "success");
+      addToast(t("newVersionCreated", language), "success");
     } else {
       addRateCard(formData);
-      addToast("Rate card created", "success");
+      addToast(t("rateCardCreated", language), "success");
     }
     setDrawerOpen(false);
   };
 
   const columns: Column[] = [
-    { key: "basis", header: "Basis", sortable: true, render: (val): React.ReactNode => <Badge variant="blue">{val as string}</Badge> },
-    { key: "perKm", header: "Per KM", render: (val): React.ReactNode => val ? `₹${(val as number).toFixed(0)}` : "—" },
-    { key: "hourlyRate", header: "Hourly", render: (val): React.ReactNode => val ? `₹${(val as number).toFixed(0)}` : "—" },
-    { key: "validFrom", header: "Valid From", sortable: true },
-    { key: "version", header: "Version", sortable: true, render: (val): React.ReactNode => <Badge variant="purple">v{val as number}</Badge> },
+    { key: "basis", header: t("basis", language), sortable: true, render: (val): React.ReactNode => <Badge variant="blue">{val as string}</Badge> },
+    { key: "perKm", header: t("perKm", language), render: (val): React.ReactNode => val ? `₹${(val as number).toFixed(0)}` : t("dash", language) },
+    { key: "hourlyRate", header: t("hourly", language), render: (val): React.ReactNode => val ? `₹${(val as number).toFixed(0)}` : t("dash", language) },
+    { key: "validFrom", header: t("validFrom", language), sortable: true },
+    { key: "version", header: t("version", language), sortable: true, render: (val): React.ReactNode => <Badge variant="purple">v{val as number}</Badge> },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-ops-sidebar">Rate Cards ({rateCards.length})</h3>
+        <h3 className="font-semibold text-ops-sidebar">{t("rateCards", language)} ({rateCards.length})</h3>
         <Button onClick={openCreate} variant="primary" size="sm">
-          New Rate Card
+          {t("newRateCard", language)}
         </Button>
       </div>
 
@@ -122,12 +124,12 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
         columns={columns}
         data={rateCards.map((r) => ({ ...r })) as Record<string, unknown>[]}
         pageSize={10}
-        emptyMessage="No rate cards"
+        emptyMessage={t("noRateCards", language)}
       />
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editingRateCard ? "New Version" : "New Rate Card"} width="lg">
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editingRateCard ? t("newVersion", language) : t("newRateCard", language)} width="lg">
         <div className="space-y-4">
-          <FormField label="Vendor" required>
+          <FormField label={t("vendor", language)} required>
             <Select
               value={formData.vendorId}
               onChange={(e) => setFormData({ ...formData, vendorId: e.target.value })}
@@ -135,7 +137,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
             />
           </FormField>
 
-          <FormField label="Customer" required>
+          <FormField label={t("customer", language)} required>
             <Select
               value={formData.customerId}
               onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
@@ -143,7 +145,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
             />
           </FormField>
 
-          <FormField label="Vehicle Type" required>
+          <FormField label={t("vehicleType", language)} required>
             <Select
               value={formData.vehicleTypeId}
               onChange={(e) => setFormData({ ...formData, vehicleTypeId: e.target.value })}
@@ -151,21 +153,21 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
             />
           </FormField>
 
-          <FormField label="Basis">
+          <FormField label={t("basis", language)}>
             <Select
               value={formData.basis}
               onChange={(e) => setFormData({ ...formData, basis: e.target.value as RateBasis })}
               options={[
-                { value: "PER_KM", label: "Per KM" },
-                { value: "HOURLY", label: "Hourly" },
-                { value: "PACKAGE", label: "Package" },
-                { value: "FIXED_LOCATION_PAIR", label: "Fixed Pairs" },
+                { value: "PER_KM", label: t("perKm", language) },
+                { value: "HOURLY", label: t("hourly", language) },
+                { value: "PACKAGE", label: t("package", language) },
+                { value: "FIXED_LOCATION_PAIR", label: t("fixedPairs", language) },
               ]}
             />
           </FormField>
 
           {formData.basis === "PER_KM" && (
-            <FormField label="Rate per KM">
+            <FormField label={t("ratePerKm", language)}>
               <Input
                 type="number"
                 value={formData.perKm || 0}
@@ -175,7 +177,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
           )}
 
           {formData.basis === "HOURLY" && (
-            <FormField label="Hourly Rate">
+            <FormField label={t("hourlyRate", language)}>
               <Input
                 type="number"
                 value={formData.hourlyRate || 0}
@@ -186,11 +188,11 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
 
           {formData.basis === "PACKAGE" && (
             <div className="space-y-2 text-sm text-text-secondary">
-              <p>Package: {formData.package?.hours}h / {formData.package?.km}km @ ₹{formData.package?.price}</p>
+              <p>{t("packageLabel", language).replace("{hours}", String(formData.package?.hours)).replace("{km}", String(formData.package?.km)).replace("{price}", String(formData.package?.price))}</p>
             </div>
           )}
 
-          <FormField label="Min Fare">
+          <FormField label={t("minFare", language)}>
             <Input
               type="number"
               value={formData.modifiers?.minFare || 0}
@@ -203,7 +205,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
             />
           </FormField>
 
-          <FormField label="Valid From">
+          <FormField label={t("validFrom", language)}>
             <Input
               type="date"
               value={formData.validFrom}
@@ -211,7 +213,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
             />
           </FormField>
 
-          <FormField label="Valid To">
+          <FormField label={t("validTo", language)}>
             <Input
               type="date"
               value={formData.validTo || ""}
@@ -221,17 +223,17 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
 
           <div className="flex gap-2 pt-4">
             <Button onClick={handleSave} variant="primary">
-              {editingRateCard ? "Create Version" : "Create"}
+              {editingRateCard ? t("createVersion", language) : t("create", language)}
             </Button>
             <Button onClick={() => setDrawerOpen(false)} variant="secondary">
-              Cancel
+              {t("cancel", language)}
             </Button>
           </div>
         </div>
       </Drawer>
 
       <div className="space-y-3 pt-4">
-        <h4 className="font-medium text-text-primary text-sm">Version History</h4>
+        <h4 className="font-medium text-text-primary text-sm">{t("versionHistory", language)}</h4>
         {rateCards.map((rc) => (
           <Card key={rc.id} padding="sm" className="text-sm">
             <div className="flex justify-between items-start">
@@ -248,7 +250,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
                   className="bg-ops-sidebar text-white border-ops-sidebar shadow-sm hover:bg-ops-sidebar"
                   onClick={() => openEdit(rc)}
                 >
-                  New Version
+                  {t("newVersion", language)}
                 </Button>
               </div>
             </div>

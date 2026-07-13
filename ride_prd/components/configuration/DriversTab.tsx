@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useLanguageStore, t } from "@ride/shared";
 import { useDriverStore } from "@/stores/driverStore";
 import { useVendorStore } from "@/stores/vendorStore";
 import { useVehicleStore } from "@/stores/vehicleStore";
@@ -26,6 +27,7 @@ interface DriversTabProps {
 }
 
 export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
+  const language = useLanguageStore((s) => s.language);
   const activeTenantId = useTenantStore((s) => s.activeTenantId);
   const allDrivers = useDriverStore((s) => s.drivers);
   const drivers = useMemo(() => {
@@ -90,15 +92,15 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
 
   const handleSave = () => {
     if (!formData.name || !formData.phone || !formData.licenceNo) {
-      addToast("Name, phone, and licence are required", "error");
+      addToast(t("namePhoneLicenceRequired", language), "error");
       return;
     }
     if (editingDriver?.id) {
       updateDriver(editingDriver.id, formData);
-      addToast("Driver updated", "success");
+      addToast(t("driverUpdated", language), "success");
     } else {
       addDriver(formData);
-      addToast("Driver created", "success");
+      addToast(t("driverCreated", language), "success");
     }
     setDrawerOpen(false);
   };
@@ -107,45 +109,45 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
   const expiringSoonDocs = drivers.reduce((sum, d) => sum + (d.documents?.filter(doc => isDocumentExpiringSoon(doc.expiry)).length || 0), 0);
 
   const columns: Column[] = [
-    { key: "name", header: "Driver Name", sortable: true, render: (val): React.ReactNode => <PII value={val as string} type="name" /> },
-    { key: "licenceNo", header: "Licence", sortable: true, render: (val): React.ReactNode => <PII value={val as string} type="licence" /> },
-    { key: "phone", header: "Phone", render: (val): React.ReactNode => <PII value={val as string} type="phone" /> },
-    { key: "shift", header: "Shift", sortable: true },
-    { key: "available", header: "Status", render: (val): React.ReactNode => <Badge variant={val ? "green" : "red"}>{val ? "Available" : "Unavailable"}</Badge> },
+    { key: "name", header: t("driverName", language), sortable: true, render: (val): React.ReactNode => <PII value={val as string} type="name" /> },
+    { key: "licenceNo", header: t("licence", language), sortable: true, render: (val): React.ReactNode => <PII value={val as string} type="licence" /> },
+    { key: "phone", header: t("phone", language), render: (val): React.ReactNode => <PII value={val as string} type="phone" /> },
+    { key: "shift", header: t("shiftLabel", language), sortable: true },
+    { key: "available", header: t("status", language), render: (val): React.ReactNode => <Badge variant={val ? "green" : "red"}>{val ? t("available", language) : t("unavailable", language)}</Badge> },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-ops-sidebar">Drivers ({drivers.length})</h3>
+        <h3 className="font-semibold text-ops-sidebar">{t("drivers", language)} ({drivers.length})</h3>
         <Button onClick={openCreate} variant="primary" size="sm">
-          New Driver
+          {t("newDriver", language)}
         </Button>
       </div>
 
       <HealthStrip expiredCount={expiredDocs} expiringCount={expiringSoonDocs} />
 
-      <DataTable columns={columns} data={drivers.map(d => ({ ...d })) as Record<string, unknown>[]} pageSize={10} emptyMessage="No drivers" />
+      <DataTable columns={columns} data={drivers.map(d => ({ ...d })) as Record<string, unknown>[]} pageSize={10} emptyMessage={t("noDrivers", language)} />
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editingDriver ? "Edit Driver" : "New Driver"} width="lg">
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editingDriver ? t("editDriver", language) : t("newDriver", language)} width="lg">
         <div className="space-y-4">
-          <FormField label="Driver Name" required>
-            <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Full name" />
+          <FormField label={t("driverName", language)} required>
+            <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder={t("fullNamePlaceholder", language)} />
           </FormField>
 
-          <FormField label="Phone" required>
+          <FormField label={t("phone", language)} required>
             <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+91 98765 43210" />
           </FormField>
 
-          <FormField label="Licence No" required>
+          <FormField label={t("licenceNoLabel", language)} required>
             <Input value={formData.licenceNo} onChange={(e) => setFormData({ ...formData, licenceNo: e.target.value })} placeholder="KA01AB1234" />
           </FormField>
 
-          <FormField label="Licence Class">
+          <FormField label={t("licenceClass", language)}>
             <Input value={formData.licenceClass || ""} onChange={(e) => setFormData({ ...formData, licenceClass: e.target.value || undefined })} placeholder="HMV+PSV" />
           </FormField>
 
-          <FormField label="Vendor">
+          <FormField label={t("vendor", language)}>
             <Select
               value={formData.vendorId}
               onChange={(e) => setFormData({ ...formData, vendorId: e.target.value })}
@@ -153,14 +155,14 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
             />
           </FormField>
 
-          <FormField label="Shift">
+          <FormField label={t("shiftLabel", language)}>
             <Select
               value={formData.shift || "DAY"}
               onChange={(e) => setFormData({ ...formData, shift: e.target.value as "DAY" | "NIGHT" | "FLEX" })}
               options={[
-                { value: "DAY", label: "Day" },
-                { value: "NIGHT", label: "Night" },
-                { value: "FLEX", label: "Flex" },
+                { value: "DAY", label: t("day", language) },
+                { value: "NIGHT", label: t("night", language) },
+                { value: "FLEX", label: t("flex", language) },
               ]}
             />
           </FormField>
@@ -174,16 +176,16 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
               className="w-4 h-4"
             />
             <label htmlFor="available" className="text-sm text-ops-sidebar">
-              Available for assignment
+              {t("availableForAssignment", language)}
             </label>
           </div>
 
           <div className="flex gap-2 pt-4">
             <Button onClick={handleSave} variant="primary">
-              {editingDriver ? "Update" : "Create"}
+              {editingDriver ? t("update", language) : t("create", language)}
             </Button>
             <Button onClick={() => setDrawerOpen(false)} variant="secondary">
-              Cancel
+              {t("cancel", language)}
             </Button>
           </div>
         </div>
@@ -193,13 +195,13 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
         <div key={driver.id} className="p-3 bg-ops-bg rounded border border-border text-sm">
           <div className="flex justify-between items-start mb-2">
             <div className="font-medium text-ops-sidebar"><PII value={driver.name} type="name" /></div>
-            <Button size="sm" variant="ghost" onClick={() => openEdit(driver)}>Edit</Button>
+            <Button size="sm" variant="ghost" onClick={() => openEdit(driver)}>{t("edit", language)}</Button>
           </div>
           {driver.documents && driver.documents.length > 0 && (
             <div className="space-y-1 text-xs text-ops-sidebar">
               {driver.documents.map((doc, idx) => (
                 <div key={idx} className="flex justify-between items-center">
-                  <span>{doc.kind}: {doc.number || "—"}</span>
+                  <span>{doc.kind}: {doc.number || t("dash", language)}</span>
                   <DocumentStatus expiryDate={doc.expiry} />
                 </div>
               ))}

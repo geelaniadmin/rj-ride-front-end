@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useRateCardStore } from '@/stores/rateCardStore';
-import { useVendorStore, useVehicleTypeStore } from '@ride/shared';
+import { useVendorStore, useVehicleTypeStore, useLanguageStore, t } from '@ride/shared';
 import { useCustomerStore } from '@ride/shared';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -20,6 +20,7 @@ export default function HistoryPage() {
   const getRateCardById = useRateCardStore((s) => s.getRateCardById);
   const vendors = useVendorStore((s) => s.vendors);
   const vehicleTypes = useVehicleTypeStore((s) => s.vehicleTypes);
+  const language = useLanguageStore((s) => s.language);
   const customers = useCustomerStore((s) => s.customers);
 
   const tenantId = 'T1';
@@ -78,18 +79,18 @@ export default function HistoryPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-[#1B2A4A]">Version History</h1>
-        <p className="text-sm text-[#8B8FA8] mt-1">All rate card versions and changes</p>
+        <h1 className="text-3xl font-bold text-[#1B2A4A]">{t('versionHistory', language)}</h1>
+        <p className="text-sm text-[#8B8FA8] mt-1">{t('allRateCardVersions', language)}</p>
       </div>
 
-      <Card header="Filters">
+      <Card header={t('filters', language)}>
         <div className="flex flex-wrap gap-4">
           <select
             value={vendorFilter}
             onChange={(e) => setVendorFilter(e.target.value)}
             className="px-3 py-2 border border-[#E0E0E0] rounded text-sm"
           >
-            <option value="">All vendors</option>
+            <option value="">{t('allVendors', language)}</option>
             {Array.from(new Set(tenantRateCards.map((r) => r.vendorId))).map((vid) => (
               <option key={vid} value={vid}>
                 {vendors.find((v) => v.id === vid)?.name || 'Unknown'}
@@ -102,7 +103,7 @@ export default function HistoryPage() {
             onChange={(e) => setVehicleTypeFilter(e.target.value)}
             className="px-3 py-2 border border-[#E0E0E0] rounded text-sm"
           >
-            <option value="">All vehicle types</option>
+            <option value="">{t('allVehicleTypes', language)}</option>
             {Array.from(new Set(tenantRateCards.map((r) => r.vehicleTypeId))).map((vtid) => (
               <option key={vtid} value={vtid}>
                 {vehicleTypes.find((vt) => vt.id === vtid)?.name || 'Unknown'}
@@ -130,7 +131,7 @@ export default function HistoryPage() {
 
       {filtered.length === 0 ? (
         <Card>
-          <p className="text-center text-[#8B8FA8] py-8">No rate cards match the filters</p>
+          <p className="text-center text-[#8B8FA8] py-8">{t('noRateCardsMatch', language)}</p>
         </Card>
       ) : (
         <div className="grid gap-4">
@@ -153,16 +154,16 @@ export default function HistoryPage() {
                           <div className="flex items-center gap-3 mb-1">
                             <Badge className="font-mono">v{rc.version}</Badge>
                             <Badge variant={isActive ? 'green' : 'default'}>
-                              {isActive ? 'Active' : nextVersion ? `Superseded on ${formatDate(nextVersion.validFrom)}` : 'Old'}
+                              {isActive ? t('active', language) : nextVersion ? `${t('supersededOn', language)} ${formatDate(nextVersion.validFrom)}` : t('old', language)}
                             </Badge>
                           </div>
-                          <p className="text-xs text-[#8B8FA8]">Valid from {formatDate(rc.validFrom)}</p>
+                          <p className="text-xs text-[#8B8FA8]">{t('validFrom', language)} {formatDate(rc.validFrom)}</p>
                         </div>
                         <button
                           onClick={() => setSelectedRateCard(rc.id)}
                           className="text-[#2563EB] hover:underline text-sm font-medium"
                         >
-                          View
+                          {t('view', language)}
                         </button>
                       </div>
                     );
@@ -178,47 +179,47 @@ export default function HistoryPage() {
         {selectedCard && (
           <div className="space-y-4">
             <div>
-              <p className="text-xs text-[#8B8FA8] mb-1">Basis</p>
+              <p className="text-xs text-[#8B8FA8] mb-1">{t('basis', language)}</p>
               <p className="text-sm font-medium text-[#1B2A4A]">{selectedCard.basis}</p>
             </div>
 
             {selectedCard.basis === 'PER_KM' && selectedCard.perKm && (
               <div>
-                <p className="text-xs text-[#8B8FA8] mb-1">Rate</p>
+                <p className="text-xs text-[#8B8FA8] mb-1">{t('rate', language)}</p>
                 <p className="text-sm font-medium text-[#1B2A4A]">₹{selectedCard.perKm / 100}/km</p>
               </div>
             )}
 
             {selectedCard.basis === 'HOURLY' && selectedCard.hourlyRate && (
               <div>
-                <p className="text-xs text-[#8B8FA8] mb-1">Rate</p>
+                <p className="text-xs text-[#8B8FA8] mb-1">{t('rate', language)}</p>
                 <p className="text-sm font-medium text-[#1B2A4A]">₹{selectedCard.hourlyRate / 100}/hour</p>
               </div>
             )}
 
             {selectedCard.modifiers && (
               <div className="p-3 bg-gray-50 rounded space-y-2">
-                <p className="text-xs font-semibold text-[#1B2A4A] mb-2">Modifiers</p>
+                <p className="text-xs font-semibold text-[#1B2A4A] mb-2">{t('modifiers', language)}</p>
                 {selectedCard.modifiers.minFare && (
                   <div className="text-xs">
-                    <span className="text-[#8B8FA8]">Min fare:</span> ₹{selectedCard.modifiers.minFare / 100}
+                    <span className="text-[#8B8FA8]">{t('minFareLabel', language)}</span> ₹{selectedCard.modifiers.minFare / 100}
                   </div>
                 )}
                 {selectedCard.modifiers.nightCharge && (
                   <div className="text-xs">
-                    <span className="text-[#8B8FA8]">Night surcharge:</span> {selectedCard.modifiers.nightCharge}%
+                    <span className="text-[#8B8FA8]">{t('nightChargeLabel', language)}</span> {selectedCard.modifiers.nightCharge}%
                   </div>
                 )}
                 {selectedCard.modifiers.waitingPerHour && (
                   <div className="text-xs">
-                    <span className="text-[#8B8FA8]">Waiting:</span> ₹{selectedCard.modifiers.waitingPerHour / 100}/hr
+                    <span className="text-[#8B8FA8]">{t('waitingLabel', language)}</span> ₹{selectedCard.modifiers.waitingPerHour / 100}/hr
                   </div>
                 )}
               </div>
             )}
 
             <div className="border-t pt-4 text-xs text-[#8B8FA8]">
-              Old versions preserved for audit — cannot be deleted
+              {t('oldVersionsPreserved', language)}
             </div>
           </div>
         )}

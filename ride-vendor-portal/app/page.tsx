@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import Link from "next/link";
-import { useSessionStore, useVendorInfoStore, useDriverStore } from "@ride/shared";
+import { useSessionStore, useVendorInfoStore, useDriverStore, useLanguageStore, t } from "@ride/shared";
 import { useVendorTrips } from "@/hooks/useVendorTrips";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -12,6 +12,7 @@ import { CalendarCheck, Truck, Users, DollarSign, ArrowRight, Clock, Bell, Circl
 export default function DashboardPage() {
   const vendorSession = useSessionStore((s) => s.vendorSession);
   const getVendorName = useVendorInfoStore((s) => s.getVendorName);
+  const language = useLanguageStore((s) => s.language);
 
   if (!vendorSession) return null;
 
@@ -57,21 +58,21 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-text-primary">
-          Welcome back, {getVendorName(vendorId)}
+          {t("welcomeBack", language)}, {getVendorName(vendorId)}
         </h2>
         <p className="text-sm text-text-muted mt-1">
-          Real-time data shared with admin portal — no page refresh needed
+          {t("realtimeDataShared", language)}
         </p>
       </div>
 
       {/* KPI Cards - 5 cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <KpiCard label="Trips Today" value={tripsToday} icon={CalendarCheck} accentColor="text-brand-blue" />
-        <KpiCard label="Active Now" value={activeNow} icon={Truck} accentColor="text-success" />
-        <KpiCard label="Drivers on Duty" value={driversOnDuty} icon={Users} accentColor="text-warning" />
-        <KpiCard label="Earnings Today" value={`₹${earningsToday}`} icon={DollarSign} accentColor="text-brand-blue" />
+        <KpiCard label={t("tripsToday", language)} value={tripsToday} icon={CalendarCheck} accentColor="text-brand-blue" />
+        <KpiCard label={t("activeNow", language)} value={activeNow} icon={Truck} accentColor="text-success" />
+        <KpiCard label={t("driversOnDuty", language)} value={driversOnDuty} icon={Users} accentColor="text-warning" />
+        <KpiCard label={t("earningsToday", language)} value={`₹${earningsToday}`} icon={DollarSign} accentColor="text-brand-blue" />
         <KpiCard
-          label="Acceptance Rate"
+          label={t("acceptanceRate", language)}
           value={`${totalResponded > 0 ? acceptanceRate : "—"}${totalResponded > 0 ? "%" : ""}`}
           icon={Percent}
           accentColor={acceptanceColor}
@@ -88,8 +89,8 @@ export default function DashboardPage() {
             <Clock className="w-5 h-5 text-warning" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-text-primary">Pending Trips</p>
-            <p className="text-xs text-text-muted">{needingAttention.length} awaiting action</p>
+            <p className="text-sm font-semibold text-text-primary">{t("pendingTrips", language)}</p>
+            <p className="text-xs text-text-muted">{needingAttention.length} {t("awaitingAction", language)}</p>
           </div>
         </Link>
 
@@ -101,8 +102,8 @@ export default function DashboardPage() {
             <Truck className="w-5 h-5 text-success" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-text-primary">Active Trips</p>
-            <p className="text-xs text-text-muted">{activeTrips.length} in progress</p>
+            <p className="text-sm font-semibold text-text-primary">{t("activeTrips", language)}</p>
+            <p className="text-xs text-text-muted">{activeTrips.length} {t("inProgress", language)}</p>
           </div>
         </Link>
 
@@ -114,8 +115,8 @@ export default function DashboardPage() {
             <Bell className="w-5 h-5 text-danger" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-text-primary">Alerts</p>
-            <p className="text-xs text-text-muted">View fleet alerts</p>
+            <p className="text-sm font-semibold text-text-primary">{t("alerts", language)}</p>
+            <p className="text-xs text-text-muted">{t("viewAlerts", language)}</p>
           </div>
         </Link>
 
@@ -127,8 +128,8 @@ export default function DashboardPage() {
             <CircleDollarSign className="w-5 h-5 text-brand-blue" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-text-primary">Earnings</p>
-            <p className="text-xs text-text-muted">View revenue</p>
+            <p className="text-sm font-semibold text-text-primary">{t("earnings", language)}</p>
+            <p className="text-xs text-text-muted">{t("viewRevenue", language)}</p>
           </div>
         </Link>
       </div>
@@ -139,10 +140,10 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-text-primary flex items-center gap-2">
               <Users className="w-4 h-4 text-text-muted" />
-              Fleet Status
+              {t("fleetStatus", language)}
             </h3>
             <span className="text-xs text-text-muted">
-              {availableDrivers} of {totalDrivers} drivers available
+              {availableDrivers} {t("of", language)} {totalDrivers} {t("drivers", language)} {t("available", language).toLowerCase()}
             </span>
           </div>
 
@@ -152,21 +153,21 @@ export default function DashboardPage() {
               <div
                 className="bg-success transition-all duration-500"
                 style={{ width: `${availablePct}%` }}
-                title={`${availableDrivers} Available (${availablePct}%)`}
+                title={`${availableDrivers} ${t("available", language)} (${availablePct}%)`}
               />
             )}
             {onTripDrivers > 0 && (
               <div
                 className="bg-warning transition-all duration-500"
                 style={{ width: `${onTripPct}%` }}
-                title={`${onTripDrivers} On Trip (${onTripPct}%)`}
+                title={`${onTripDrivers} ${t("onTrip", language)} (${onTripPct}%)`}
               />
             )}
             {offlineDrivers > 0 && (
               <div
                 className="bg-text-muted transition-all duration-500"
                 style={{ width: `${offlinePct}%` }}
-                title={`${offlineDrivers} Offline (${offlinePct}%)`}
+                title={`${offlineDrivers} ${t("offline", language)} (${offlinePct}%)`}
               />
             )}
           </div>
@@ -175,15 +176,15 @@ export default function DashboardPage() {
           <div className="flex items-center gap-5 mt-3 text-xs text-text-muted">
             <div className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full bg-success" />
-              <span>Available ({availableDrivers})</span>
+              <span>{t("available", language)} ({availableDrivers})</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full bg-warning" />
-              <span>On Trip ({onTripDrivers})</span>
+              <span>{t("onTrip", language)} ({onTripDrivers})</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full bg-text-muted" />
-              <span>Offline ({offlineDrivers})</span>
+              <span>{t("offline", language)} ({offlineDrivers})</span>
             </div>
           </div>
         </div>
@@ -196,18 +197,18 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-text-primary flex items-center gap-2">
               <Clock className="w-4 h-4 text-warning" />
-              Trips Needing Attention
+              {t("tripsNeedingAttention", language)}
               {needingAttention.length > 0 && (
                 <span className="bg-danger text-white text-xs px-1.5 py-0.5 rounded-full">{needingAttention.length}</span>
               )}
             </h3>
             <Link href="/trips" className="text-xs text-brand-blue hover:underline flex items-center gap-1">
-              View all <ArrowRight className="w-3 h-3" />
+              {t("view", language)} {t("all", language)} <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
 
           {needingAttention.length === 0 ? (
-            <p className="text-sm text-text-muted py-4 text-center">No pending trips — you're all caught up ✓</p>
+            <p className="text-sm text-text-muted py-4 text-center">{t("noPendingTrips", language)} ✓</p>
           ) : (
             <div className="space-y-2">
               {needingAttention.slice(0, 5).map((trip) => (
@@ -227,7 +228,7 @@ export default function DashboardPage() {
                       href={`/trips`}
                       className="text-xs text-brand-blue hover:underline"
                     >
-                      {trip.status === "ASSIGNED" ? "Accept / Decline" : "View"}
+                      {trip.status === "ASSIGNED" ? `${t("accept", language)} / ${t("decline", language)}` : t("view", language)}
                     </Link>
                   </div>
                 </div>
@@ -241,15 +242,15 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-text-primary flex items-center gap-2">
               <Truck className="w-4 h-4 text-success" />
-              Active Trips
+              {t("activeTrips", language)}
             </h3>
             <Link href="/trips" className="text-xs text-brand-blue hover:underline flex items-center gap-1">
-              View all <ArrowRight className="w-3 h-3" />
+              {t("view", language)} {t("all", language)} <ArrowRight className="w-3 h-3" />
             </Link>
           </div>
 
           {activeTrips.length === 0 ? (
-            <p className="text-sm text-text-muted py-4 text-center">No active trips right now</p>
+            <p className="text-sm text-text-muted py-4 text-center">{t("noActiveTrips", language)}</p>
           ) : (
             <div className="space-y-2">
               {activeTrips.slice(0, 5).map((trip) => (
@@ -267,7 +268,7 @@ export default function DashboardPage() {
                     href="/trips"
                     className="text-xs text-brand-blue hover:underline shrink-0 ml-4"
                   >
-                    Track
+                    {t("track", language)}
                   </Link>
                 </div>
               ))}
@@ -278,9 +279,9 @@ export default function DashboardPage() {
 
       {/* Activity feed */}
       <div className="bg-card-bg border border-card-border rounded-xl p-5">
-        <h3 className="font-semibold text-text-primary mb-4">Recent Activity</h3>
+        <h3 className="font-semibold text-text-primary mb-4">{t("recentActivity", language)}</h3>
         {recentEvents.length === 0 ? (
-          <p className="text-sm text-text-muted text-center py-3">No recent activity</p>
+          <p className="text-sm text-text-muted text-center py-3">{t("noRecentActivity", language)}</p>
         ) : (
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {recentEvents.map((event) => (

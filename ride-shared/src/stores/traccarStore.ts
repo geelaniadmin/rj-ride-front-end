@@ -1,11 +1,18 @@
 import { create } from 'zustand';
 import { TraccarPosition, TraccarDevice, traccarService } from '../services/traccarService';
+import { DEMO_ROUTES } from '../mock/demoRoutes';
+
+// Module-level interval reference for demo simulation cleanup
+let demoSimInterval: ReturnType<typeof setInterval> | null = null;
 
 interface TraccarState {
   // Devices
   devices: Map<number, TraccarDevice>;
   setDevices: (devices: TraccarDevice[]) => void;
   addDevice: (device: TraccarDevice) => void;
+
+  // Devices indexed by uniqueId (matches vehicle traccarDeviceId)
+  devicesByUniqueId: Map<string, TraccarDevice>;
 
   // Positions
   positions: Map<number, TraccarPosition>;
@@ -27,7 +34,17 @@ interface TraccarState {
   // Actions
   fetchDevicePosition: (deviceId: number) => Promise<void>;
   fetchAllPositions: (deviceIds: number[]) => Promise<void>;
+  fetchDevices: () => Promise<void>;
   simulateMovement: (deviceId: number) => void;
+
+  // Demo simulation
+  demoSimulationActive: boolean;
+  startDemoSimulation: () => void;
+  stopDemoSimulation: () => void;
+
+  // Lookup helpers
+  getPositionForTraccarDeviceId: (traccarDeviceId: string) => TraccarPosition | undefined;
+  getDeviceIdByUniqueId: (uniqueId: string) => number | undefined;
 
   // Utils
   getDeviceDashboardUrl: (deviceId: number) => string;
@@ -36,11 +53,22 @@ interface TraccarState {
 export const useTraccarStore = create<TraccarState>((set, get) => ({
   // Devices
   devices: new Map(),
-  setDevices: (devices) => set({ devices: new Map(devices.map((d) => [d.id, d])) }),
+  devicesByUniqueId: new Map(),
+  setDevices: (devices) => {
+    const byId = new Map<number, TraccarDevice>();
+    const byUniqueId = new Map<string, TraccarDevice>();
+    devices.forEach((d) => {
+      byId.set(d.id, d);
+      byUniqueId.set(d.uniqueId, d);
+    });
+    set({ devices: byId, devicesByUniqueId: byUniqueId });
+  },
   addDevice: (device) => {
     const current = get().devices;
+    const currentByUniqueId = get().devicesByUniqueId;
     current.set(device.id, device);
-    set({ devices: new Map(current) });
+    currentByUniqueId.set(device.uniqueId, device);
+    set({ devices: new Map(current), devicesByUniqueId: new Map(currentByUniqueId) });
   },
 
   // Positions
@@ -63,6 +91,14 @@ export const useTraccarStore = create<TraccarState>((set, get) => ({
   useMockData: true,
 
   setTraccarConfig: (url, username, password, useMock) => {
+    // Sync to the service singleton so API calls use the right mode/credentials
+    traccarService.updateConfig({
+      apiUrl: url,
+      username,
+      password,
+      useMock,
+    });
+
     set({
       traccarUrl: url,
       traccarUsername: username,
@@ -94,10 +130,102 @@ export const useTraccarStore = create<TraccarState>((set, get) => ({
     }
   },
 
+  fetchDevices: async () => {
+    try {
+      const devices = await traccarService.fetchDevices();
+      get().setDevices(devices);
+
+      // Also fetch positions for all devices
+      const deviceIds = devices.map((d) => d.id);
+      get().fetchAllPositions(deviceIds);
+    } catch (error) {
+      console.error('Failed to fetch Traccar devices:', error);
+    }
+  },
+
   simulateMovement: (deviceId) => {
     traccarService.simulateMovement(deviceId);
-    // Trigger a re-fetch to update the store
     get().fetchDevicePosition(deviceId);
+  },
+
+  // Demo simulation
+  demoSimulationActive: false,
+
+  startDemoSimulation: () => {
+    const state = get();
+    if (state.demoSimulationActive) return; // Already running
+
+    set({ demoSimulationActive: true });
+
+    // Track current waypoint index for each route
+    const routeProgress = new Map<string, number>();
+    DEMO_ROUTES.forEach((route) => {
+      routeProgress.set(route.traccarDeviceId, 0);
+    });
+
+    // Advance each vehicle to its next waypoint
+    const advanceVehicles = () => {
+      const s = get();
+      if (!s.demoSimulationActive) return;
+
+      DEMO_ROUTES.forEach((route) => {
+        const idx = routeProgress.get(route.traccarDeviceId) ?? 0;
+        const waypoint = route.waypoints[idx];
+        const nextIdx = (idx + 1) % route.waypoints.length;
+        const nextWaypoint = route.waypoints[nextIdx];
+        if (!waypoint || !nextWaypoint) return;
+
+        routeProgress.set(route.traccarDeviceId, nextIdx);
+
+        // Calculate speed based on distance between waypoints
+        const dlat = nextWaypoint.lat - waypoint.lat;
+        const dlng = nextWaypoint.lng - waypoint.lng;
+        const distKm = Math.sqrt(dlat * dlat + dlng * dlng) * 111; // rough km
+        const speed = Math.max(15, Math.round(distKm / 0.00055 * 3.6)); // simulate ~2 sec step
+
+        // Find the device ID for this route
+        const device = s.devicesByUniqueId.get(route.traccarDeviceId);
+        const numericId = device?.id ?? parseInt(route.traccarDeviceId.replace('TRA-', ''));
+
+        // Update the mock position in the service
+        const bearing = Math.atan2(dlng, dlat) * (180 / Math.PI);
+        traccarService.updateMockPosition(numericId, nextWaypoint.lat, nextWaypoint.lng, speed);
+        traccarService.updateMockBearing(numericId, (bearing + 360) % 360);
+
+        // Update the store position so the map re-renders
+        s.fetchDevicePosition(numericId);
+      });
+
+      s.updateLastUpdate();
+    };
+
+    // Advance immediately to show movement, then every 2.5 seconds
+    advanceVehicles();
+    const interval = setInterval(advanceVehicles, 2500);
+
+    // Store interval ref for cleanup
+    demoSimInterval = interval;
+  },
+
+  stopDemoSimulation: () => {
+    if (demoSimInterval !== null) {
+      clearInterval(demoSimInterval);
+      demoSimInterval = null;
+    }
+    set({ demoSimulationActive: false });
+  },
+
+  // Lookup helpers
+  getPositionForTraccarDeviceId: (traccarDeviceId) => {
+    const state = get();
+    const device = state.devicesByUniqueId.get(traccarDeviceId);
+    if (!device) return undefined;
+    return state.positions.get(device.id);
+  },
+
+  getDeviceIdByUniqueId: (uniqueId) => {
+    const device = get().devicesByUniqueId.get(uniqueId);
+    return device?.id;
   },
 
   // Utils

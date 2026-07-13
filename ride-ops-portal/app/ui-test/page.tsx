@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useLanguageStore, t } from '@ride/shared';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
@@ -32,6 +33,7 @@ const testData: TestRow[] = [
 ];
 
 export default function UITestPage() {
+  const language = useLanguageStore((s) => s.language);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const { addToast } = useToastStore();
@@ -53,13 +55,13 @@ export default function UITestPage() {
   return (
     <div className="space-y-12">
       <div>
-        <h1 className="text-3xl font-bold text-[#1B2A4A] mb-2">UI Components</h1>
-        <p className="text-[#8B8FA8]">Component library showcase</p>
+        <h1 className="text-3xl font-bold text-[#1B2A4A] mb-2">{t('uiComponents', language)}</h1>
+        <p className="text-[#8B8FA8]">{t('componentLibraryShowcase', language)}</p>
       </div>
 
       {/* Badges */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">Badges</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('badges', language)}</h2>
         <div className="flex flex-wrap gap-3">
           <Badge variant="default">Default</Badge>
           <Badge variant="blue">Blue</Badge>
@@ -73,7 +75,7 @@ export default function UITestPage() {
 
       {/* Buttons */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">Buttons</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('buttons', language)}</h2>
         <div className="flex flex-wrap gap-3">
           <Button variant="primary">Primary</Button>
           <Button variant="secondary">Secondary</Button>
@@ -93,7 +95,7 @@ export default function UITestPage() {
 
       {/* Cards */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">Cards & KPI Cards</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('cardsKpiCards', language)}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <KpiCard label="Active Trips" value={42} unit="trips" icon={<TrendingUp className="w-6 h-6" />} />
           <KpiCard
@@ -110,7 +112,7 @@ export default function UITestPage() {
 
       {/* Status Badges */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">Status Badges</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('statusBadges', language)}</h2>
         <div className="flex flex-wrap gap-2">
           <StatusBadge status="DRAFT" />
           <StatusBadge status="CONFIRMED" />
@@ -124,10 +126,10 @@ export default function UITestPage() {
 
       {/* PII Field */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">PII Field (Tap to Reveal)</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('piiField', language)}</h2>
         <Card>
           <div className="space-y-2">
-            <p className="text-sm text-[#8B8FA8] mb-3">Click to reveal, auto-hides after 10 seconds</p>
+            <p className="text-sm text-[#8B8FA8] mb-3">{t('clickToReveal', language)}</p>
             <PiiField value="John Doe" type="name" />
             <PiiField value="9876543210" type="phone" />
             <PiiField value="john@example.com" type="email" />
@@ -137,7 +139,7 @@ export default function UITestPage() {
 
       {/* Data Table */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">Data Table (Sortable & Paginated)</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('dataTable', language)}</h2>
         <Card>
           <DataTable columns={columns} data={testData} rowKey="id" pageSize={2} />
         </Card>
@@ -145,7 +147,7 @@ export default function UITestPage() {
 
       {/* Modals & Drawers */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">Modals & Drawers</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('modalsDrawers', language)}</h2>
         <div className="flex gap-3">
           <Button onClick={() => setModalOpen(true)}>Open Modal</Button>
           <Button onClick={() => setDrawerOpen(true)}>Open Drawer</Button>
@@ -167,7 +169,7 @@ export default function UITestPage() {
 
       {/* Alerts */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">Alert Banners</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('alertBanners', language)}</h2>
         <div className="space-y-3">
           <AlertBanner type="info" message="This is an informational banner" />
           <AlertBanner type="warning" message="This is a warning message" onDismiss={() => {}} />
@@ -177,7 +179,7 @@ export default function UITestPage() {
 
       {/* Toasts */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">Toast Notifications</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('toastNotifications', language)}</h2>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => showToast('success')} variant="primary">
             Success Toast
@@ -194,7 +196,7 @@ export default function UITestPage() {
 
       {/* Timeline */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">Timeline Events</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('timelineEvents', language)}</h2>
         <Card>
           <TimelineEvent
             icon={Users}
@@ -219,7 +221,7 @@ export default function UITestPage() {
 
       {/* Live Badge & Loading Skeleton */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">Live Badge & Loading Skeleton</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('liveBadgeLoading', language)}</h2>
         <Card>
           <div className="space-y-4">
             <div>
@@ -238,7 +240,7 @@ export default function UITestPage() {
 
       {/* Empty State */}
       <section>
-        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">Empty State</h2>
+        <h2 className="text-xl font-semibold text-[#1B2A4A] mb-4">{t('emptyState', language)}</h2>
         <Card>
           <EmptyState icon={Users} title="No Data Available" description="Create your first item to get started" />
         </Card>

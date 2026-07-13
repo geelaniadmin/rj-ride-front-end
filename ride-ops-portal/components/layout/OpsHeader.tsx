@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useLanguageStore, t } from '@ride/shared';
 import { Bell, LogOut, Menu } from 'lucide-react';
 import { useOpsSessionStore } from '@/stores/opsSessionStore';
 import { useNotificationStore } from '@/stores/notificationStore';
@@ -8,12 +9,14 @@ import { NotificationDrawer } from '@/components/notifications/NotificationDrawe
 import { useRouter } from 'next/navigation';
 import { roleColors, roleDisplayNames } from '@/lib/types';
 import { Badge } from '../ui/Badge';
+import { LanguageToggle } from '../ui/LanguageToggle';
 
 interface OpsHeaderProps {
   onMenuClick?: () => void;
 }
 
 export function OpsHeader({ onMenuClick }: OpsHeaderProps) {
+  const language = useLanguageStore((s) => s.language);
   const { session, clearSession, setSession } = useOpsSessionStore();
   const router = useRouter();
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
@@ -58,7 +61,8 @@ export function OpsHeader({ onMenuClick }: OpsHeaderProps) {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        <LanguageToggle />
         <div className="relative">
           <button
             onClick={() => setNotificationDrawerOpen(true)}
@@ -86,26 +90,26 @@ export function OpsHeader({ onMenuClick }: OpsHeaderProps) {
                 onClick={() => handleRoleSwitch('control-room')}
                 className="w-full text-left px-4 py-2.5 text-sm text-text-primary hover:bg-ops-bg"
               >
-                Switch to Control Room
+                {t('switchToControlRoom', language)}
               </button>
               <button
                 onClick={() => handleRoleSwitch('rate-manager')}
                 className="w-full text-left px-4 py-2.5 text-sm text-text-primary hover:bg-ops-bg"
               >
-                Switch to Rate Manager
+                {t('switchToRateManager', language)}
               </button>
               <button
                 onClick={() => handleRoleSwitch('super-admin')}
                 className="w-full text-left px-4 py-2.5 text-sm text-text-primary hover:bg-ops-bg"
               >
-                Switch to Super Admin
+                {t('switchToSuperAdmin', language)}
               </button>
               <div className="border-t border-border my-1" />
               <button
                 onClick={handleLogout}
                 className="w-full text-left px-4 py-2.5 text-sm text-danger hover:bg-ops-bg flex items-center gap-2"
               >
-                <LogOut className="w-4 h-4" /> Logout
+                <LogOut className="w-4 h-4" /> {t('logout', language)}
               </button>
             </div>
           )}

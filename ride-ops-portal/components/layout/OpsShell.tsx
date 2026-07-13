@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useOpsSessionStore } from '@/stores/opsSessionStore';
 import { useSafetyAlertStore } from '@ride/shared';
+import { useLanguageStore } from '@/stores/languageStore';
 import { OpsHeader } from './OpsHeader';
 import { ControlRoomSidebar, RateManagerSidebar, SuperAdminSidebar, getControlRoomNavItems, getRateManagerNavItems, getSuperAdminNavItems } from './Sidebars';
 import { MobileMenu } from './MobileMenu';
@@ -13,6 +14,7 @@ interface OpsShellProps {
 
 export function OpsShell({ children }: OpsShellProps) {
   const { session } = useOpsSessionStore();
+  const language = useLanguageStore((s) => s.language);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const safetyAlerts = useSafetyAlertStore((s) => s.safetyAlerts);
 
@@ -22,13 +24,13 @@ export function OpsShell({ children }: OpsShellProps) {
     if (!session) return [];
     if (session.role === 'control-room') {
       const activeSosCount = safetyAlerts.filter((a) => a.type === 'SOS' && a.status === 'ACTIVE').length;
-      return getControlRoomNavItems(activeSosCount);
+      return getControlRoomNavItems(activeSosCount, language);
     } else if (session.role === 'rate-manager') {
-      return getRateManagerNavItems();
+      return getRateManagerNavItems(language);
     } else {
-      return getSuperAdminNavItems();
+      return getSuperAdminNavItems(language);
     }
-  }, [session, safetyAlerts]);
+  }, [session, safetyAlerts, language]);
 
   if (!session) return <>{children}</>;
 

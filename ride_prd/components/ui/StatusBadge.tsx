@@ -1,11 +1,13 @@
+"use client";
+
 import React from "react";
+import { useLanguageStore, t } from "@ride/shared";
 import { TripStatus, VehicleStatus } from "@/lib/types";
 import { Badge } from "./Badge";
 
 type Status = TripStatus | VehicleStatus;
 
 const statusColorMap: Record<Status, "default" | "blue" | "green" | "amber" | "red" | "purple" | "teal"> = {
-  // TripStatus
   DRAFT: "default",
   CONFIRMED: "blue",
   ASSIGNED: "purple",
@@ -13,8 +15,6 @@ const statusColorMap: Record<Status, "default" | "blue" | "green" | "amber" | "r
   COMPLETED: "green",
   BILLED: "teal",
   CANCELLED: "red",
-
-  // VehicleStatus
   PENDING: "default",
   DRIVER_ACCEPTED: "blue",
   DRIVER_REJECTED: "red",
@@ -32,16 +32,45 @@ const statusColorMap: Record<Status, "default" | "blue" | "green" | "amber" | "r
   SOS: "red",
 };
 
+// Maps status values to translation keys
+const STATUS_KEYS: Record<string, string> = {
+  PENDING: "statusPending",
+  ASSIGNED: "statusAssigned",
+  DRIVER_ACCEPTED: "statusDriverAccepted",
+  DRIVER_REJECTED: "statusDriverRejected",
+  EN_ROUTE_PICKUP: "statusEnRoutePickup",
+  AT_PICKUP: "statusAtPickup",
+  PAX_PICKED: "statusPaxPicked",
+  IN_TRANSIT: "statusInTransit",
+  AT_DROP: "statusAtDrop",
+  PAX_DROPPED: "statusPaxDropped",
+  COMPLETED: "statusCompleted",
+  NO_SHOW: "statusNoShow",
+  BREAKDOWN: "statusBreakdown",
+  ACCIDENT: "statusAccident",
+  VEHICLE_SWAP: "statusVehicleSwap",
+  DELAYED: "statusDelayed",
+  SOS: "statusSOS",
+  CANCELLED: "statusCancelled",
+  DRAFT: "statusDraft",
+  CONFIRMED: "statusConfirmed",
+  IN_PROGRESS: "inProgress",
+  BILLED: "statusBilled",
+};
+
 interface StatusBadgeProps {
   status: Status;
   className?: string;
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = "" }) => {
+  const language = useLanguageStore((s) => s.language);
   const variant = statusColorMap[status] || "default";
+  const key = STATUS_KEYS[status];
+  const label = key ? t(key as any, language) : status;
   return (
     <Badge variant={variant} className={status === "SOS" ? "animate-pulse font-bold" : className}>
-      {status}
+      {label}
     </Badge>
   );
 };

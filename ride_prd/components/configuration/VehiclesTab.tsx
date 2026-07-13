@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useLanguageStore, t } from "@ride/shared";
 import { useVehicleStore } from "@/stores/vehicleStore";
 import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
 import { useVendorStore } from "@/stores/vendorStore";
@@ -25,6 +26,7 @@ interface VehiclesTabProps {
 }
 
 export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) => {
+  const language = useLanguageStore((s) => s.language);
   const activeTenantId = useTenantStore((s) => s.activeTenantId);
   const allVehicles = useVehicleStore((s) => s.vehicles);
   const vehicles = useMemo(() => {
@@ -91,15 +93,15 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
 
   const handleSave = () => {
     if (!formData.make || !formData.registrationNo) {
-      addToast("Make and registration are required", "error");
+      addToast(t("makeRegistrationRequired", language), "error");
       return;
     }
     if (editingVehicle?.id) {
       updateVehicle(editingVehicle.id, formData);
-      addToast("Vehicle updated", "success");
+      addToast(t("vehicleUpdated", language), "success");
     } else {
       addVehicle(formData);
-      addToast("Vehicle created", "success");
+      addToast(t("vehicleCreated", language), "success");
     }
     setDrawerOpen(false);
   };
@@ -108,46 +110,46 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
   const expiringSoonDocs = vehicles.reduce((sum, v) => sum + (v.documents?.filter(d => isDocumentExpiringSoon(d.expiry)).length || 0), 0);
 
   const columns: Column[] = [
-    { key: "registrationNo", header: "Registration", sortable: true },
-    { key: "make", header: "Make/Model", sortable: true, render: (val, row): React.ReactNode => {
+    { key: "registrationNo", header: t("registration", language), sortable: true },
+    { key: "make", header: t("makeModel", language), sortable: true, render: (val, row): React.ReactNode => {
       const vehicle = row as unknown as Vehicle;
       return `${val} ${vehicle?.model || ""}`;
     } },
-    { key: "vehicleTypeId", header: "Type", render: (val): React.ReactNode => {
+    { key: "vehicleTypeId", header: t("type", language), render: (val): React.ReactNode => {
       const typeId = val as string | undefined;
-      return vts.find(v => v.id === typeId)?.name || "-";
+      return vts.find(v => v.id === typeId)?.name || t("dash", language);
     } },
-    { key: "active", header: "Status", render: (val): React.ReactNode => <Badge variant={val ? "green" : "red"}>{val ? "Active" : "Inactive"}</Badge> },
+    { key: "active", header: t("status", language), render: (val): React.ReactNode => <Badge variant={val ? "green" : "red"}>{val ? t("active", language) : t("inactive", language)}</Badge> },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-ops-sidebar">Vehicles ({vehicles.length})</h3>
+        <h3 className="font-semibold text-ops-sidebar">{t("vehicles", language)} ({vehicles.length})</h3>
         <Button onClick={openCreate} variant="primary" size="sm">
-          New Vehicle
+          {t("newVehicle", language)}
         </Button>
       </div>
 
       <HealthStrip expiredCount={expiredDocs} expiringCount={expiringSoonDocs} />
 
-      <DataTable columns={columns} data={vehicles.map(v => ({ ...v })) as Record<string, unknown>[]} pageSize={10} emptyMessage="No vehicles" />
+      <DataTable columns={columns} data={vehicles.map(v => ({ ...v })) as Record<string, unknown>[]} pageSize={10} emptyMessage={t("noVehicles", language)} />
 
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editingVehicle ? "Edit Vehicle" : "New Vehicle"} width="lg">
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} title={editingVehicle ? t("editVehicle", language) : t("newVehicle", language)} width="lg">
         <div className="space-y-4">
-          <FormField label="Make" required>
-            <Input value={formData.make} onChange={(e) => setFormData({ ...formData, make: e.target.value })} placeholder="e.g., Maruti, Mahindra" />
+          <FormField label={t("make", language)} required>
+            <Input value={formData.make} onChange={(e) => setFormData({ ...formData, make: e.target.value })} placeholder={t("makePlaceholder", language)} />
           </FormField>
 
-          <FormField label="Model">
-            <Input value={formData.model} onChange={(e) => setFormData({ ...formData, model: e.target.value })} placeholder="e.g., Swift, XUV700" />
+          <FormField label={t("model", language)}>
+            <Input value={formData.model} onChange={(e) => setFormData({ ...formData, model: e.target.value })} placeholder={t("modelPlaceholder", language)} />
           </FormField>
 
-          <FormField label="Registration No" required>
+          <FormField label={t("registration", language)} required>
             <Input value={formData.registrationNo} onChange={(e) => setFormData({ ...formData, registrationNo: e.target.value })} placeholder="KA05AB1234" />
           </FormField>
 
-          <FormField label="Vehicle Type">
+          <FormField label={t("vehicleType", language)}>
             <Select
               value={formData.vehicleTypeId}
               onChange={(e) => setFormData({ ...formData, vehicleTypeId: e.target.value })}
@@ -155,7 +157,7 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
             />
           </FormField>
 
-          <FormField label="Owner Vendor">
+          <FormField label={t("ownerVendor", language)}>
             <Select
               value={formData.ownerVendorId}
               onChange={(e) => setFormData({ ...formData, ownerVendorId: e.target.value })}
@@ -163,37 +165,37 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
             />
           </FormField>
 
-          <FormField label="Ownership">
+          <FormField label={t("ownership", language)}>
             <Select
               value={formData.ownership}
               onChange={(e) => setFormData({ ...formData, ownership: e.target.value as "OWN" | "LEASED" | "SUB_VENDOR" })}
               options={[
-                { value: "OWN", label: "Own" },
-                { value: "LEASED", label: "Leased" },
-                { value: "SUB_VENDOR", label: "Sub-Vendor" },
+                { value: "OWN", label: t("own", language) },
+                { value: "LEASED", label: t("leased", language) },
+                { value: "SUB_VENDOR", label: t("subVendor", language) },
               ]}
             />
           </FormField>
 
-          <FormField label="Fuel Type">
+          <FormField label={t("fuelType", language)}>
             <Select
               value={formData.fuelType}
               onChange={(e) => setFormData({ ...formData, fuelType: e.target.value as "PETROL" | "DIESEL" | "CNG" | "EV" })}
               options={[
-                { value: "PETROL", label: "Petrol" },
-                { value: "DIESEL", label: "Diesel" },
-                { value: "CNG", label: "CNG" },
-                { value: "EV", label: "EV" },
+                { value: "PETROL", label: t("petrol", language) },
+                { value: "DIESEL", label: t("diesel", language) },
+                { value: "CNG", label: t("cng", language) },
+                { value: "EV", label: t("ev", language) },
               ]}
             />
           </FormField>
 
           <div className="flex gap-2 pt-4">
             <Button onClick={handleSave} variant="primary">
-              {editingVehicle ? "Update" : "Create"}
+              {editingVehicle ? t("update", language) : t("create", language)}
             </Button>
             <Button onClick={() => setDrawerOpen(false)} variant="secondary">
-              Cancel
+              {t("cancel", language)}
             </Button>
           </div>
         </div>
@@ -203,13 +205,13 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
         <div key={vehicle.id} className="p-3 bg-ops-bg rounded border border-border text-sm">
           <div className="flex justify-between items-start mb-2">
             <div className="font-medium text-ops-sidebar">{vehicle.make} {vehicle.model} ({vehicle.registrationNo})</div>
-            <Button size="sm" variant="ghost" onClick={() => openEdit(vehicle)}>Edit</Button>
+            <Button size="sm" variant="ghost" onClick={() => openEdit(vehicle)}>{t("edit", language)}</Button>
           </div>
           {vehicle.documents && vehicle.documents.length > 0 && (
             <div className="space-y-1 text-xs text-ops-sidebar">
               {vehicle.documents.map((doc, idx) => (
                 <div key={idx} className="flex justify-between items-center">
-                  <span>{doc.kind}: {doc.number || "—"}</span>
+                  <span>{doc.kind}: {doc.number || t("dash", language)}</span>
                   <DocumentStatus expiryDate={doc.expiry} />
                 </div>
               ))}

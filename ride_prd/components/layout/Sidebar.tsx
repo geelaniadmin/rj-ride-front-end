@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLanguageStore, t } from "@ride/shared";
 import {
   LayoutDashboard,
   Settings2,
@@ -18,35 +19,30 @@ import {
   GitBranch,
 } from "lucide-react";
 
-interface NavItem {
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  href: string;
-}
-
-const NAV_ITEMS: NavItem[] = [
-  { label: "Dashboard", icon: LayoutDashboard, href: "/" },
-  { label: "Configuration", icon: Settings2, href: "/configuration" },
-  { label: "Pricing & Quotes", icon: Tags, href: "/pricing" },
-  { label: "Trip Requests", icon: Route, href: "/trips" },
-  { label: "Dispatch", icon: Radio, href: "/dispatch" },
-  { label: "Tracking", icon: MapPin, href: "/tracking" },
-  { label: "Driver Mobile", icon: SmartphoneNfc, href: "/driver-mobile" },
-  { label: "Passenger Mobile", icon: Users, href: "/passenger-mobile" },
-  { label: "Rosters", icon: ClipboardList, href: "/rosters" },
-  { label: "Pooling", icon: GitBranch, href: "/pooling" },
-  { label: "Billing", icon: Receipt, href: "/billing" },
-  { label: "API Console", icon: Code2, href: "/api-console" },
+const NAV_ITEMS = [
+  { labelKey: "dashboard" as const, icon: LayoutDashboard, href: "/" },
+  { labelKey: "configuration" as const, icon: Settings2, href: "/configuration" },
+  { labelKey: "pricingAndQuotes" as const, icon: Tags, href: "/pricing" },
+  { labelKey: "tripRequests" as const, icon: Route, href: "/trips" },
+  { labelKey: "dispatch" as const, icon: Radio, href: "/dispatch" },
+  { labelKey: "tracking" as const, icon: MapPin, href: "/tracking" },
+  { labelKey: "driverMobile" as const, icon: SmartphoneNfc, href: "/driver-mobile" },
+  { labelKey: "passengerMobile" as const, icon: Users, href: "/passenger-mobile" },
+  { labelKey: "rosters" as const, icon: ClipboardList, href: "/rosters" },
+  { labelKey: "pooling" as const, icon: GitBranch, href: "/pooling" },
+  { labelKey: "billing" as const, icon: Receipt, href: "/billing" },
+  { labelKey: "apiConsole" as const, icon: Code2, href: "/api-console" },
 ];
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
+  const language = useLanguageStore((s) => s.language);
 
   return (
     <aside className="w-60 bg-ops-sidebar border-r border-border h-screen flex flex-col shadow-lg">
       <div className="p-5 border-b border-white/10">
-        <h1 className="text-xl font-bold text-white">RIDE</h1>
-        <p className="text-xs text-white/60 mt-1">Transport Management</p>
+        <h1 className="text-xl font-bold text-white">{t('rideTM', language)}</h1>
+        <p className="text-xs text-white/60 mt-1">{t('transportManagement', language)}</p>
       </div>
 
       <nav className="flex-1 overflow-y-auto p-3 flex flex-col gap-0.5">
@@ -65,7 +61,7 @@ export const Sidebar: React.FC = () => {
               }`}
             >
               <Icon className="w-5 h-5 flex-shrink-0" />
-              <span className="text-sm">{item.label}</span>
+              <span className="text-sm">{t(item.labelKey, language)}</span>
             </Link>
           );
         })}
@@ -73,8 +69,8 @@ export const Sidebar: React.FC = () => {
 
       <div className="p-4 border-t border-white/10">
         <div className="text-xs text-white/50 text-center">
-          <p className="font-medium text-white/80">v0.1.0</p>
-          <p>Prototype</p>
+          <p className="font-medium text-white/80">{t('prototypeVersion', language)}</p>
+          <p>{t('prototype', language)}</p>
         </div>
       </div>
     </aside>

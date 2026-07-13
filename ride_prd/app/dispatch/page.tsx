@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useLanguageStore, t } from "@ride/shared";
 import { useTripStore } from "@/stores/tripStore";
 import { useVehicleStore } from "@/stores/vehicleStore";
 import { useDriverStore } from "@/stores/driverStore";
@@ -22,6 +23,7 @@ import { MapPin, AlertCircle, ChevronRight, Lock, X, AlertTriangle, Zap, CheckCi
 const DISPATCH_STATUSES: VehicleStatus[] = ["ASSIGNED", "DRIVER_ACCEPTED", "EN_ROUTE_PICKUP", "AT_PICKUP", "PAX_PICKED", "IN_TRANSIT", "AT_DROP", "PAX_DROPPED"];
 
 export default function DispatchPage() {
+  const language = useLanguageStore((s) => s.language);
   const activeTenantId = useTenantStore((s) => s.activeTenantId);
   const allTrips = useTripStore((s) => s.trips) || [];
   const trips = useMemo(() => allTrips.filter((t) => t.tenantId === activeTenantId && t.status !== "CANCELLED"), [allTrips, activeTenantId]);
@@ -130,7 +132,7 @@ export default function DispatchPage() {
         if (hoursUntilPickup > 2) {
           if (!overridePreflight) {
             setPreflightWarning(
-              `Scheduled pickup is ${hoursUntilPickup.toFixed(1)} hours away (more than 2h threshold). Click "Override & Advance" to proceed anyway.`
+              t("scheduledPickupWarning", language).replace("{hours}", hoursUntilPickup.toFixed(1))
             );
             return;
           }
@@ -164,8 +166,8 @@ export default function DispatchPage() {
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-text-primary">Dispatch Dashboard</h1>
-        <p className="text-sm text-text-secondary mt-1">Real-time trip tracking and vehicle management with lifecycle validation</p>
+        <h1 className="text-3xl font-bold text-text-primary">{t("dispatchDashboard", language)}</h1>
+        <p className="text-sm text-text-secondary mt-1">{t("dispatchDescription", language)}</p>
       </div>
 
       {/* ── Auto-Dispatch Panel ── */}
@@ -176,17 +178,16 @@ export default function DispatchPage() {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-              <Zap className="w-4 h-4 text-brand-blue" /> Auto-Dispatch Engine
+              <Zap className="w-4 h-4 text-brand-blue" /> {t("autoDispatchEngine", language)}
             </h3>
             <p className="text-[11px] text-text-secondary mt-0.5">
-              Scans all pending vehicle slots and auto-assigns available vehicles + drivers across own fleet and sub-vendors.
+              {t("autoDispatchDescription", language)}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Button
               onClick={async () => {
                 setIsAutoAssigning(true);
-                // Small delay for visual feedback
                 await new Promise((r) => setTimeout(r, 300));
                 const result = executeAutoDispatch(activeTenantId);
                 setShowAutoAssignResult(result);
@@ -198,7 +199,7 @@ export default function DispatchPage() {
               className="flex items-center gap-2"
             >
               <Zap className="w-4 h-4" />
-              {isAutoAssigning ? "Dispatching..." : "Run Auto-Dispatch"}
+              {isAutoAssigning ? t("dispatching", language) : t("runAutoDispatch", language)}
             </Button>
           </div>
         </div>
@@ -208,8 +209,8 @@ export default function DispatchPage() {
           <div className="mt-3 pt-3 border-t border-brand-blue/10 space-y-2">
             <p className="text-xs font-medium text-text-primary">
               {showAutoAssignResult.assignments.length > 0
-                ? `✅ ${showAutoAssignResult.assignments.length} vehicle(s) assigned`
-                : "ℹ️ No vehicles were auto-assigned"}
+                ? t("vehiclesAssigned", language).replace("{count}", String(showAutoAssignResult.assignments.length))
+                : t("noVehiclesAutoAssigned", language)}
             </p>
             {showAutoAssignResult.assignments.length > 0 && (
               <div className="space-y-1.5">
@@ -217,7 +218,7 @@ export default function DispatchPage() {
                   <div key={i} className="flex items-center gap-2 text-[11px] bg-success/5 border border-success/20 rounded-lg px-3 py-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0" />
                     <span className="text-text-primary">
-                      {a.vehicleName} → driver <strong>{a.driverName}</strong>
+                      {a.vehicleName} → {t("driverWithColon", language)} <strong>{a.driverName}</strong>
                     </span>
                   </div>
                 ))}
@@ -226,7 +227,7 @@ export default function DispatchPage() {
             {showAutoAssignResult.failed.length > 0 && (
               <div className="space-y-1">
                 <p className="text-[11px] text-danger font-medium">
-                  ❌ {showAutoAssignResult.failed.length} failed
+                  {t("failedCount", language).replace("{count}", String(showAutoAssignResult.failed.length))}
                 </p>
                 {showAutoAssignResult.failed.map((f, i) => (
                   <p key={i} className="text-[10px] text-danger/70 ml-1">
@@ -243,25 +244,25 @@ export default function DispatchPage() {
       <div className="grid grid-cols-4 gap-5">
         <div className="bg-ops-sidebar border border-ops-sidebar rounded-xl shadow-lg p-4">
           <div>
-            <p className="text-xs text-white/60">Active Vehicles</p>
+            <p className="text-xs text-white/60">{t("activeVehicles", language)}</p>
             <p className="text-2xl font-bold text-white mt-1">{activeTripsCount}</p>
           </div>
         </div>
         <div className="bg-ops-sidebar border border-ops-sidebar rounded-xl shadow-lg p-4">
           <div>
-            <p className="text-xs text-white/60">In Transit</p>
+            <p className="text-xs text-white/60">{t("inTransit", language)}</p>
             <p className="text-2xl font-bold text-white mt-1">{inTransitCount}</p>
           </div>
         </div>
         <div className="bg-ops-sidebar border border-ops-sidebar rounded-xl shadow-lg p-4">
           <div>
-            <p className="text-xs text-white/60">Total Vehicles</p>
+            <p className="text-xs text-white/60">{t("totalVehicles", language)}</p>
             <p className="text-2xl font-bold text-white mt-1">{dispatchVehicles.length}</p>
           </div>
         </div>
         <div className={`${alertsCount > 0 ? "bg-danger border-danger" : "bg-ops-sidebar border-ops-sidebar"} rounded-xl shadow-lg p-4 border`}>
           <div>
-            <p className={`text-xs ${alertsCount > 0 ? "text-white" : "text-white/60"}`}>Alerts</p>
+            <p className={`text-xs ${alertsCount > 0 ? "text-white" : "text-white/60"}`}>{t("alerts", language)}</p>
             <p className={`text-2xl font-bold mt-1 ${alertsCount > 0 ? "text-white" : "text-white"}`}>{alertsCount}</p>
           </div>
         </div>
@@ -269,13 +270,13 @@ export default function DispatchPage() {
 
       {/* Filters */}
       <div>
-        <label className="block text-xs text-text-secondary mb-2">Filter by Vehicle Status</label>
+        <label className="block text-xs text-text-secondary mb-2">{t("filterByVehicleStatus", language)}</label>
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value as VehicleStatus | "ALL")}
           className="px-3 py-2 bg-white border border-border rounded-lg text-sm text-text-primary"
         >
-          <option value="ALL">All Statuses</option>
+          <option value="ALL">{t("allStatuses", language)}</option>
           {DISPATCH_STATUSES.map((s) => (
             <option key={s} value={s}>
               {s}
@@ -285,10 +286,10 @@ export default function DispatchPage() {
       </div>
 
       {/* Dispatch Board */}
-      <Card padding="lg" header={<h3 className="font-semibold">📍 Active Vehicles ({dispatchVehicles.length})</h3>}>
+      <Card padding="lg" header={<h3 className="font-semibold">{t("activeVehiclesWithCount", language).replace("{count}", String(dispatchVehicles.length))}</h3>}>
         <div className="space-y-3">
           {dispatchVehicles.length === 0 ? (
-            <p className="text-sm text-text-secondary text-center py-8">No vehicles to display</p>
+            <p className="text-sm text-text-secondary text-center py-8">{t("noVehiclesToDisplay", language)}</p>
           ) : (
             dispatchVehicles.map((item) => {
               const customer = customers.find((c) => c.id === item.customerId);
@@ -314,33 +315,33 @@ export default function DispatchPage() {
                       </div>
 
                       <p className="text-sm font-medium text-text-primary">
-                        {fleetVehicle ? `${fleetVehicle.make} ${fleetVehicle.model}` : "Unassigned Vehicle"} — {customer?.name}
+                        {fleetVehicle ? `${fleetVehicle.make} ${fleetVehicle.model}` : t("unassignedVehicle", language)} — {customer?.name}
                       </p>
 
                       <div className="grid grid-cols-4 gap-2 mt-2 text-xs text-text-secondary">
                         <div>
-                          <span className="text-text-tertiary">Driver:</span> {driver ? <PII value={driver.name} type="name" /> : "Unassigned"}
+                          <span className="text-text-tertiary">{t("driverWithColon", language)}</span> {driver ? <PII value={driver.name} type="name" /> : t("unassigned", language)}
                         </div>
                         <div>
-                          <span className="text-text-tertiary">Pax:</span> {item.pax}
+                          <span className="text-text-tertiary">{t("paxWithColon", language)}</span> {item.pax}
                         </div>
                         <div>
-                          <span className="text-text-tertiary">Price:</span> ₹{item.lockedPrice || "—"}
+                          <span className="text-text-tertiary">{t("priceWithColon", language)}</span> ₹{item.lockedPrice ?? t("dash", language)}
                         </div>
                         <div>
-                          <span className="text-text-tertiary">Trip:</span> {item.stops} stops
+                          <span className="text-text-tertiary">{t("tripWithColon", language)}</span> {item.stops} {t("stops", language)}
                         </div>
                       </div>
 
                       {item.nextStop && (
                         <p className="text-xs text-text-secondary mt-2 flex items-center gap-1">
-                          <MapPin className="w-3 h-3" /> Next: {item.nextStop}
+                          <MapPin className="w-3 h-3" /> {t("nextWithColon", language)} {item.nextStop}
                         </p>
                       )}
                     </div>
 
                     <div className="text-right text-xs">
-                      <p className="text-text-secondary">Trip Status</p>
+                      <p className="text-text-secondary">{t("tripStatus", language)}</p>
                       <p className="text-sm font-semibold text-text-primary">{item.derivedTripStatus}</p>
                     </div>
                   </div>
@@ -376,14 +377,14 @@ export default function DispatchPage() {
                         className="text-xs text-danger hover:bg-danger/10 flex items-center gap-1"
                       >
                         <X className="w-3 h-3" />
-                        Cancel
+                        {t("cancel", language)}
                       </Button>
                     </div>
                   )}
 
                   {!canAdvance && (
                     <div className="text-xs text-text-secondary p-2 bg-ops-bg rounded border border-border italic">
-                      No further transitions available for {item.vehicleStatus}
+                      {t("noFurtherTransitions", language).replace("{status}", item.vehicleStatus)}
                     </div>
                   )}
                 </div>
@@ -394,30 +395,30 @@ export default function DispatchPage() {
       </Card>
 
       {/* Legend */}
-      <Card padding="lg" header={<h3 className="font-semibold">📋 Status Legend</h3>}>
+      <Card padding="lg" header={<h3 className="font-semibold">{t("statusLegend", language)}</h3>}>
         <div className="grid grid-cols-3 gap-4 text-xs">
           <div>
-            <p className="font-medium text-text-primary mb-2">Active States</p>
+            <p className="font-medium text-text-primary mb-2">{t("activeStates", language)}</p>
             <div className="space-y-1">
-              <p className="text-text-secondary">🚗 IN_TRANSIT — Vehicle moving</p>
-              <p className="text-text-secondary">📍 AT_PICKUP — Waiting at pickup</p>
-              <p className="text-text-secondary">✓ PAX_PICKED — Passengers aboard</p>
+              <p className="text-text-secondary">{t("legendInTransit", language)}</p>
+              <p className="text-text-secondary">{t("legendAtPickup", language)}</p>
+              <p className="text-text-secondary">{t("legendPaxPicked", language)}</p>
             </div>
           </div>
           <div>
-            <p className="font-medium text-text-primary mb-2">Transition States</p>
+            <p className="font-medium text-text-primary mb-2">{t("transitionStates", language)}</p>
             <div className="space-y-1">
-              <p className="text-text-secondary">→ EN_ROUTE_PICKUP — Going to pickup</p>
-              <p className="text-text-secondary">📋 DRIVER_ACCEPTED — Confirmed</p>
-              <p className="text-text-secondary">📍 AT_DROP — At destination</p>
+              <p className="text-text-secondary">{t("legendEnRoutePickup", language)}</p>
+              <p className="text-text-secondary">{t("legendDriverAccepted", language)}</p>
+              <p className="text-text-secondary">{t("legendAtDrop", language)}</p>
             </div>
           </div>
           <div>
-            <p className="font-medium text-text-primary mb-2">Exception States</p>
+            <p className="font-medium text-text-primary mb-2">{t("exceptionStates", language)}</p>
             <div className="space-y-1">
-              <p className="text-danger">🚨 SOS — Emergency</p>
-              <p className="text-danger">⚠️ BREAKDOWN — Vehicle failure</p>
-              <p className="text-danger">❌ NO_SHOW — Driver absent</p>
+              <p className="text-danger">{t("legendSOS", language)}</p>
+              <p className="text-danger">{t("legendBreakdown", language)}</p>
+              <p className="text-danger">{t("legendNoShow", language)}</p>
             </div>
           </div>
         </div>
@@ -432,38 +433,38 @@ export default function DispatchPage() {
             setPreflightWarning(null);
             setOverridePreflight(false);
           }}
-          title={`Advance to ${actionModal.nextStatus}`}
+          title={t("advanceTo", language).replace("{status}", actionModal.nextStatus)}
         >
           <div className="space-y-4">
             <p className="text-sm text-text-secondary">
-              Confirm transition to <strong>{actionModal.nextStatus}</strong>?
+              {t("confirmTransition", language).replace("{status}", actionModal.nextStatus)}
             </p>
 
             {actionModal.nextStatus === "PAX_PICKED" && (
               <div className="p-3 bg-brand-blue/10 border border-brand-blue/20 rounded-lg text-xs text-text-primary flex items-start gap-2">
                 <Lock className="w-4 h-4 text-brand-blue flex-shrink-0 mt-0.5" />
-                <span><strong>OTP Required:</strong> Pickup OTP must be verified before this transition is allowed.</span>
+                <span><strong>{t("otpRequired", language)}</strong> {t("pickupOtpMessage", language)}</span>
               </div>
             )}
 
             {actionModal.nextStatus === "PAX_DROPPED" && (
               <div className="p-3 bg-brand-blue/10 border border-brand-blue/20 rounded-lg text-xs text-text-primary flex items-start gap-2">
                 <Lock className="w-4 h-4 text-brand-blue flex-shrink-0 mt-0.5" />
-                <span><strong>OTP Required:</strong> Drop OTP must be verified before this transition is allowed.</span>
+                <span><strong>{t("otpRequired", language)}</strong> {t("dropOtpMessage", language)}</span>
               </div>
             )}
 
             {preflightWarning && (
               <div className="p-3 bg-alert-amber/10 border border-alert-amber/30 rounded-lg text-xs text-alert-amber flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span><strong>Pre-flight Warning:</strong> {preflightWarning}</span>
+                <span><strong>{t("preflightWarning", language)}:</strong> {preflightWarning}</span>
               </div>
             )}
 
             <div className="flex gap-2 pt-4">
               {!preflightWarning ? (
                 <Button onClick={() => handleAdvanceStatus(actionModal.nextStatus)} variant="primary" className="flex-1">
-                  Confirm
+                  {t("confirmAction", language)}
                 </Button>
               ) : (
                 <Button
@@ -474,12 +475,12 @@ export default function DispatchPage() {
                   variant="primary"
                   className="flex-1"
                 >
-                  <AlertTriangle className="w-3 h-3 mr-1" /> Override & Advance
+                  <AlertTriangle className="w-3 h-3 mr-1" /> {t("overrideAndAdvance", language)}
                 </Button>
               )}
               {actionModal.nextStatus === "CANCELLED" && (
                 <Button onClick={handleCancel} variant="secondary" className="flex-1">
-                  Cancel Trip
+                  {t("cancelTrip", language)}
                 </Button>
               )}
               {actionModal.nextStatus !== "CANCELLED" && (
@@ -488,7 +489,7 @@ export default function DispatchPage() {
                   setPreflightWarning(null);
                   setOverridePreflight(false);
                 }} variant="secondary" className="flex-1">
-                  Close
+                  {t("close", language)}
                 </Button>
               )}
             </div>

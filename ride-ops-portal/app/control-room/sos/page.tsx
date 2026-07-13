@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSafetyAlertStore, useTripStore } from '@ride/shared';
+import { useSafetyAlertStore, useTripStore, useLanguageStore, t } from '@ride/shared';
 import { Card } from '@/components/ui/Card';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -22,6 +22,8 @@ export default function SosPage() {
   const escalateSafetyAlert = useSafetyAlertStore((s) => s.escalateSafetyAlert);
   const addToast = useToastStore((s) => s.addToast);
 
+  const language = useLanguageStore((s) => s.language);
+
   const tenantId = 'T1';
   const activeSos = safetyAlerts.find((a) => a.type === 'SOS' && a.status === 'ACTIVE' && a.tenantId === tenantId);
 
@@ -41,17 +43,17 @@ export default function SosPage() {
   }, [activeSos]);
 
   if (!activeSos) {
-    return <EmptyState icon={AlertCircle} title="All clear" description="No active SOS emergencies" />;
+    return <EmptyState icon={AlertCircle} title={t('allClear', language)} description={t('noActiveSOSEmergencies', language)} />;
   }
 
   const trip = trips.find((t) => t.id === activeSos.tripId);
   const resolvedSos = safetyAlerts.filter((a) => a.type === 'SOS' && a.status === 'RESOLVED' && a.tenantId === tenantId);
 
   const resolvedColumns: Column<any>[] = [
-    { key: 'tripId', label: 'Trip ID' },
-    { key: 'message', label: 'Message' },
-    { key: 'createdAt', label: 'Time', render: (v) => new Date(v).toLocaleTimeString() },
-    { key: 'resolvedAt', label: 'Resolved', render: (v) => (v ? new Date(v).toLocaleTimeString() : '—') },
+    { key: 'tripId', label: t('tripId', language) },
+    { key: 'message', label: t('message', language) },
+    { key: 'createdAt', label: t('time', language), render: (v) => new Date(v).toLocaleTimeString() },
+    { key: 'resolvedAt', label: t('resolved', language), render: (v) => (v ? new Date(v).toLocaleTimeString() : t('dash', language)) },
   ];
 
   return (
@@ -60,37 +62,37 @@ export default function SosPage() {
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-3 h-3 bg-red-600 rounded-full animate-pulse" />
-            <h2 className="text-2xl font-bold text-red-700">ACTIVE SOS — Trip {activeSos.tripId}</h2>
+            <h2 className="text-2xl font-bold text-red-700">{t('activeSOSTrip', language)} {activeSos.tripId}</h2>
           </div>
           <div className="text-center">
-            <p className="text-sm text-red-600">Elapsed time</p>
+            <p className="text-sm text-red-600">{t('elapsedTime', language)}</p>
             <p className="text-3xl font-mono font-bold text-red-700">{elapsed}</p>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4 mb-6 bg-white p-4 rounded">
           <div>
-            <p className="text-xs text-[#8B8FA8]">Passenger</p>
-            <PiiField value={activeSos.paxName || 'Unknown'} type="name" />
+            <p className="text-xs text-[#8B8FA8]">{t('passenger', language)}</p>
+            <PiiField value={activeSos.paxName || t('unknown', language)} type="name" />
           </div>
           <div>
-            <p className="text-xs text-[#8B8FA8]">Location</p>
+            <p className="text-xs text-[#8B8FA8]">{t('location', language)}</p>
             <p className="text-sm text-[#3D434A]">{activeSos.location}</p>
           </div>
           <div>
-            <p className="text-xs text-[#8B8FA8]">Vehicle</p>
+            <p className="text-xs text-[#8B8FA8]">{t('vehicle', language)}</p>
             <p className="text-sm text-[#3D434A]">{activeSos.vehiclePlate}</p>
           </div>
         </div>
 
         <div className="bg-white p-4 rounded mb-6">
-          <p className="text-sm font-semibold text-[#3D434A] mb-3">Escalation track</p>
+          <p className="text-sm font-semibold text-[#3D434A] mb-3">{t('escalationTrack', language)}</p>
           <div className="space-y-2">
             {[
-              { level: 1, label: 'Driver notified', actor: 'System' },
-              { level: 2, label: 'Rajesh dispatcher', actor: 'Rajesh' },
-              { level: 3, label: 'Preethi SPOC', actor: 'Preethi' },
-              { level: 4, label: 'Authorities', actor: 'Pending' },
+              { level: 1, label: t('driverNotified', language), actor: t('system', language) },
+              { level: 2, label: t('rajeshDispatcher', language), actor: 'Rajesh' },
+              { level: 3, label: t('preethiSpoc', language), actor: 'Preethi' },
+              { level: 4, label: t('authorities', language), actor: t('pending', language) },
             ].map((item) => {
               const timeline = activeSos.timeline.find((t) => t.level === item.level);
               const isDone = timeline?.status === 'done';
@@ -110,21 +112,21 @@ export default function SosPage() {
 
         <div className="flex gap-2">
           <Button onClick={() => acknowledgeSafetyAlert(activeSos.id, 'Preethi')} className="flex-1">
-            ✓ Acknowledge
+            ✓ {t('acknowledge', language)}
           </Button>
           <Button variant="danger" onClick={() => setEscalatingAlertId(activeSos.id)} className="flex-1">
-            ⬆ Escalate to L4
+            ⬆ {t('escalateToL4', language)}
           </Button>
-          <Button variant="secondary" onClick={() => addToast({ type: 'success', message: 'Mattermost message sent to driver', duration: 3000 })} className="flex-1">
-            💬 Message driver
+          <Button variant="secondary" onClick={() => addToast({ type: 'success', message: t('mattermostSentToDriver', language), duration: 3000 })} className="flex-1">
+            💬 {t('messageDriver', language)}
           </Button>
-          <Button variant="secondary" onClick={() => addToast({ type: 'success', message: 'WhatsApp sent to passenger', duration: 3000 })} className="flex-1">
-            💬 Message pax
+          <Button variant="secondary" onClick={() => addToast({ type: 'success', message: t('whatsappSentToPassenger', language), duration: 3000 })} className="flex-1">
+            💬 {t('messagePax', language)}
           </Button>
         </div>
       </Card>
 
-      <Card header="Emergency timeline">
+      <Card header={t('emergencyTimeline', language)}>
         <div className="space-y-4">
           {activeSos.timeline.map((item) => (
             <TimelineEvent
@@ -138,13 +140,13 @@ export default function SosPage() {
           <TimelineEvent
             icon={AlertCircle}
             timestamp={new Date().toISOString()}
-            title="Situation ongoing"
-            description="No update received"
+            title={t('situationOngoing', language)}
+            description={t('noUpdateReceived', language)}
           />
         </div>
       </Card>
 
-      <Card header={`Resolved SOS (${resolvedSos.length})`}>
+      <Card header={`${t('resolvedSOS', language)} (${resolvedSos.length})`}>
         <DataTable columns={resolvedColumns} data={resolvedSos} rowKey="id" />
       </Card>
 

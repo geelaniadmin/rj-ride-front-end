@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useSafetyAlertStore } from '@ride/shared';
+import { useSafetyAlertStore, useLanguageStore, t } from '@ride/shared';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/ui/KpiCard';
@@ -13,6 +13,8 @@ import { AlertCircle, BarChart3, TrendingUp } from 'lucide-react';
 export default function ReportsPage() {
   const [month, setMonth] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
+
+  const language = useLanguageStore((s) => s.language);
 
   const safetyAlerts = useSafetyAlertStore((s) => s.safetyAlerts);
   const addToast = useToastStore((s) => s.addToast);
@@ -34,7 +36,7 @@ export default function ReportsPage() {
       return alertDate >= dayStart && alertDate < dayEnd;
     });
     return {
-      day: `Day ${day}`,
+      day: `${t('day', language)} ${day}`,
       incidents: dayAlerts.filter((a) => a.type !== 'SOS').length,
       sos: dayAlerts.filter((a) => a.type === 'SOS').length,
     };
@@ -42,15 +44,15 @@ export default function ReportsPage() {
 
   const typeBreakdown = [
     { name: 'SOS', value: tenantAlerts.filter((a) => a.type === 'SOS').length },
-    { name: 'Route Deviation', value: tenantAlerts.filter((a) => a.type === 'ROUTE_DEVIATION').length },
-    { name: 'No-show', value: tenantAlerts.filter((a) => a.type === 'NO_SHOW').length },
-    { name: 'Prolonged Stop', value: tenantAlerts.filter((a) => a.type === 'PROLONGED_STOP').length },
+    { name: t('routeDeviation', language), value: tenantAlerts.filter((a) => a.type === 'ROUTE_DEVIATION').length },
+    { name: t('noShow', language), value: tenantAlerts.filter((a) => a.type === 'NO_SHOW').length },
+    { name: t('prolongedStop', language), value: tenantAlerts.filter((a) => a.type === 'PROLONGED_STOP').length },
   ];
 
   const statusBreakdown = [
-    { name: 'Resolved', value: tenantAlerts.filter((a) => a.status === 'RESOLVED').length },
-    { name: 'Escalated', value: tenantAlerts.filter((a) => a.status === 'ESCALATED').length },
-    { name: 'Active', value: tenantAlerts.filter((a) => a.status === 'ACTIVE').length },
+    { name: t('resolved', language), value: tenantAlerts.filter((a) => a.status === 'RESOLVED').length },
+    { name: t('escalated', language), value: tenantAlerts.filter((a) => a.status === 'ESCALATED').length },
+    { name: t('active', language), value: tenantAlerts.filter((a) => a.status === 'ACTIVE').length },
   ];
 
   const colors = ['#10B981', '#F97316', '#8B8FA8', '#E84040'];
@@ -69,11 +71,11 @@ export default function ReportsPage() {
     : 0;
 
   const reportColumns: Column<any>[] = [
-    { key: 'createdAt', label: 'Date', render: (v) => new Date(v).toLocaleDateString(), sortable: true },
-    { key: 'type', label: 'Type' },
-    { key: 'tripId', label: 'Trip' },
-    { key: 'resolvedAt', label: 'Resolution', render: (v, row) => (v ? Math.round((new Date(v).getTime() - new Date(row.createdAt).getTime()) / 60000) + ' min' : '—') },
-    { key: 'resolvedBy', label: 'Resolved by', render: (v) => v || '—' },
+    { key: 'createdAt', label: t('date', language), render: (v) => new Date(v).toLocaleDateString(), sortable: true },
+    { key: 'type', label: t('type', language) },
+    { key: 'tripId', label: t('trip', language) },
+    { key: 'resolvedAt', label: t('resolution', language), render: (v, row) => (v ? Math.round((new Date(v).getTime() - new Date(row.createdAt).getTime()) / 60000) + ' min' : t('dash', language)) },
+    { key: 'resolvedBy', label: t('resolvedBy', language), render: (v) => v || t('dash', language) },
   ];
 
   const prevMonth = () => {
@@ -98,31 +100,31 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-[#1B2A4A]">Safety Reports</h1>
+      <h1 className="text-3xl font-bold text-[#1B2A4A]">{t('safetyReports', language)}</h1>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button variant="secondary" size="sm" onClick={prevMonth}>
-            ← Prev
+            ← {t('prev', language)}
           </Button>
           <span className="font-semibold text-[#3D434A] min-w-40 text-center">{monthName}</span>
           <Button variant="secondary" size="sm" onClick={nextMonth}>
-            Next →
+            {t('next', language)} →
           </Button>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => addToast({ type: 'info', message: 'Preparing safety report CSV...', duration: 3000 })}>
-          📥 Export CSV
+        <Button variant="secondary" size="sm" onClick={() => addToast({ type: 'info', message: t('preparingCSV', language), duration: 3000 })}>
+          📥 {t('exportCSV', language)}
         </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <KpiCard label="Total SOS" value={sosAlerts.length} icon={<AlertCircle />} />
-        <KpiCard label="Avg resolution" value={avgResolutionTime} unit="min" icon={<TrendingUp />} />
-        <KpiCard label="Route deviations" value={tenantAlerts.filter((a) => a.type === 'ROUTE_DEVIATION').length} icon={<BarChart3 />} />
-        <KpiCard label="On-time %" value="94" unit="%" icon={<TrendingUp />} trend={{ direction: 'up', value: '2% from last month' }} />
+        <KpiCard label={t('totalSOS', language)} value={sosAlerts.length} icon={<AlertCircle />} />
+        <KpiCard label={t('avgResolution', language)} value={avgResolutionTime} unit="min" icon={<TrendingUp />} />
+        <KpiCard label={t('routeDeviationsLabel', language)} value={tenantAlerts.filter((a) => a.type === 'ROUTE_DEVIATION').length} icon={<BarChart3 />} />
+        <KpiCard label={t('onTimePct', language)} value="94" unit="%" icon={<TrendingUp />} trend={{ direction: 'up', value: '2% from last month' }} />
       </div>
 
-      <Card header="Daily incidents">
+      <Card header={t('dailyIncidents', language)}>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={dailyData.slice(0, 15)}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -137,7 +139,7 @@ export default function ReportsPage() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card header="Breakdown by type">
+        <Card header={t('breakdownByType', language)}>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={typeBreakdown}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -149,7 +151,7 @@ export default function ReportsPage() {
           </ResponsiveContainer>
         </Card>
 
-        <Card header="Resolution status">
+        <Card header={t('resolutionStatus', language)}>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie data={statusBreakdown} cx="50%" cy="50%" labelLine={false} label={({ name, value }) => `${name}: ${value}`} outerRadius={80} fill="#8884d8" dataKey="value">
@@ -163,7 +165,7 @@ export default function ReportsPage() {
         </Card>
       </div>
 
-      <Card header="Incidents">
+      <Card header={t('incidents', language)}>
         <DataTable columns={reportColumns} data={tenantAlerts} rowKey="id" pageSize={5} />
       </Card>
     </div>

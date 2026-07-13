@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useLanguageStore, t } from "@ride/shared";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell
@@ -22,6 +23,7 @@ const CHART_COLORS = {
 };
 
 export const EarningsChart: React.FC<EarningsChartProps> = ({ data }) => {
+  const language = useLanguageStore((s) => s.language);
   return (
     <div className="h-64">
       <ResponsiveContainer width="100%" height="100%">
@@ -47,8 +49,8 @@ export const EarningsChart: React.FC<EarningsChartProps> = ({ data }) => {
               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
               fontSize: "13px",
             }}
-            formatter={(value: any) => [`₹${(value as number).toLocaleString()}`, "Earnings"]}
-            labelFormatter={(label: any) => `Date: ${label}`}
+            formatter={(value: any) => [`₹${(value as number).toLocaleString()}`, t('earnings', language)]}
+            labelFormatter={(label: any) => `${t('date', language)}: ${label}`}
           />
           <Bar dataKey="earnings" radius={[4, 4, 0, 0]} maxBarSize={48}>
             {data.map((_, idx) => (

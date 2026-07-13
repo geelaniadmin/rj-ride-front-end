@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useRateCardStore, RateBasis, RateCard } from '@/stores/rateCardStore';
-import { useVendorStore, useVehicleTypeStore } from '@ride/shared';
+import { useVendorStore, useVehicleTypeStore, useLanguageStore, t } from '@ride/shared';
 import { useCustomerStore } from '@ride/shared';
 import { useToastStore } from '@/components/ui/Toast';
 import { Card } from '@/components/ui/Card';
@@ -58,6 +58,7 @@ function CreateVersionPageContent() {
 
   const vendors = useVendorStore((s) => s.vendors);
   const customers = useCustomerStore((s) => s.customers);
+  const language = useLanguageStore((s) => s.language);
   const vehicleTypes = useVehicleTypeStore((s) => s.vehicleTypes);
   const addToast = useToastStore((s) => s.addToast);
 
@@ -155,17 +156,17 @@ function CreateVersionPageContent() {
   const handleSave = async () => {
     // Validate required fields
     if (!scope.vendorId || !scope.customerId || !scope.vehicleTypeId || !scope.validFrom) {
-      addToast({ type: 'error', message: 'Fill all scope fields', duration: 3000 });
+      addToast({ type: 'error', message: t('fillAllScopeFields', language), duration: 3000 });
       return;
     }
 
     if (basis === 'PER_KM' && !pricing.perKm) {
-      addToast({ type: 'error', message: 'Enter ₹/km rate', duration: 3000 });
+      addToast({ type: 'error', message: t('enterPerKmRate', language), duration: 3000 });
       return;
     }
 
     if (basis === 'HOURLY' && !pricing.hourlyRate) {
-      addToast({ type: 'error', message: 'Enter ₹/hour rate', duration: 3000 });
+      addToast({ type: 'error', message: t('enterPerHourRate', language), duration: 3000 });
       return;
     }
 
@@ -227,10 +228,10 @@ function CreateVersionPageContent() {
         });
       }
 
-      addToast({ type: 'success', message: `Rate card saved successfully`, duration: 3000 });
+      addToast({ type: 'success', message: t('rateCardSaved', language), duration: 3000 });
       router.push('/rate-manager');
     } catch (err) {
-      addToast({ type: 'error', message: 'Failed to save rate card', duration: 3000 });
+      addToast({ type: 'error', message: t('failedToSaveRateCard', language), duration: 3000 });
     } finally {
       setLoading(false);
     }
@@ -244,12 +245,12 @@ function CreateVersionPageContent() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-3xl font-bold text-[#1B2A4A]">{fromId ? 'Create New Version' : 'Create Rate Card'}</h1>
-        <p className="text-sm text-[#8B8FA8] mt-1">Define pricing and modifiers</p>
+        <h1 className="text-3xl font-bold text-[#1B2A4A]">{fromId ? t('createNewVersion', language) : t('createRateCard', language)}</h1>
+        <p className="text-sm text-[#8B8FA8] mt-1">{t('definePricingModifiers', language)}</p>
       </div>
 
       {/* Scope */}
-      <Card header="Scope">
+      <Card header={t('scope', language)}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-[#1B2A4A] mb-2" htmlFor="vendorId">Vendor *</label>
@@ -327,7 +328,7 @@ function CreateVersionPageContent() {
       </Card>
 
       {/* Pricing Basis */}
-      <Card header="Pricing basis">
+      <Card header={t('pricingBasis', language)}>
         <div className="flex gap-6 mb-6">
           {(['PER_KM', 'HOURLY', 'FIXED_LOCATION_PAIR', 'PACKAGE'] as RateBasis[]).map((b) => (
             <label key={b} className="flex items-center gap-2 cursor-pointer">
@@ -371,7 +372,7 @@ function CreateVersionPageContent() {
       </Card>
 
       {/* Modifiers */}
-      <Card header="Modifiers">
+      <Card header={t('modifiers', language)}>
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -486,27 +487,27 @@ function CreateVersionPageContent() {
 
       {/* Live Preview */}
       {sampleFare && (
-        <Card header="Live preview">
-          <p className="text-xs text-[#8B8FA8] mb-4">Sample: 25km, 30min wait, 11PM departure (night)</p>
+        <Card header={t('livePreview', language)}>
+          <p className="text-xs text-[#8B8FA8] mb-4">{t('sampleTripDescription', language)}</p>
           <div className="space-y-2 font-mono text-sm">
             <div className="flex justify-between">
-              <span>Base fare</span>
+              <span>{t('baseFare', language)}</span>
               <span>₹{sampleFare.baseFare / 100}</span>
             </div>
             {sampleFare.nightSurcharge > 0 && (
               <div className="flex justify-between text-orange-600">
-                <span>Night surcharge</span>
+                <span>{t('nightSurcharge', language)}</span>
                 <span>+ ₹{sampleFare.nightSurcharge / 100}</span>
               </div>
             )}
             {sampleFare.waitingCharge > 0 && (
               <div className="flex justify-between text-blue-600">
-                <span>Waiting charge</span>
+                <span>{t('waitingCharge', language)}</span>
                 <span>+ ₹{sampleFare.waitingCharge / 100}</span>
               </div>
             )}
             <div className="flex justify-between font-bold text-lg border-t pt-2">
-              <span>Total</span>
+              <span>{t('total', language)}</span>
               <span>₹{sampleFare.total / 100}</span>
             </div>
           </div>
@@ -515,10 +516,10 @@ function CreateVersionPageContent() {
 
       <div className="flex gap-3 justify-end">
         <Button variant="secondary" onClick={() => router.back()}>
-          Cancel
+          {t('cancel', language)}
         </Button>
         <Button onClick={handleSave} disabled={loading}>
-          {loading ? 'Saving...' : 'Save rate card'}
+          {loading ? t('saving', language) : t('saveRateCard', language)}
         </Button>
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useLanguageStore, t } from "@ride/shared";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-gray-100 text-gray-700",
@@ -33,6 +34,40 @@ const STATUS_STYLES: Record<string, string> = {
   UNBILLED: "bg-yellow-100 text-yellow-700",
   STATEMENTED: "bg-blue-100 text-blue-700",
   RECONCILED: "bg-emerald-100 text-emerald-700",
+  PAID: "bg-emerald-100 text-emerald-700",
+};
+
+// Maps status values to translation keys
+const STATUS_KEYS: Record<string, string> = {
+  PENDING: "statusPending",
+  ASSIGNED: "statusAssigned",
+  DRIVER_ACCEPTED: "statusDriverAccepted",
+  DRIVER_REJECTED: "statusDriverRejected",
+  EN_ROUTE_PICKUP: "statusEnRoutePickup",
+  AT_PICKUP: "statusAtPickup",
+  PAX_PICKED: "statusPaxPicked",
+  IN_TRANSIT: "statusInTransit",
+  AT_DROP: "statusAtDrop",
+  PAX_DROPPED: "statusPaxDropped",
+  COMPLETED: "statusCompleted",
+  NO_SHOW: "statusNoShow",
+  BREAKDOWN: "statusBreakdown",
+  ACCIDENT: "statusAccident",
+  VEHICLE_SWAP: "statusVehicleSwap",
+  DELAYED: "statusDelayed",
+  SOS: "statusSOS",
+  CANCELLED: "statusCancelled",
+  DRAFT: "statusDraft",
+  CONFIRMED: "statusConfirmed",
+  IN_PROGRESS: "inProgress",
+  BILLED: "statusBilled",
+  AVAILABLE: "statusAvailable",
+  ON_TRIP: "statusOnTrip",
+  OFFLINE: "statusOffline",
+  UNBILLED: "statusUnbilled",
+  STATEMENTED: "statusStatemented",
+  RECONCILED: "statusReconciled",
+  PAID: "statusPaid",
 };
 
 interface StatusBadgeProps {
@@ -41,8 +76,10 @@ interface StatusBadgeProps {
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = "sm" }) => {
+  const language = useLanguageStore((s) => s.language);
   const style = STATUS_STYLES[status] || "bg-gray-100 text-gray-600";
-  const label = status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const key = STATUS_KEYS[status];
+  const label = key ? t(key as any, language) : status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const px = size === "sm" ? "px-2 py-0.5" : "px-3 py-1";
   return (
     <span className={`inline-block ${px} rounded-full text-xs font-medium ${style}`}>

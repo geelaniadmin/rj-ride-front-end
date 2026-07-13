@@ -17,6 +17,11 @@ export { useCustomerStore } from './stores/customerStore';
 export { useTenantStore } from './stores/tenantStore';
 export { useTraccarStore } from './stores/traccarStore';
 
+// Language store & translations
+export { useLanguageStore } from './stores/languageStore';
+export type { Language } from './stores/languageStore';
+export { translations, t } from './translations';
+
 // Traccar service & types
 export { traccarService } from './services/traccarService';
 export type { TraccarPosition, TraccarDevice } from './services/traccarService';

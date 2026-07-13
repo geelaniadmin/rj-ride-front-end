@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useRateCardStore } from '@/stores/rateCardStore';
-import { useVendorStore, useVehicleTypeStore } from '@ride/shared';
+import { useVendorStore, useVehicleTypeStore, useLanguageStore, t } from '@ride/shared';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useToastStore } from '@/components/ui/Toast';
@@ -36,6 +36,7 @@ export default function SimulatePage() {
 
   const rateCards = useRateCardStore((s) => s.rateCards);
   const getApplicableRateCard = useRateCardStore((s) => s.getApplicableRateCard);
+  const language = useLanguageStore((s) => s.language);
   const vendors = useVendorStore((s) => s.vendors);
   const vehicleTypes = useVehicleTypeStore((s) => s.vehicleTypes);
   const addToast = useToastStore((s) => s.addToast);
@@ -90,19 +91,19 @@ export default function SimulatePage() {
     };
 
     setHistory([newEntry, ...history.slice(0, 9)]);
-    addToast({ type: 'success', message: 'Simulation saved to history', duration: 2000 });
+    addToast({ type: 'success', message: t('simulationSaved', language), duration: 2000 });
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-[#1B2A4A]">Fare Simulator</h1>
-        <p className="text-sm text-[#8B8FA8] mt-1">Test and validate rate cards</p>
+        <h1 className="text-3xl font-bold text-[#1B2A4A]">{t('fareSimulator', language)}</h1>
+        <p className="text-sm text-[#8B8FA8] mt-1">{t('testValidateRateCards', language)}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Panel - Inputs */}
-        <Card header="Inputs">
+        <Card header={t('inputs', language)}>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-[#1B2A4A] mb-2">Vendor *</label>
@@ -152,7 +153,7 @@ export default function SimulatePage() {
                   className="flex-1 px-3 py-2 border border-[#E0E0E0] rounded text-sm"
                 />
               </div>
-              {isNight && <p className="text-xs text-orange-600 mt-1">Night trip detected</p>}
+              {isNight &&              <p className="text-xs text-orange-600 mt-1">{t('nightTripDetected', language)}</p>}
             </div>
 
             <div>
@@ -202,7 +203,7 @@ export default function SimulatePage() {
 
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={tollApplicable} onChange={(e) => setTollApplicable(e.target.checked)} />
-              <span className="text-sm">Toll applicable</span>
+              <span className="text-sm">{t('tollApplicable', language)}</span>
             </label>
           </div>
         </Card>
@@ -212,7 +213,7 @@ export default function SimulatePage() {
           {!fare ? (
             <Card className="h-full flex items-center justify-center">
               <div className="text-center text-[#8B8FA8]">
-                <p className="text-sm">No rate card found for this combination</p>
+                <p className="text-sm">{t('noRateCardFound', language)}</p>
               </div>
             </Card>
           ) : (
@@ -220,43 +221,43 @@ export default function SimulatePage() {
               <div className="space-y-4">
                 <div className="space-y-2 border-b pb-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#8B8FA8]">Base fare</span>
+                    <span className="text-[#8B8FA8]">{t('baseFare', language)}</span>
                     <span className="font-medium">₹{fare.baseFare / 100}</span>
                   </div>
                   {fare.nightSurcharge > 0 && (
                     <div className="flex justify-between text-sm text-orange-600">
-                      <span>Night surcharge</span>
+                      <span>{t('nightSurcharge', language)}</span>
                       <span>+ ₹{fare.nightSurcharge / 100}</span>
                     </div>
                   )}
                   {fare.waitingCharge > 0 && (
                     <div className="flex justify-between text-sm text-blue-600">
-                      <span>Waiting charge</span>
+                      <span>{t('waitingCharge', language)}</span>
                       <span>+ ₹{fare.waitingCharge / 100}</span>
                     </div>
                   )}
                   {fare.tollCharge > 0 && (
                     <div className="flex justify-between text-sm text-purple-600">
-                      <span>Toll</span>
+                      <span>{t('toll', language)}</span>
                       <span>+ ₹{fare.tollCharge / 100}</span>
                     </div>
                   )}
                 </div>
 
                 <div className="flex justify-between text-2xl font-bold">
-                  <span>Total</span>
+                  <span>{t('total', language)}</span>
                   <span className="text-[#2563EB]">₹{fare.total / 100}</span>
                 </div>
 
-                {fare.isApproximate && <p className="text-xs text-[#8B8FA8] italic">* Approximate (fixed pair rate)</p>}
+                {fare.isApproximate && <p className="text-xs text-[#8B8FA8] italic">{t('approximate', language)}</p>}
 
                 <div className="text-xs text-[#8B8FA8] space-y-1 pt-2 border-t">
-                  <p>Valid: {applicableRateCard?.validFrom} → {applicableRateCard?.validTo || 'indefinite'}</p>
-                  <p className="italic">This is a simulation — no trip created</p>
+                  <p>{t('validFromPrefix', language)}: {applicableRateCard?.validFrom} → {applicableRateCard?.validTo || t('indefinite', language)}</p>
+                  <p className="italic">{t('simulationDisclaimer', language)}</p>
                 </div>
 
                 <Button onClick={handleSaveHistory} variant="secondary" className="w-full">
-                  Save to history
+                  {t('saveToHistory', language)}
                 </Button>
               </div>
             </Card>
@@ -272,7 +273,7 @@ export default function SimulatePage() {
               onClick={() => setShowHistory(!showHistory)}
               className="flex items-center justify-between w-full"
             >
-              <span>Simulation history ({history.length})</span>
+              <span>{t('simulationHistory', language)} ({history.length})</span>
               {showHistory ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </button>
           }

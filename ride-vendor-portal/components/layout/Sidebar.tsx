@@ -4,16 +4,16 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, ListOrdered, Truck, CircleDollarSign, Bell, LogOut, X } from "lucide-react";
-import { useSessionStore } from "@ride/shared";
+import { useSessionStore, useLanguageStore, t } from "@ride/shared";
 import { useRouter } from "next/navigation";
 
 export const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, shortcut: "1" },
-  { href: "/trips", label: "Trips", icon: ListOrdered, shortcut: "2" },
-  { href: "/fleet", label: "Fleet", icon: Truck, shortcut: "3" },
-  { href: "/earnings", label: "Earnings", icon: CircleDollarSign, shortcut: "4" },
-  { href: "/alerts", label: "Alerts", icon: Bell, shortcut: "5" },
-];
+  { href: "/" as const, labelKey: "dashboard" as const, icon: LayoutDashboard, shortcut: "1" as const },
+  { href: "/trips" as const, labelKey: "trips" as const, icon: ListOrdered, shortcut: "2" as const },
+  { href: "/fleet" as const, labelKey: "fleet" as const, icon: Truck, shortcut: "3" as const },
+  { href: "/earnings" as const, labelKey: "earnings" as const, icon: CircleDollarSign, shortcut: "4" as const },
+  { href: "/alerts" as const, labelKey: "alerts" as const, icon: Bell, shortcut: "5" as const },
+] as const;
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -23,6 +23,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileClose }) => {
   const pathname = usePathname();
   const router = useRouter();
+  const language = useLanguageStore((s) => s.language);
   const clearSession = useSessionStore((s) => s.clearSession);
 
   const handleLogout = () => {
@@ -46,8 +47,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
             <Truck className="w-4 h-4 text-white" />
           </div>
           <div>
-            <p className="text-white font-semibold text-sm">RIDE</p>
-            <p className="text-white/50 text-xs">Vendor Portal</p>
+            <p className="text-white font-semibold text-sm">{t('rideTM', language)}</p>
+            <p className="text-white/50 text-xs">{t('vendorPortal', language)}</p>
           </div>
         </div>
         {/* Mobile close button */}
@@ -76,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
               }`}
             >
               <Icon className="w-4 h-4 shrink-0" />
-              <span className="flex-1">{item.label}</span>
+              <span className="flex-1">{t(item.labelKey, language)}</span>
               <span className="text-[10px] text-white/30 font-mono hidden lg:inline">{item.shortcut}</span>
             </Link>
           );
@@ -84,13 +85,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
       </nav>
 
       {/* Logout */}
-      <div className="px-3 pb-4">
-        <button
+      <div className="px-3 pb-4">          <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/40 hover:text-white hover:bg-white/5 transition-all w-full"
         >
           <LogOut className="w-4 h-4 shrink-0" />
-          Logout
+          {t('logout', language)}
         </button>
       </div>
     </aside>

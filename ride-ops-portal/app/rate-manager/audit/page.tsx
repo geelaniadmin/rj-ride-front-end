@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useRateCardStore } from '@/stores/rateCardStore';
-import { useVendorStore } from '@ride/shared';
+import { useVendorStore, useLanguageStore, t } from '@ride/shared';
 import { Card } from '@/components/ui/Card';
 import { DataTable, Column } from '@/components/ui/DataTable';
 import { Badge } from '@/components/ui/Badge';
@@ -16,6 +16,7 @@ export default function AuditPage() {
 
   const auditLog = useRateCardStore((s) => s.auditLog);
   const rateCards = useRateCardStore((s) => s.rateCards);
+  const language = useLanguageStore((s) => s.language);
   const vendors = useVendorStore((s) => s.vendors);
 
   const tenantId = 'T1';
@@ -78,11 +79,11 @@ export default function AuditPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-[#1B2A4A]">Audit Log</h1>
-        <p className="text-sm text-[#8B8FA8] mt-1">Immutable record of all rate card changes</p>
+        <h1 className="text-3xl font-bold text-[#1B2A4A]">{t('auditLog', language)}</h1>
+        <p className="text-sm text-[#8B8FA8] mt-1">{t('immutableRecordRateCards', language)}</p>
       </div>
 
-      <Card header="Filters">
+      <Card header={t('filters', language)}>
         <div className="flex flex-wrap gap-4">
           <input
             type="date"
@@ -103,7 +104,7 @@ export default function AuditPage() {
             onChange={(e) => setVendorFilter(e.target.value)}
             className="px-3 py-2 border border-[#E0E0E0] rounded text-sm"
           >
-            <option value="">All vendors</option>
+            <option value="">{t('allVendors', language)}</option>
             {Array.from(new Set(auditLog.map((a) => a.vendorId))).map((vid) => (
               <option key={vid} value={vid}>
                 {vendors.find((v) => v.id === vid)?.name || 'Unknown'}
@@ -116,10 +117,10 @@ export default function AuditPage() {
             onChange={(e) => setActionFilter(e.target.value as any)}
             className="px-3 py-2 border border-[#E0E0E0] rounded text-sm"
           >
-            <option value="all">All actions</option>
-            <option value="CREATED">Created</option>
-            <option value="SUPERSEDED">Superseded</option>
-            <option value="DEACTIVATED">Deactivated</option>
+            <option value="all">{t('allActions', language)}</option>
+            <option value="CREATED">{t('created', language)}</option>
+            <option value="SUPERSEDED">{t('superseded', language)}</option>
+            <option value="DEACTIVATED">{t('deactivated', language)}</option>
           </select>
         </div>
       </Card>
@@ -130,7 +131,7 @@ export default function AuditPage() {
 
       <Card className="bg-blue-50 border-blue-200">
         <p className="text-xs text-[#1B2A4A] italic">
-          Immutable audit log — no edit or delete. All rate card changes are permanently recorded.
+          {t('immutableAuditDesc', language)}
         </p>
       </Card>
     </div>

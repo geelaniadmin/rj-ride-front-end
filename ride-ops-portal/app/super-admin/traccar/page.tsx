@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useTraccarStore } from '@ride/shared';
+import { useLanguageStore } from '@/stores/languageStore';
+import { t } from '@/lib/translations';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { AlertBanner } from '@/components/ui/AlertBanner';
@@ -10,6 +12,7 @@ import { MapPin, Settings, AlertCircle, CheckCircle } from 'lucide-react';
 
 export default function TraccarPage() {
   const traccarStore = useTraccarStore();
+  const language = useLanguageStore((s) => s.language);
   const addToast = useToastStore((s) => s.addToast);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -32,13 +35,13 @@ export default function TraccarPage() {
       });
 
       if (response.ok) {
-        setTestResult({ success: true, message: 'Connected to Traccar successfully!' });
-        addToast({ type: 'success', message: 'Traccar connection successful', duration: 3000 });
+        setTestResult({ success: true, message: t('connectedToTraccarSuccessfully', language) });
+        addToast({ type: 'success', message: t('traccarConnectionSuccessful', language), duration: 3000 });
       } else {
         setTestResult({ success: false, message: `HTTP ${response.status}: ${response.statusText}` });
       }
     } catch (error) {
-      setTestResult({ success: false, message: error instanceof Error ? error.message : 'Connection failed' });
+      setTestResult({ success: false, message: error instanceof Error ? error.message : t('connectionFailed', language) });
     } finally {
       setIsTesting(false);
     }
@@ -47,7 +50,7 @@ export default function TraccarPage() {
   const handleSave = () => {
     traccarStore.setTraccarConfig(url, username, password, useMock);
     setIsEditing(false);
-    addToast({ type: 'success', message: 'Traccar configuration saved', duration: 3000 });
+    addToast({ type: 'success', message: language === 'ja' ? 'Traccar設定が保存されました' : 'Traccar configuration saved', duration: 3000 });
   };
 
   return (
@@ -55,31 +58,31 @@ export default function TraccarPage() {
       <div>
         <h1 className="text-3xl font-bold text-[#1B2A4A] flex items-center gap-2">
           <MapPin className="w-8 h-8" />
-          Traccar GPS Tracking
+          {t('traccarGPSTracking', language)}
         </h1>
-        <p className="text-sm text-[#8B8FA8] mt-1">Configure vehicle location tracking service</p>
+        <p className="text-sm text-[#8B8FA8] mt-1">{t('configureVehicleLocationTracking', language)}</p>
       </div>
 
       {useMock && (
         <AlertBanner
           type="info"
-          message="Currently using mock/demo data. Real vehicle positions are simulated. Switch to live Traccar to see actual GPS data."
+          message={t('currentlyUsingMockData', language)}
         />
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card header="Status" className="md:col-span-1">
+        <Card header={t('status', language)} className="md:col-span-1">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               {useMock ? (
                 <>
                   <AlertCircle className="w-5 h-5 text-amber-600" />
-                  <span className="text-sm text-[#3D434A]">Mock Data</span>
+                  <span className="text-sm text-[#3D434A]">{t('mockData', language)}</span>
                 </>
               ) : (
                 <>
                   <CheckCircle className="w-5 h-5 text-green-600" />
-                  <span className="text-sm text-[#3D434A]">Live Traccar</span>
+                  <span className="text-sm text-[#3D434A]">{t('liveTraccar', language)}</span>
                 </>
               )}
             </div>
@@ -91,27 +94,27 @@ export default function TraccarPage() {
           </div>
         </Card>
 
-        <Card header="Connection" className="md:col-span-2">
+        <Card header={t('connection', language)} className="md:col-span-2">
           <div className="space-y-3 text-sm">
             <div>
-              <p className="text-[#8B8FA8] mb-1">Server URL</p>
+              <p className="text-[#8B8FA8] mb-1">{t('serverUrl', language)}</p>
               <p className="font-mono text-[#3D434A]">{url}</p>
             </div>
             {!useMock && (
               <div>
-                <p className="text-[#8B8FA8] mb-1">Username</p>
-                <p className="font-mono text-[#3D434A]">{username || '(not set)'}</p>
+                <p className="text-[#8B8FA8] mb-1">{t('username', language)}</p>
+                <p className="font-mono text-[#3D434A]">{username || t('notSet', language)}</p>
               </div>
             )}
           </div>
         </Card>
       </div>
 
-      <Card header="Configuration" className={isEditing ? 'border-[#2563EB]' : ''}>
+      <Card header={t('configuration', language)} className={isEditing ? 'border-[#2563EB]' : ''}>
         <div className="space-y-4">
           {/* Mode selector */}
           <div>
-            <label className="block text-sm font-semibold text-[#1B2A4A] mb-2">Data Source</label>
+            <label className="block text-sm font-semibold text-[#1B2A4A] mb-2">{t('dataSource', language)}</label>
             <div className="flex gap-3">
               <button
                 onClick={() => {
@@ -126,7 +129,7 @@ export default function TraccarPage() {
                     : 'bg-gray-100 text-[#3D434A] hover:bg-gray-200'
                 }`}
               >
-                Mock Data (Testing)
+                {t('mockDataTesting', language)}
               </button>
               <button
                 onClick={() => {
@@ -141,7 +144,7 @@ export default function TraccarPage() {
                     : 'bg-gray-100 text-[#3D434A] hover:bg-gray-200'
                 }`}
               >
-                Live Traccar
+                {t('liveTraccar', language)}
               </button>
             </div>
           </div>
@@ -149,7 +152,7 @@ export default function TraccarPage() {
           {isEditing && (
             <>
               <div>
-                <label className="block text-sm font-semibold text-[#1B2A4A] mb-2">Traccar Server URL</label>
+                <label className="block text-sm font-semibold text-[#1B2A4A] mb-2">{t('traccarServerURL', language)}</label>
                 <input
                   type="text"
                   placeholder="http://localhost:8082"
@@ -162,7 +165,7 @@ export default function TraccarPage() {
               {!useMock && (
                 <>
                   <div>
-                    <label className="block text-sm font-semibold text-[#1B2A4A] mb-2">Username</label>
+                    <label className="block text-sm font-semibold text-[#1B2A4A] mb-2">{t('username', language)}</label>
                     <input
                       type="text"
                       placeholder="admin"
@@ -173,7 +176,7 @@ export default function TraccarPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-[#1B2A4A] mb-2">Password</label>
+                    <label className="block text-sm font-semibold text-[#1B2A4A] mb-2">{t('password', language)}</label>
                     <input
                       type="password"
                       placeholder="••••••••"
@@ -186,9 +189,9 @@ export default function TraccarPage() {
               )}
 
               <div className="flex gap-2">
-                <Button onClick={handleSave}>Save Configuration</Button>
+                <Button onClick={handleSave}>{t('saveConfiguration', language)}</Button>
                 <Button onClick={() => setIsEditing(false)} variant="secondary">
-                  Cancel
+                  {t('cancel', language)}
                 </Button>
                 {!useMock && (
                   <Button
@@ -196,7 +199,7 @@ export default function TraccarPage() {
                     variant="secondary"
                     disabled={isTesting || !url}
                   >
-                    {isTesting ? 'Testing...' : 'Test Connection'}
+                    {isTesting ? t('testing', language) : t('testConnection', language)}
                   </Button>
                 )}
               </div>
@@ -205,16 +208,16 @@ export default function TraccarPage() {
 
           {!isEditing && (
             <Button onClick={() => setIsEditing(true)} variant="secondary">
-              <Settings className="w-4 h-4 mr-2 inline" /> Edit Configuration
+              <Settings className="w-4 h-4 mr-2 inline" /> {t('editConfiguration', language)}
             </Button>
           )}
         </div>
       </Card>
 
       {/* Quick links */}
-      <Card header="Quick Links">
+      <Card header={t('quickLinks', language)}>
         <div className="space-y-2">
-          <p className="text-sm text-[#8B8FA8] mb-3">Access Traccar resources:</p>
+          <p className="text-sm text-[#8B8FA8] mb-3">{t('accessTraccarResources', language)}</p>
           <div className="flex flex-wrap gap-2">
             {!useMock && (
               <>
@@ -224,7 +227,7 @@ export default function TraccarPage() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-[#2563EB] text-white rounded text-sm hover:bg-blue-600"
                 >
-                  <MapPin className="w-4 h-4" /> Open Dashboard
+                  <MapPin className="w-4 h-4" /> {t('openDashboard', language)}
                 </a>
                 <a
                   href={`${url}/#/settings`}
@@ -232,7 +235,7 @@ export default function TraccarPage() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-[#3D434A] rounded text-sm hover:bg-gray-200"
                 >
-                  <Settings className="w-4 h-4" /> Settings
+                  <Settings className="w-4 h-4" /> {t('settings', language)}
                 </a>
               </>
             )}
@@ -242,23 +245,23 @@ export default function TraccarPage() {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-[#3D434A] rounded text-sm hover:bg-gray-200"
             >
-              📖 Documentation
+              📖 {t('documentation', language)}
             </a>
           </div>
         </div>
       </Card>
 
       {/* Demo info */}
-      <Card header="Demo Features" className="bg-blue-50 border-blue-200">
+      <Card header={t('demoFeatures', language)} className="bg-blue-50 border-blue-200">
         <div className="space-y-2 text-sm">
           <p className="text-[#3D434A]">
-            <strong>Mock Mode:</strong> Simulates GPS tracking with randomized vehicle movements. Perfect for testing without a live Traccar instance.
+            <strong>{t('mockMode', language)}:</strong> {t('simulatesGPSTracking', language)}
           </p>
           <p className="text-[#3D434A]">
-            <strong>Live Mode:</strong> Connects to a real Traccar instance using HTTP Basic Auth. Ensure your Traccar server is running and accessible.
+            <strong>{t('liveMode', language)}:</strong> {t('connectsToRealTraccar', language)}
           </p>
           <p className="text-[#3D434A]">
-            <strong>Default URL:</strong> {traccarStore.useMockData ? 'N/A (Mock)' : 'http://localhost:8082'}
+            <strong>{t('defaultURL', language)}:</strong> {traccarStore.useMockData ? t('naMock', language) : 'http://localhost:8082'}
           </p>
         </div>
       </Card>

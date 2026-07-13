@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useLanguageStore, t } from "@ride/shared";
 import { WebhookConfig } from "@/components/api-console/WebhookConfig";
 import { ApiTester } from "@/components/api-console/ApiTester";
 import { WebhookLogs } from "@/components/api-console/WebhookLogs";
@@ -8,26 +9,27 @@ import { ApiDocumentation } from "@/components/api-console/ApiDocumentation";
 import { QuoteBookConfirmStepper } from "@/components/partner-api/QuoteBookConfirmStepper";
 import { BookOpen, Beaker, Webhook, ListChecks, ShoppingCart } from "lucide-react";
 
-export default function APIConsolePage() {
-  const [activeTab, setActiveTab] = useState("docs");
+const API_TABS = [
+  { id: "docs", labelKey: "documentation" as const, icon: BookOpen },
+  { id: "stepper", labelKey: "quoteBookConfirm" as const, icon: ShoppingCart },
+  { id: "test", labelKey: "apiTester" as const, icon: Beaker },
+  { id: "webhooks", labelKey: "webhooks" as const, icon: Webhook },
+  { id: "logs", labelKey: "logs" as const, icon: ListChecks },
+];
 
-  const tabs = [
-    { id: "docs", label: "📚 Documentation", icon: BookOpen },
-    { id: "stepper", label: "🛒 Quote→Book→Confirm", icon: ShoppingCart },
-    { id: "test", label: "🧪 API Tester", icon: Beaker },
-    { id: "webhooks", label: "🪝 Webhooks", icon: Webhook },
-    { id: "logs", label: "📋 Logs", icon: ListChecks },
-  ];
+export default function APIConsolePage() {
+  const language = useLanguageStore((s) => s.language);
+  const [activeTab, setActiveTab] = useState("docs");
 
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-text-primary">Partner API Console</h1>
-        <p className="text-sm text-text-secondary mt-1">Integrate with RIDE via REST API and webhooks</p>
+        <h1 className="text-3xl font-bold text-text-primary">{t("partnerAPIConsole", language)}</h1>
+        <p className="text-sm text-text-secondary mt-1">{t("integrateWithRIDE", language)}</p>
       </div>
 
       <div className="flex gap-1 border-b border-border pb-px">
-        {tabs.map((tab) => {
+        {API_TABS.map((tab) => {
           const Icon = tab.icon;
           return (
             <button
@@ -40,7 +42,7 @@ export default function APIConsolePage() {
               }`}
             >
               <Icon className="w-4 h-4" />
-              {tab.label}
+              {t(tab.labelKey, language)}
             </button>
           );
         })}

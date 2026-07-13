@@ -42,6 +42,21 @@ export class TraccarService {
     this.initializeMockData();
   }
 
+  /**
+   * Update service config at runtime (e.g., when user switches from mock to live)
+   */
+  updateConfig(config: {
+    apiUrl?: string;
+    username?: string;
+    password?: string;
+    useMock?: boolean;
+  }) {
+    if (config.apiUrl !== undefined) this.apiUrl = config.apiUrl;
+    if (config.username !== undefined) this.username = config.username;
+    if (config.password !== undefined) this.password = config.password;
+    if (config.useMock !== undefined) this.useMockData = config.useMock;
+  }
+
   private initializeMockData() {
     // Generate mock positions for testing
     const mockDevices = [
@@ -153,6 +168,32 @@ export class TraccarService {
   }
 
   /**
+   * Fetch all devices from Traccar
+   */
+  async fetchDevices(): Promise<TraccarDevice[]> {
+    if (this.useMockData) {
+      return [1, 2, 3, 4, 5].map((id) => this.getMockDevice(id));
+    }
+
+    try {
+      const response = await fetch(`${this.apiUrl}/api/devices`, {
+        headers: {
+          Authorization: `Basic ${btoa(`${this.username}:${this.password}`)}`,
+        },
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      console.error('Traccar API error:', error);
+      return [];
+    }
+  }
+
+  // NOTE: Lookups by uniqueId should use the store's devicesByUniqueId map
+  // (populated by fetchDevices() -> setDevices()) for efficiency
+
+  /**
    * Create a new device in Traccar
    */
   async createDevice(name: string, uniqueId: string): Promise<TraccarDevice | null> {
@@ -206,6 +247,32 @@ export class TraccarService {
         fixTime: new Date().toISOString(),
         serverTime: new Date().toISOString(),
       });
+    } else {
+      // Create new position if none exists
+      this.mockPositions.set(deviceId, {
+        id: deviceId,
+        deviceId,
+        protocol: 'mock',
+        deviceTime: new Date().toISOString(),
+        fixTime: new Date().toISOString(),
+        serverTime: new Date().toISOString(),
+        latitude,
+        longitude,
+        altitude: 0,
+        speed,
+        course: 0,
+        accuracy: 5,
+      });
+    }
+  }
+
+  /**
+   * Update mock position bearing (for demo route visual)
+   */
+  updateMockBearing(deviceId: number, course: number) {
+    const current = this.mockPositions.get(deviceId);
+    if (current) {
+      this.mockPositions.set(deviceId, { ...current, course });
     }
   }
 
@@ -237,13 +304,14 @@ export class TraccarService {
   }
 
   private getMockDevice(deviceId: number): TraccarDevice {
-    const names = ['Vehicle-001', 'Vehicle-002', 'Vehicle-003', 'Vehicle-004', 'Vehicle-005'];
-    const name = names[deviceId - 1] || `Vehicle-${deviceId}`;
+    const names = ['Vehicle-001', 'Vehicle-VH1', 'Vehicle-VH2', 'Vehicle-VH3', 'Vehicle-VH4', 'Vehicle-VH5'];
+    const name = names[deviceId] || `Vehicle-${deviceId}`;
+    const uniqueIds = ['', 'TRA-001', 'TRA-002', 'TRA-003', 'TRA-004', 'TRA-005'];
 
     return {
       id: deviceId,
       name,
-      uniqueId: `device-${deviceId}`,
+      uniqueId: uniqueIds[deviceId] || `TRA-${String(deviceId).padStart(3, '0')}`,
       status: Math.random() > 0.3 ? 'online' : 'offline',
       lastUpdate: new Date(Date.now() - Math.random() * 300000).toISOString(),
       positionId: deviceId,

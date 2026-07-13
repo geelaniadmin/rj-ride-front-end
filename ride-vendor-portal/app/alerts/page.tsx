@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
-import { useSessionStore, useAlertStore } from "@ride/shared";
+import { useSessionStore, useAlertStore, useLanguageStore, t } from "@ride/shared";
 import { useFleetAlerts } from "@/hooks/useFleetAlerts";
 import { Tabs, type Tab } from "@/components/ui/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -17,6 +17,7 @@ export default function AlertsPage() {
   const markAllNotificationsRead = useAlertStore((s) => s.markAllNotificationsRead);
   const dismissAlert = useAlertStore((s) => s.dismissAlert);
   const markAlertRead = useAlertStore((s) => s.markAlertRead);
+  const language = useLanguageStore((s) => s.language);
 
   if (!vendorSession) return null;
 
@@ -32,8 +33,8 @@ export default function AlertsPage() {
   const unreadCount = vendorNotifications.filter((n) => !n.read).length;
 
   const tabs: Tab[] = [
-    { id: "notifications", label: "Notifications", count: unreadCount || undefined },
-    { id: "alerts", label: "Fleet Alerts", count: highCount + mediumCount + lowCount || undefined },
+    { id: "notifications", label: t("notifications", language), count: unreadCount || undefined },
+    { id: "alerts", label: t("fleetAlerts", language), count: highCount + mediumCount + lowCount || undefined },
   ];
 
   const handleMarkAllRead = () => {
@@ -68,30 +69,28 @@ export default function AlertsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text-primary">Alerts & Notifications</h2>
-          <p className="text-sm text-text-muted mt-1">
-            Trip notifications and fleet compliance alerts
-          </p>
+          <h2 className="text-2xl font-bold text-text-primary">{t("alertsAndNotifications", language)}</h2>
+          <p className="text-sm text-text-muted mt-1">{t("tripNotificationsAndAlerts", language)}</p>
         </div>
       </div>
 
       <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* ===== NOTIFICATIONS TAB ===== */}
+      {/* NOTIFICATIONS TAB */}
       {activeTab === "notifications" && (
         <div className="bg-card-bg border border-card-border rounded-xl overflow-hidden">
-          {/* Header actions */}
           {vendorNotifications.length > 0 && unreadCount > 0 && (
             <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-ops-bg/30">
-              <p className="text-xs text-text-muted">{unreadCount} unread notification{unreadCount !== 1 ? "s" : ""}</p>
+              <p className="text-xs text-text-muted">
+                {unreadCount} {t("unread", language)} {t("notification", language)}{unreadCount !== 1 ? "s" : ""}
+              </p>
               <button
                 onClick={handleMarkAllRead}
                 className="flex items-center gap-1 text-xs text-brand-blue hover:underline font-medium"
               >
-                <CheckCheck className="w-3.5 h-3.5" /> Mark all read
+                <CheckCheck className="w-3.5 h-3.5" /> {t("markAllRead", language)}
               </button>
             </div>
           )}
@@ -99,8 +98,8 @@ export default function AlertsPage() {
           {vendorNotifications.length === 0 ? (
             <EmptyState
               icon={Bell}
-              title="No notifications"
-              message="You'll receive notifications here when trips are assigned, accepted, or completed."
+              title={t("noNotifications", language)}
+              message={t("noNotificationsMessage", language)}
             />
           ) : (
             <div className="divide-y divide-border/50">
@@ -130,7 +129,7 @@ export default function AlertsPage() {
                       <button
                         onClick={() => markNotificationRead(notif.id)}
                         className="p-1.5 hover:bg-ops-bg rounded-lg transition-colors shrink-0"
-                        title="Mark read"
+                        title={t("markRead", language)}
                       >
                         <Eye className="w-4 h-4 text-text-muted" />
                       </button>
@@ -143,14 +142,14 @@ export default function AlertsPage() {
         </div>
       )}
 
-      {/* ===== FLEET ALERTS TAB ===== */}
+      {/* FLEET ALERTS TAB */}
       {activeTab === "alerts" && (
         <div className="bg-card-bg border border-card-border rounded-xl overflow-hidden">
           {computedAlerts.length === 0 ? (
             <EmptyState
               icon={CheckCircle}
-              title="All Clear"
-              message="No fleet compliance or operational alerts right now."
+              title={t("allClear", language)}
+              message={t("noAlertsMessage", language)}
             />
           ) : (
             <div className="divide-y divide-border/50">
@@ -161,7 +160,6 @@ export default function AlertsPage() {
                     !alert.read ? "bg-brand-blue/[0.02]" : ""
                   }`}
                 >
-                  {/* Severity icon */}
                   <div className="mt-0.5 shrink-0">
                     {alert.severity === "HIGH" ? (
                       <div className="w-8 h-8 rounded-full bg-danger/10 flex items-center justify-center">
@@ -178,7 +176,6 @@ export default function AlertsPage() {
                     )}
                   </div>
 
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-xs font-semibold uppercase ${
@@ -192,8 +189,8 @@ export default function AlertsPage() {
                       {alert.daysRemaining !== undefined && (
                         <span className={`text-xs ${alert.daysRemaining < 0 ? "text-danger" : "text-text-muted"}`}>
                           · {alert.daysRemaining < 0
-                            ? `${Math.abs(alert.daysRemaining)} days overdue`
-                            : `${alert.daysRemaining} days remaining`}
+                            ? `${Math.abs(alert.daysRemaining)} ${t("daysOverdue", language)}`
+                            : `${alert.daysRemaining} ${t("daysRemainingLabel", language)}`}
                         </span>
                       )}
                     </div>
@@ -203,13 +200,12 @@ export default function AlertsPage() {
                     </p>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex items-center gap-2 shrink-0">
                     {!alert.read && (
                       <button
                         onClick={() => markAlertRead(alert.id)}
                         className="p-1.5 hover:bg-ops-bg rounded-lg transition-colors"
-                        title="Mark read"
+                        title={t("markRead", language)}
                       >
                         <Eye className="w-4 h-4 text-text-muted" />
                       </button>
@@ -217,7 +213,7 @@ export default function AlertsPage() {
                     <button
                       onClick={() => dismissAlert(alert.id)}
                       className="p-1.5 hover:bg-ops-bg rounded-lg transition-colors"
-                      title="Dismiss"
+                      title={t("dismiss", language)}
                     >
                       <X className="w-4 h-4 text-text-muted hover:text-danger" />
                     </button>

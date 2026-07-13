@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { useTenantStore } from "@ride/shared";
+import { useTenantStore, useLanguageStore, t } from "@ride/shared";
 import { useTripStore } from "@/stores/tripStore";
 import { useVehicleStore } from "@/stores/vehicleStore";
 import { useDriverStore } from "@/stores/driverStore";
@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { AlertCircle, TrendingUp, Truck, Users, Calendar } from "lucide-react";
 
 export default function DashboardPage() {
+  const language = useLanguageStore((s) => s.language);
   const { activeTenantId, getActiveTenant } = useTenantStore();
   const tenant = getActiveTenant();
 
@@ -43,10 +44,10 @@ export default function DashboardPage() {
   }, [allTrips, activeTenantId]);
 
   const kpis = [
-    { label: "Active Trips", value: activeTrips, icon: TrendingUp },
-    { label: "Total Vehicles", value: totalVehicles, icon: Truck },
-    { label: "Drivers On Duty", value: driversOnDuty, icon: Users },
-    { label: "Today's Pickups", value: todayPickups, icon: Calendar },
+    { labelKey: "activeTrips" as const, value: activeTrips, icon: TrendingUp },
+    { labelKey: "totalVehicles" as const, value: totalVehicles, icon: Truck },
+    { labelKey: "driversOnDuty" as const, value: driversOnDuty, icon: Users },
+    { labelKey: "todaysPickups" as const, value: todayPickups, icon: Calendar },
   ];
 
   return (
@@ -54,8 +55,8 @@ export default function DashboardPage() {
       <div className="bg-amber-900/30 border border-amber-700/50 rounded-lg p-4 flex items-start gap-3">
         <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
         <div>
-          <p className="font-medium text-amber-200">Prototype</p>
-          <p className="text-sm text-amber-100/80">All data is mocked and will reset on page refresh</p>
+          <p className="font-medium text-amber-200">{t("prototype", language)}</p>
+          <p className="text-sm text-amber-100/80">{t("prototypeMessage", language)}</p>
         </div>
       </div>
 
@@ -64,13 +65,13 @@ export default function DashboardPage() {
           const Icon = kpi.icon;
           return (
             <div
-              key={kpi.label}
+              key={kpi.labelKey}
               className="bg-ops-sidebar border border-ops-sidebar rounded-xl shadow-lg p-5"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium text-white">
-                    {kpi.label}
+                    {t(kpi.labelKey, language)}
                   </p>
                   <Icon className="w-5 h-5 text-white/50" />
                 </div>
@@ -83,19 +84,19 @@ export default function DashboardPage() {
         })}
       </div>
 
-      <Card padding="lg" header={<h3 className="font-semibold text-text-primary">Active Tenant</h3>}>
+      <Card padding="lg" header={<h3 className="font-semibold text-text-primary">{t("activeTenant", language)}</h3>}>
         <div className="space-y-2 text-sm">
           <p>
-            <span className="text-text-secondary">Tenant ID:</span> <span className="font-mono text-text-primary font-medium">{activeTenantId}</span>
+            <span className="text-text-secondary">{t("tenantID", language)}:</span> <span className="font-mono text-text-primary font-medium">{activeTenantId}</span>
           </p>
           <p>
-            <span className="text-text-secondary">Name:</span> <span className="text-text-primary font-medium">{tenant?.name}</span>
+            <span className="text-text-secondary">{t("name", language)}:</span> <span className="text-text-primary font-medium">{tenant?.name}</span>
           </p>
           <p>
-            <span className="text-text-secondary">Base City:</span> <span className="text-text-primary font-medium">{tenant?.baseCity}</span>
+            <span className="text-text-secondary">{t("baseCity", language)}:</span> <span className="text-text-primary font-medium">{tenant?.baseCity}</span>
           </p>
           <p>
-            <span className="text-text-secondary">Currency:</span> <span className="text-text-primary font-medium">{tenant?.contractCurrency}</span>
+            <span className="text-text-secondary">{t("currency", language)}:</span> <span className="text-text-primary font-medium">{tenant?.contractCurrency}</span>
           </p>
         </div>
       </Card>

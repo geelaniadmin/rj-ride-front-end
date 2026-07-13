@@ -102,7 +102,7 @@ export function useFleetAlerts(vendorId: string) {
     const dedupedStore = storeAlertsForVendor.filter((a) => !computedIds.has(a.id));
     // Sort: HIGH first, then MEDIUM, then LOW, then by createdAt desc
     return [...computedAlerts, ...dedupedStore].sort((a, b) => {
-      const severityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+      const severityOrder: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2, critical: 3 };
       const sevDiff = (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2);
       if (sevDiff !== 0) return sevDiff;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
