@@ -40,7 +40,7 @@ export default function UITestPage() {
 
   const columns: Column<TestRow>[] = [
     { key: 'name', label: 'Trip Name', sortable: true },
-    { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val} /> },
+    { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val as import('@ride/shared').TripStatus} /> },
     { key: 'value', label: 'Amount (₹)', sortable: true, render: (val) => `₹${val}` },
   ];
 
@@ -206,13 +206,13 @@ export default function UITestPage() {
           />
           <TimelineEvent
             icon={TrendingUp}
-            timestamp={new Date(Date.now() - 1800000).toISOString()}
+            timestamp="2026-07-19T12:00:00.000Z"
             title="Pickup Completed"
             description="Passenger picked up at main office"
           />
           <TimelineEvent
             icon={Calendar}
-            timestamp={new Date(Date.now() - 3600000).toISOString()}
+            timestamp="2026-07-19T11:00:00.000Z"
             title="Trip Started"
             description="Vehicle en route to destination"
           />

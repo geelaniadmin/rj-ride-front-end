@@ -44,7 +44,7 @@ export function ChartSkeleton() {
         <div
           key={i}
           className="flex-1 bg-gray-200 rounded"
-          style={{ height: `${Math.random() * 60 + 20}%` }}
+          style={{ height: `${((i * 17) % 60) + 20}%` }}
         ></div>
       ))}
     </div>

@@ -1,52 +1,52 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useOpsSessionStore } from '@/stores/opsSessionStore';
-import { useSafetyAlertStore } from '@ride/shared';
+import React, { useState } from 'react';
+import { useSession } from '@ride/shared';
 import { useLanguageStore } from '@/stores/languageStore';
 import { OpsHeader } from './OpsHeader';
-import { ControlRoomSidebar, RateManagerSidebar, SuperAdminSidebar, getControlRoomNavItems, getRateManagerNavItems, getSuperAdminNavItems } from './Sidebars';
+import {
+  ControlRoomSidebar,
+  RateManagerSidebar,
+  SuperAdminSidebar,
+  getControlRoomNavItems,
+  getRateManagerNavItems,
+  getSuperAdminNavItems,
+} from './Sidebars';
 import { MobileMenu } from './MobileMenu';
+import { usePathname } from 'next/navigation';
 
 interface OpsShellProps {
   children: React.ReactNode;
 }
 
 export function OpsShell({ children }: OpsShellProps) {
-  const { session } = useOpsSessionStore();
+  const { user } = useSession();
   const language = useLanguageStore((s) => s.language);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const safetyAlerts = useSafetyAlertStore((s) => s.safetyAlerts);
+  const pathname = usePathname();
 
-  // All hooks MUST be declared before any early return to avoid
-  // "Rendered more hooks than during the previous render" errors
-  const navItems = useMemo(() => {
-    if (!session) return [];
-    if (session.role === 'control-room') {
-      const activeSosCount = safetyAlerts.filter((a) => a.type === 'SOS' && a.status === 'ACTIVE').length;
-      return getControlRoomNavItems(activeSosCount, language);
-    } else if (session.role === 'rate-manager') {
-      return getRateManagerNavItems(language);
-    } else {
-      return getSuperAdminNavItems(language);
-    }
-  }, [session, safetyAlerts, language]);
+  const isControlRoom = pathname.startsWith('/control-room');
+  const isRateManager = pathname.startsWith('/rate-manager');
 
-  if (!session) return <>{children}</>;
+  const SidebarComponent = isControlRoom
+    ? ControlRoomSidebar
+    : isRateManager
+      ? RateManagerSidebar
+      : SuperAdminSidebar;
 
-  const SidebarComponent =
-    session.role === 'control-room'
-      ? ControlRoomSidebar
-      : session.role === 'rate-manager'
-        ? RateManagerSidebar
-        : SuperAdminSidebar;
+  const menuTitle = isControlRoom
+    ? 'Control Room'
+    : isRateManager
+      ? 'Rate Manager'
+      : 'Administration';
 
-  const menuTitle =
-    session.role === 'control-room'
-      ? 'Control Room'
-      : session.role === 'rate-manager'
-        ? 'Rate Manager'
-        : 'Super Admin';
+  const navItems = isControlRoom
+    ? getControlRoomNavItems(0, language)
+    : isRateManager
+      ? getRateManagerNavItems(language)
+      : getSuperAdminNavItems(language);
+
+  if (!user) return <>{children}</>;
 
   return (
     <div className="flex h-screen bg-[#F4F5F7]">

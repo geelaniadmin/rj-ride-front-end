@@ -6,7 +6,7 @@ import { ChevronUp, ChevronDown } from 'lucide-react';
 export interface Column<T> {
   key: keyof T;
   label: string;
-  render?: (value: any, row: T) => React.ReactNode;
+  render?: (value: T[keyof T], row: T) => React.ReactNode;
   sortable?: boolean;
   width?: string;
 }
@@ -19,6 +19,7 @@ interface DataTableProps<T> {
   className?: string;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const DataTable = forwardRef<HTMLDivElement, DataTableProps<any>>(
   ({ columns, data, rowKey, pageSize = 10, className = '' }, ref) => {
     const [sortKey, setSortKey] = useState<string | null>(null);

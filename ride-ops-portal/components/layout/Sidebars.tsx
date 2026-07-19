@@ -1,31 +1,35 @@
 'use client';
 
-import React, { ReactNode } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { Zap, Layout, AlertCircle, BarChart3, Settings, DollarSign, Users, HeartHandshake, CheckCircle, LayoutList, PlusCircle, History, Calculator, FileText, MapPin } from 'lucide-react';
+import { Zap, Layout, AlertCircle, BarChart3, Settings, DollarSign, HeartHandshake, LayoutList, PlusCircle, History, Calculator, FileText } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { useSafetyAlertStore } from '@ride/shared';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient, keys } from '@ride/shared';
+import type { components } from '@ride/shared/api/schema.d';
 import { Badge } from '../ui/Badge';
 import { useLanguageStore } from '@/stores/languageStore';
 import { t } from '@/lib/translations';
 
+type SosEvent = components['schemas']['SosEvent'];
+
 export interface NavItem {
   href: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   badge?: number;
 }
 
 interface NavLinkProps {
   href: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   badge?: number;
 }
 
 function NavLink({ href, icon: Icon, label, badge }: NavLinkProps) {
   const pathname = usePathname();
-  const isActive = pathname.startsWith(href);
+  const isActive = pathname === href || (href !== '/control-room' && href !== '/rate-manager' && href !== '/super-admin' && pathname.startsWith(href));
   return (
     <Link
       href={href}
@@ -45,9 +49,20 @@ function NavLink({ href, icon: Icon, label, badge }: NavLinkProps) {
 }
 
 export function ControlRoomSidebar() {
-  const safetyAlerts = useSafetyAlertStore((s) => s.safetyAlerts);
   const language = useLanguageStore((s) => s.language);
-  const activeSosCount = safetyAlerts.filter((a) => a.type === 'SOS' && a.status === 'ACTIVE').length;
+
+  const { data: sosEvents = [] } = useQuery({
+    queryKey: keys.safety.sos.list({}),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET('/v1/safety/sos');
+      if (err) throw err;
+      return (res?.result ?? []) as SosEvent[];
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
+  const activeSosCount = sosEvents.filter((e) => !e.resolvedAt).length;
 
   return (
     <aside className="w-60 bg-[#1B2A4A] text-white flex flex-col">
@@ -90,14 +105,12 @@ export function SuperAdminSidebar() {
   return (
     <aside className="w-60 bg-[#1B2A4A] text-white flex flex-col">
       <div className="p-4 border-b border-white/10">
-        <h2 className="text-sm font-bold">{t('superAdmin', language)}</h2>
+        <h2 className="text-sm font-bold">Administration</h2>
       </div>
       <nav className="flex-1 space-y-1 p-3 overflow-y-auto custom-scrollbar">
         <NavLink href="/super-admin" icon={Layout} label={t('dashboard', language)} />
-        <NavLink href="/super-admin/tenants" icon={Users} label={t('tenants', language)} />
         <NavLink href="/super-admin/billing" icon={DollarSign} label={t('billing', language)} />
         <NavLink href="/super-admin/health" icon={HeartHandshake} label={t('systemHealth', language)} />
-        <NavLink href="/super-admin/traccar" icon={MapPin} label={t('gpsTracking', language)} />
         <NavLink href="/super-admin/audit" icon={Settings} label={t('auditLog', language)} />
       </nav>
     </aside>
@@ -127,10 +140,8 @@ export function getRateManagerNavItems(language: 'en' | 'ja' = 'en'): NavItem[] 
 export function getSuperAdminNavItems(language: 'en' | 'ja' = 'en'): NavItem[] {
   return [
     { href: '/super-admin', icon: Layout, label: t('dashboard', language) },
-    { href: '/super-admin/tenants', icon: Users, label: t('tenants', language) },
     { href: '/super-admin/billing', icon: DollarSign, label: t('billing', language) },
     { href: '/super-admin/health', icon: HeartHandshake, label: t('systemHealth', language) },
-    { href: '/super-admin/traccar', icon: MapPin, label: t('gpsTracking', language) },
     { href: '/super-admin/audit', icon: Settings, label: t('auditLog', language) },
   ];
 }

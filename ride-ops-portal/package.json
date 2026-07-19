@@ -5,11 +5,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "eslint"
   },
   "dependencies": {
     "@ride/shared": "file:../ride-shared",
+    "@tanstack/react-query": "^5.101.2",
     "@types/leaflet": "^1.9.21",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.2.10",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.17.0",
     "next": "16.2.9",

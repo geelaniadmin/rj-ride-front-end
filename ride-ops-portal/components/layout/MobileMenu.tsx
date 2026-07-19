@@ -8,7 +8,7 @@ import { usePathname } from 'next/navigation';
 interface NavItem {
   href: string;
   label: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
   badge?: number;
 }
 
