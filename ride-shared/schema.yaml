@@ -10,11 +10,13 @@ servers:
 
 tags:
   - name: auth
+  - name: config
   - name: trips
   - name: fleet
   - name: pricing
   - name: billing
   - name: dispatch
+  - name: tracking
   - name: safety
 
 paths:
@@ -100,39 +102,356 @@ paths:
               schema:
                 $ref: "#/components/schemas/Envelope_WsTicket"
 
+  /v1/config/vendors:
+    get:
+      operationId: listVendors
+      tags: [config]
+      summary: List vendors
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: page_size
+          in: query
+          schema: { type: integer }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Vendor cursor page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_VendorPage"
+    post:
+      operationId: createVendor
+      tags: [config]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "201":
+          description: Created vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Vendor"
+
+  /v1/config/vendors/{id}:
+    patch:
+      operationId: updateVendor
+      tags: [config]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "200":
+          description: Updated vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Vendor"
+    delete:
+      operationId: deactivateVendor
+      tags: [config]
+      summary: Soft-delete (deactivate) a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deactivated vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Vendor"
+
+  /v1/config/customers:
+    get:
+      operationId: listCustomers
+      tags: [config]
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: page_size
+          in: query
+          schema: { type: integer }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Customer cursor page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_CustomerPage"
+    post:
+      operationId: createCustomer
+      tags: [config]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "201":
+          description: Created customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Customer"
+
+  /v1/config/customers/{id}:
+    patch:
+      operationId: updateCustomer
+      tags: [config]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Customer"
+    delete:
+      operationId: deactivateCustomer
+      tags: [config]
+      summary: Soft-delete (deactivate) a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deactivated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Customer"
+
+  /v1/config/vehicle-types:
+    get:
+      operationId: listVehicleTypes
+      tags: [config]
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: page_size
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: VehicleType cursor page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_VehicleTypePage"
+    post:
+      operationId: createVehicleType
+      tags: [config]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleTypeInput"
+      responses:
+        "201":
+          description: Created vehicle type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_VehicleType"
+
+  /v1/config/vehicle-types/{id}:
+    patch:
+      operationId: updateVehicleType
+      tags: [config]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleTypeInput"
+      responses:
+        "200":
+          description: Updated vehicle type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_VehicleType"
+    delete:
+      operationId: deactivateVehicleType
+      tags: [config]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Deactivated vehicle type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_VehicleType"
+
+  /v1/config/pricing/rate-cards:
+    get:
+      operationId: listConfigRateCards
+      tags: [config]
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: page_size
+          in: query
+          schema: { type: integer }
+        - name: vendor_id
+          in: query
+          schema: { type: string }
+        - name: customer_id
+          in: query
+          schema: { type: string }
+        - name: vehicle_type_id
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: RateCard cursor page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_ConfigRateCardPage"
+    post:
+      operationId: createConfigRateCard
+      tags: [config]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigRateCardInput"
+      responses:
+        "201":
+          description: Created rate card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_ConfigRateCard"
+
+  /v1/config/pricing/rate-cards/{id}/supersede:
+    post:
+      operationId: supersedeRateCard
+      tags: [config]
+      summary: Create a new version superseding an existing rate card
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigRateCardInput"
+      responses:
+        "201":
+          description: New version created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_ConfigRateCard"
+
+  /v1/config/pricing/simulate:
+    post:
+      operationId: simulateQuote
+      tags: [config]
+      summary: Simulate a quote using the pricing engine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulateInput"
+      responses:
+        "200":
+          description: Simulation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_SimulateResult"
+
   /v1/trips:
     get:
       operationId: listTrips
       tags: [trips]
-      summary: List trip requests
+      summary: List trip requests (cursor-paginated)
       parameters:
         - name: status
           in: query
-          schema:
-            type: string
+          schema: { type: string }
         - name: customerId
           in: query
-          schema:
-            type: string
-        - name: page
+          schema: { type: string }
+        - name: dateFrom
           in: query
-          schema:
-            type: integer
-        - name: pageSize
+          schema: { type: string, format: date }
+        - name: dateTo
           in: query
-          schema:
-            type: integer
+          schema: { type: string, format: date }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: page_size
+          in: query
+          schema: { type: integer }
       responses:
         "200":
-          description: Trip list
+          description: Trip cursor page
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Envelope_TripList"
+                $ref: "#/components/schemas/Envelope_TripPage"
     post:
       operationId: createTrip
       tags: [trips]
-      summary: Create a new trip request (book)
+      summary: Book a trip (send priceIds locked from quote)
       requestBody:
         required: true
         content:
@@ -151,16 +470,14 @@ paths:
     get:
       operationId: getTrip
       tags: [trips]
-      summary: Get a single trip
       parameters:
         - name: id
           in: path
           required: true
-          schema:
-            type: string
+          schema: { type: string }
       responses:
         "200":
-          description: Trip detail
+          description: Trip detail with vehicles and timeline
           content:
             application/json:
               schema:
@@ -168,13 +485,11 @@ paths:
     patch:
       operationId: updateTrip
       tags: [trips]
-      summary: Update a trip
       parameters:
         - name: id
           in: path
           required: true
-          schema:
-            type: string
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -189,17 +504,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/Envelope_Trip"
 
-  /v1/trips/{id}/cancel:
+  /v1/trips/{id}/check-cancel:
     post:
-      operationId: cancelTrip
+      operationId: checkCancelTrip
       tags: [trips]
-      summary: Cancel a trip
+      summary: Preview cancellation penalty before confirming
       parameters:
         - name: id
           in: path
           required: true
-          schema:
-            type: string
+          schema: { type: string }
+      responses:
+        "200":
+          description: Cancellation preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_CancelPreview"
+
+  /v1/trips/{id}/cancel:
+    post:
+      operationId: cancelTrip
+      tags: [trips]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
       requestBody:
         content:
           application/json:
@@ -216,28 +547,151 @@ paths:
               schema:
                 $ref: "#/components/schemas/Envelope_Trip"
 
-  /v1/trips/{id}/adjustments:
+  /v1/trips/{id}/clone:
     post:
-      operationId: createTripAdjustment
+      operationId: cloneTrip
       tags: [trips]
-      summary: Create a price adjustment for a trip
+      summary: Clone a trip with optional overrides
       parameters:
         - name: id
           in: path
           required: true
-          schema:
-            type: string
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduleWhen:
+                  type: string
+                  format: date-time
+      responses:
+        "201":
+          description: Cloned trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Trip"
+
+  /v1/trips/{id}/vehicles/{vehicleId}/transitions:
+    post:
+      operationId: transitionVehicle
+      tags: [trips]
+      summary: Advance vehicle state machine — 409 if transition not allowed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransitionInput"
+      responses:
+        "200":
+          description: Vehicle updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_TripVehicle"
+        "409":
+          description: Transition not allowed by state machine
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /v1/trips/{id}/vehicles/{vehicleId}/verify-otp:
+    post:
+      operationId: verifyOtp
+      tags: [trips]
+      summary: Verify OTP for pickup or drop
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OtpVerifyInput"
+      responses:
+        "200":
+          description: OTP verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_TripVehicle"
+        "422":
+          description: Wrong OTP
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /v1/trips/{id}/vehicles/{vehicleId}/assign:
+    post:
+      operationId: assignVehicleDriver
+      tags: [trips]
+      summary: Assign a fleet vehicle and driver to a trip vehicle slot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: vehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignInput"
+      responses:
+        "200":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_TripVehicle"
+
+  /v1/trips/{id}/adjustments:
+    post:
+      operationId: createTripAdjustment
+      tags: [trips]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [amount, reason]
+              required: [amountMinor, currency, reason]
               properties:
-                amount:
+                amountMinor:
                   type: integer
-                  description: Minor units
+                  description: Signed minor units (negative = credit)
+                currency:
+                  type: string
                 reason:
                   type: string
       responses:
@@ -248,30 +702,140 @@ paths:
               schema:
                 $ref: "#/components/schemas/Envelope_Adjustment"
 
-  /v1/trips/{id}/approve:
+  /v1/trips/bulk-validate:
     post:
-      operationId: approveTrip
+      operationId: bulkValidateTrips
       tags: [trips]
-      summary: Approve a trip
+      summary: Phase-1 of bulk upload — per-row verdict
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkValidateInput"
+      responses:
+        "200":
+          description: Per-row validation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_BulkValidateResult"
+
+  /v1/trips/bulk-commit:
+    post:
+      operationId: bulkCommitTrips
+      tags: [trips]
+      summary: Phase-2 of bulk upload — commit valid rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkCommitInput"
+      responses:
+        "201":
+          description: Committed trips
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_BulkCommitResult"
+
+  /v1/trips/recurring-rules:
+    get:
+      operationId: listRecurringRules
+      tags: [trips]
+      summary: List recurring trip rules
+      responses:
+        "200":
+          description: Rules list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_RecurringRuleList"
+    post:
+      operationId: createRecurringRule
+      tags: [trips]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecurringRuleInput"
+      responses:
+        "201":
+          description: Created rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_RecurringRule"
+
+  /v1/trips/recurring-rules/{id}:
+    patch:
+      operationId: updateRecurringRule
+      tags: [trips]
       parameters:
         - name: id
           in: path
           required: true
-          schema:
-            type: string
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecurringRuleInput"
       responses:
         "200":
-          description: Approved
+          description: Updated rule
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Envelope_Trip"
+                $ref: "#/components/schemas/Envelope_RecurringRule"
+    delete:
+      operationId: deleteRecurringRule
+      tags: [trips]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+
+  /v1/pricing/quote:
+    post:
+      operationId: getQuote
+      tags: [pricing]
+      summary: Get priced offers for a set of vehicle type slots
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteInput"
+      responses:
+        "200":
+          description: Offers with priceId + expiry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_QuoteResult"
 
   /v1/fleet/vehicles:
     get:
       operationId: listVehicles
       tags: [fleet]
-      summary: List vehicles
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: page_size
+          in: query
+          schema: { type: integer }
+        - name: available
+          in: query
+          schema: { type: boolean }
       responses:
         "200":
           description: Vehicle list
@@ -288,8 +852,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema:
-            type: string
+          schema: { type: string }
       responses:
         "200":
           description: Vehicle detail
@@ -302,7 +865,16 @@ paths:
     get:
       operationId: listDrivers
       tags: [fleet]
-      summary: List drivers
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: page_size
+          in: query
+          schema: { type: integer }
+        - name: available
+          in: query
+          schema: { type: boolean }
       responses:
         "200":
           description: Driver list
@@ -319,8 +891,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema:
-            type: string
+          schema: { type: string }
       responses:
         "200":
           description: Driver detail
@@ -333,7 +904,6 @@ paths:
     get:
       operationId: listRateCards
       tags: [pricing]
-      summary: List rate cards
       responses:
         "200":
           description: Rate card list
@@ -350,8 +920,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema:
-            type: string
+          schema: { type: string }
       responses:
         "200":
           description: Rate card
@@ -360,18 +929,100 @@ paths:
               schema:
                 $ref: "#/components/schemas/Envelope_RateCard"
 
+  /v1/dispatch/board:
+    get:
+      operationId: getDispatchBoard
+      tags: [dispatch]
+      summary: Kanban board grouped by vehicle status columns
+      responses:
+        "200":
+          description: Board columns
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_DispatchBoard"
+
+  /v1/dispatch/auto-assign:
+    post:
+      operationId: autoAssignAll
+      tags: [dispatch]
+      summary: Auto-assign all PENDING vehicles
+      responses:
+        "200":
+          description: Assignment summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_AutoAssignResult"
+
+  /v1/dispatch/assignments:
+    get:
+      operationId: listAssignments
+      tags: [dispatch]
+      responses:
+        "200":
+          description: Assignments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_AssignmentList"
+
+  /v1/tracking/live:
+    get:
+      operationId: getLivePositions
+      tags: [tracking]
+      summary: Current positions of all active tracked vehicles
+      responses:
+        "200":
+          description: Live positions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_LivePositionList"
+
+  /v1/tracking/{tripVehicleId}/track:
+    get:
+      operationId: trackTripVehicle
+      tags: [tracking]
+      summary: Path, milestones and ETA for a specific vehicle
+      parameters:
+        - name: tripVehicleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Track detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_TrackDetail"
+
   /v1/billing/invoices:
     get:
       operationId: listInvoices
       tags: [billing]
-      summary: List invoices
+      summary: List billable invoices
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: customerId
+          in: query
+          schema: { type: string }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: page_size
+          in: query
+          schema: { type: integer }
       responses:
         "200":
-          description: Invoice list
+          description: Invoice cursor page
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Envelope_InvoiceList"
+                $ref: "#/components/schemas/Envelope_InvoicePage"
 
   /v1/billing/invoices/{id}:
     get:
@@ -381,34 +1032,182 @@ paths:
         - name: id
           in: path
           required: true
-          schema:
-            type: string
+          schema: { type: string }
       responses:
         "200":
-          description: Invoice
+          description: Invoice with lines
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Envelope_Invoice"
 
-  /v1/dispatch/assignments:
-    get:
-      operationId: listAssignments
-      tags: [dispatch]
-      summary: List dispatch assignments
+  /v1/billing/invoices/{id}/void:
+    post:
+      operationId: voidInvoice
+      tags: [billing]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
       responses:
         "200":
-          description: Assignments
+          description: Voided
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Envelope_AssignmentList"
+                $ref: "#/components/schemas/Envelope_Invoice"
+
+  /v1/billing/invoices/{id}/adjust:
+    post:
+      operationId: adjustInvoice
+      tags: [billing]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountMinor, currency, reason]
+              properties:
+                amountMinor:
+                  type: integer
+                  description: Signed minor units
+                currency:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: Adjustment applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Invoice"
+
+  /v1/billing/statements:
+    get:
+      operationId: listStatements
+      tags: [billing]
+      parameters:
+        - name: customerId
+          in: query
+          schema: { type: string }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: page_size
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Statement list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_StatementPage"
+
+  /v1/billing/statements/{id}/download:
+    get:
+      operationId: downloadStatement
+      tags: [billing]
+      summary: Returns a presigned URL for PDF download
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Presigned download URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_DownloadUrl"
+
+  /v1/billing/payouts:
+    get:
+      operationId: listPayouts
+      tags: [billing]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: page_size
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Payout list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_PayoutPage"
+
+  /v1/billing/payouts/{id}/approve:
+    post:
+      operationId: approvePayout
+      tags: [billing]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Payout approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Payout"
+
+  /v1/billing/payouts/{id}/mark-paid:
+    post:
+      operationId: markPayoutPaid
+      tags: [billing]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reference:
+                  type: string
+      responses:
+        "200":
+          description: Payout marked paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Payout"
 
   /v1/safety/sos:
     get:
       operationId: listSosEvents
       tags: [safety]
-      summary: List SOS events
       responses:
         "200":
           description: SOS events
@@ -476,25 +1275,6 @@ components:
         expiresAt:
           type: string
           format: date-time
-
-    TripCreateInput:
-      type: object
-      required: [stops, vehicles, schedule]
-      properties:
-        stops:
-          type: array
-          items:
-            type: object
-        vehicles:
-          type: array
-          items:
-            type: object
-        schedule:
-          type: object
-        customerId:
-          type: string
-        reference:
-          type: string
 
     Trip:
       type: object
@@ -777,5 +1557,1384 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SosEvent"
+        error:
+          type: "null"
+
+    CursorPage:
+      type: object
+      required: [count, results]
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          nullable: true
+        previous:
+          type: string
+          nullable: true
+
+    VendorDocument:
+      type: object
+      required: [kind]
+      properties:
+        kind:
+          type: string
+        number:
+          type: string
+        expiry:
+          type: string
+        fileName:
+          type: string
+
+    ConfigVendor:
+      type: object
+      required: [id, name, type, active]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [SELF, SUB_VENDOR]
+        gstin:
+          type: string
+        contactName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        active:
+          type: boolean
+
+    VendorInput:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [SELF, SUB_VENDOR]
+        gstin:
+          type: string
+        contactName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+
+    ConfigCustomer:
+      type: object
+      required: [id, name, code, active]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+        billingCycle:
+          type: string
+          enum: [WEEKLY, FORTNIGHTLY, MONTHLY]
+        spocName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        approvedVehicleTypeIds:
+          type: array
+          items:
+            type: string
+        defaultCostCenter:
+          type: string
+        active:
+          type: boolean
+
+    CustomerInput:
+      type: object
+      required: [name, code]
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        billingCycle:
+          type: string
+          enum: [WEEKLY, FORTNIGHTLY, MONTHLY]
+        spocName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        approvedVehicleTypeIds:
+          type: array
+          items:
+            type: string
+        defaultCostCenter:
+          type: string
+
+    ConfigVehicleType:
+      type: object
+      required: [id, name, seatingCapacity, ac, active]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        name:
+          type: string
+        seatingCapacity:
+          type: integer
+        ac:
+          type: boolean
+        class:
+          type: string
+        active:
+          type: boolean
+
+    VehicleTypeInput:
+      type: object
+      required: [name, seatingCapacity, ac]
+      properties:
+        name:
+          type: string
+        seatingCapacity:
+          type: integer
+        ac:
+          type: boolean
+        class:
+          type: string
+
+    RateModifiers:
+      type: object
+      properties:
+        minFare:
+          type: number
+        nightCharge:
+          type: number
+        waitingPerHour:
+          type: number
+        tollHandling:
+          type: string
+          enum: [INCLUDED, EXTRA]
+        parkingHandling:
+          type: string
+          enum: [INCLUDED, EXTRA]
+        interStateSurcharge:
+          type: number
+        deadMileagePerKm:
+          type: number
+
+    FixedPair:
+      type: object
+      required: [fromZone, toZone, price]
+      properties:
+        fromZone:
+          type: string
+        toZone:
+          type: string
+        price:
+          type: number
+
+    PackageRate:
+      type: object
+      required: [hours, km, price]
+      properties:
+        hours:
+          type: number
+        km:
+          type: number
+        price:
+          type: number
+        extraPerHour:
+          type: number
+        extraPerKm:
+          type: number
+
+    ConfigRateCard:
+      type: object
+      required: [id, vendorId, customerId, vehicleTypeId, basis, validFrom, version]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        vendorId:
+          type: string
+        customerId:
+          type: string
+        vehicleTypeId:
+          type: string
+        basis:
+          type: string
+          enum: [PER_KM, FIXED_LOCATION_PAIR, HOURLY, PACKAGE]
+        perKm:
+          type: number
+        hourlyRate:
+          type: number
+        fixedPairs:
+          type: array
+          items:
+            $ref: "#/components/schemas/FixedPair"
+        package:
+          $ref: "#/components/schemas/PackageRate"
+        modifiers:
+          $ref: "#/components/schemas/RateModifiers"
+        validFrom:
+          type: string
+          format: date
+        validTo:
+          type: string
+          format: date
+        version:
+          type: integer
+
+    ConfigRateCardInput:
+      type: object
+      required: [vendorId, customerId, vehicleTypeId, basis, validFrom]
+      properties:
+        vendorId:
+          type: string
+        customerId:
+          type: string
+        vehicleTypeId:
+          type: string
+        basis:
+          type: string
+          enum: [PER_KM, FIXED_LOCATION_PAIR, HOURLY, PACKAGE]
+        perKm:
+          type: number
+        hourlyRate:
+          type: number
+        fixedPairs:
+          type: array
+          items:
+            $ref: "#/components/schemas/FixedPair"
+        package:
+          $ref: "#/components/schemas/PackageRate"
+        modifiers:
+          $ref: "#/components/schemas/RateModifiers"
+        validFrom:
+          type: string
+          format: date
+        validTo:
+          type: string
+          format: date
+
+    SimulateInput:
+      type: object
+      required: [vendorId, customerId, vehicleTypeId, quotedAt]
+      properties:
+        vendorId:
+          type: string
+        customerId:
+          type: string
+        vehicleTypeId:
+          type: string
+        quotedAt:
+          type: string
+          format: date
+        distanceKm:
+          type: number
+        hours:
+          type: number
+        currency:
+          type: string
+
+    SimulateOffer:
+      type: object
+      required: [priceId, rateCardId, rateCardVersion, basis, priceMinor, currency, freeCancellationHours, minLeadTimeHours, quotedAt, expiresAt]
+      properties:
+        priceId:
+          type: string
+        rateCardId:
+          type: string
+        rateCardVersion:
+          type: integer
+        basis:
+          type: string
+        priceMinor:
+          type: integer
+          description: Price in minor currency units
+        currency:
+          type: string
+        freeCancellationHours:
+          type: number
+        minLeadTimeHours:
+          type: number
+        quotedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    SimulateResult:
+      type: object
+      required: [offers]
+      properties:
+        offers:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimulateOffer"
+
+    Envelope_Vendor:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/ConfigVendor"
+        error:
+          type: "null"
+
+    Envelope_VendorPage:
+      type: object
+      required: [result]
+      properties:
+        result:
+          allOf:
+            - $ref: "#/components/schemas/CursorPage"
+            - type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ConfigVendor"
+        error:
+          type: "null"
+
+    Envelope_Customer:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/ConfigCustomer"
+        error:
+          type: "null"
+
+    Envelope_CustomerPage:
+      type: object
+      required: [result]
+      properties:
+        result:
+          allOf:
+            - $ref: "#/components/schemas/CursorPage"
+            - type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ConfigCustomer"
+        error:
+          type: "null"
+
+    Envelope_VehicleType:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/ConfigVehicleType"
+        error:
+          type: "null"
+
+    Envelope_VehicleTypePage:
+      type: object
+      required: [result]
+      properties:
+        result:
+          allOf:
+            - $ref: "#/components/schemas/CursorPage"
+            - type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ConfigVehicleType"
+        error:
+          type: "null"
+
+    Envelope_ConfigRateCard:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/ConfigRateCard"
+        error:
+          type: "null"
+
+    Envelope_ConfigRateCardPage:
+      type: object
+      required: [result]
+      properties:
+        result:
+          allOf:
+            - $ref: "#/components/schemas/CursorPage"
+            - type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ConfigRateCard"
+        error:
+          type: "null"
+
+    Envelope_SimulateResult:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/SimulateResult"
+        error:
+          type: "null"
+
+    TripStop:
+      type: object
+      required: [seq, type, locationType, address, lat, lng]
+      properties:
+        seq:
+          type: integer
+        type:
+          type: string
+          enum: [PICKUP, DROP, WAYPOINT]
+        locationType:
+          type: string
+          enum: [AIRPORT, RAIL, HOTEL, CITY, ADDRESS]
+        address:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        plannedTime:
+          type: string
+          format: date-time
+        flightNumber:
+          type: string
+        trainNumber:
+          type: string
+        terminal:
+          type: string
+
+    TripPax:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        employeeId:
+          type: string
+        pnr:
+          type: string
+
+    TripVehicle:
+      type: object
+      required: [id, requestedVehicleTypeId, status]
+      properties:
+        id:
+          type: string
+        requestedVehicleTypeId:
+          type: string
+        priceId:
+          type: string
+        lockedPriceMinor:
+          type: integer
+          description: Locked price in minor units
+        lockedPriceCurrency:
+          type: string
+        lockedRateCardVersion:
+          type: integer
+        vehicleId:
+          type: string
+        driverId:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, ASSIGNED, DRIVER_ACCEPTED, DRIVER_REJECTED, EN_ROUTE_PICKUP, AT_PICKUP, PAX_PICKED, IN_TRANSIT, AT_DROP, PAX_DROPPED, COMPLETED, NO_SHOW, BREAKDOWN, ACCIDENT, VEHICLE_SWAP, DELAYED, SOS, CANCELLED]
+        pax:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripPax"
+        addonServiceIds:
+          type: array
+          items:
+            type: string
+
+    TripEvent:
+      type: object
+      required: [id, type, occurredAt]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        actorId:
+          type: string
+        actorRole:
+          type: string
+        vehicleId:
+          type: string
+        payload:
+          type: object
+
+    TripDetail:
+      type: object
+      required: [id, status, stops, vehicles, schedule, createdAt]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        customerId:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, CONFIRMED, ASSIGNED, IN_PROGRESS, COMPLETED, BILLED, CANCELLED]
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripStop"
+        vehicles:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripVehicle"
+        schedule:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        reference:
+          type: string
+        costCenter:
+          type: string
+        timeline:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripEvent"
+        createdVia:
+          type: string
+
+    TripSummary:
+      type: object
+      required: [id, status, createdAt]
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        reference:
+          type: string
+        vehicleCount:
+          type: integer
+        stopCount:
+          type: integer
+        pickupAddress:
+          type: string
+        scheduleWhen:
+          type: string
+          format: date-time
+
+    CancelPreview:
+      type: object
+      required: [allowed, free]
+      properties:
+        allowed:
+          type: boolean
+        free:
+          type: boolean
+        penaltyPct:
+          type: number
+        penaltyMinor:
+          type: integer
+          description: Penalty amount in minor units
+        penaltyCurrency:
+          type: string
+        deadline:
+          type: string
+          format: date-time
+        resultingStatus:
+          type: string
+
+    TransitionInput:
+      type: object
+      required: [targetStatus]
+      properties:
+        targetStatus:
+          type: string
+        note:
+          type: string
+
+    OtpVerifyInput:
+      type: object
+      required: [phase, otp]
+      properties:
+        phase:
+          type: string
+          enum: [pickup, drop]
+        otp:
+          type: string
+
+    AssignInput:
+      type: object
+      required: [fleetVehicleId, driverId]
+      properties:
+        fleetVehicleId:
+          type: string
+        driverId:
+          type: string
+
+    QuoteSlot:
+      type: object
+      required: [vehicleTypeId]
+      properties:
+        vehicleTypeId:
+          type: string
+        slotRef:
+          type: string
+
+    QuoteInput:
+      type: object
+      required: [customerId, stops, vehicleSlots, quotedAt]
+      properties:
+        customerId:
+          type: string
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripStop"
+        vehicleSlots:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteSlot"
+        quotedAt:
+          type: string
+          format: date-time
+        currency:
+          type: string
+
+    QuoteOffer:
+      type: object
+      required: [priceId, slotRef, vehicleTypeId, priceMinor, currency, freeCancellationHours, expiresAt]
+      properties:
+        priceId:
+          type: string
+        slotRef:
+          type: string
+        vehicleTypeId:
+          type: string
+        priceMinor:
+          type: integer
+        currency:
+          type: string
+        freeCancellationHours:
+          type: number
+        minLeadTimeHours:
+          type: number
+        expiresAt:
+          type: string
+          format: date-time
+        rateCardId:
+          type: string
+        rateCardVersion:
+          type: integer
+        basis:
+          type: string
+
+    QuoteResult:
+      type: object
+      required: [offers]
+      properties:
+        offers:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteOffer"
+        expiredSlots:
+          type: array
+          items:
+            type: string
+
+    TripVehicleSlotInput:
+      type: object
+      required: [vehicleTypeId, priceId]
+      properties:
+        vehicleTypeId:
+          type: string
+        priceId:
+          type: string
+
+    TripCreateInput:
+      type: object
+      required: [customerId, stops, vehicleSlots, schedule]
+      properties:
+        customerId:
+          type: string
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripStop"
+        vehicleSlots:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripVehicleSlotInput"
+        schedule:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [ONE_OFF, RECURRING]
+            when:
+              type: string
+              format: date-time
+        reference:
+          type: string
+        costCenter:
+          type: string
+        autoAssign:
+          type: boolean
+
+    BulkRow:
+      type: object
+      required: [rowIndex, customerId, pickupAddress, dropAddress, scheduleDate, vehicleTypes]
+      properties:
+        rowIndex:
+          type: integer
+        customerId:
+          type: string
+        pickupAddress:
+          type: string
+        pickupLat:
+          type: number
+        pickupLng:
+          type: number
+        dropAddress:
+          type: string
+        dropLat:
+          type: number
+        dropLng:
+          type: number
+        scheduleDate:
+          type: string
+          format: date
+        vehicleTypes:
+          type: array
+          items:
+            type: string
+        reference:
+          type: string
+
+    BulkRowVerdict:
+      type: object
+      required: [rowIndex, valid]
+      properties:
+        rowIndex:
+          type: integer
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: string
+        offers:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteOffer"
+
+    BulkValidateInput:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/BulkRow"
+
+    BulkValidateResult:
+      type: object
+      required: [verdicts]
+      properties:
+        verdicts:
+          type: array
+          items:
+            $ref: "#/components/schemas/BulkRowVerdict"
+        validCount:
+          type: integer
+        invalidCount:
+          type: integer
+
+    BulkCommitRow:
+      type: object
+      required: [rowIndex, priceIds]
+      properties:
+        rowIndex:
+          type: integer
+        priceIds:
+          type: array
+          items:
+            type: string
+
+    BulkCommitInput:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/BulkCommitRow"
+
+    BulkCommitResult:
+      type: object
+      required: [created, failed]
+      properties:
+        created:
+          type: array
+          items:
+            type: string
+        failed:
+          type: array
+          items:
+            type: object
+
+    RecurringRuleInput:
+      type: object
+      required: [customerId, freq, time, vehicleSlots, stops]
+      properties:
+        customerId:
+          type: string
+        freq:
+          type: string
+          enum: [DAILY, WEEKLY]
+        daysOfWeek:
+          type: array
+          items:
+            type: integer
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        time:
+          type: string
+        vehicleSlots:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteSlot"
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripStop"
+        reference:
+          type: string
+
+    RecurringRule:
+      type: object
+      required: [id, customerId, freq, time, active]
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        freq:
+          type: string
+        daysOfWeek:
+          type: array
+          items:
+            type: integer
+        startDate:
+          type: string
+        endDate:
+          type: string
+        time:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    DispatchBoardCard:
+      type: object
+      required: [tripId, vehicleId, vehicleStatus, customerName]
+      properties:
+        tripId:
+          type: string
+        vehicleId:
+          type: string
+        fleetVehicleId:
+          type: string
+        driverId:
+          type: string
+        vehicleStatus:
+          type: string
+        customerName:
+          type: string
+        pickupAddress:
+          type: string
+        scheduleWhen:
+          type: string
+          format: date-time
+        lockedPriceMinor:
+          type: integer
+        lockedPriceCurrency:
+          type: string
+        markerColor:
+          type: string
+        paxCount:
+          type: integer
+        reference:
+          type: string
+
+    DispatchBoardColumn:
+      type: object
+      required: [status, label, cards]
+      properties:
+        status:
+          type: string
+        label:
+          type: string
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/DispatchBoardCard"
+
+    DispatchBoard:
+      type: object
+      required: [columns, totalActive, totalAlerts]
+      properties:
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/DispatchBoardColumn"
+        totalActive:
+          type: integer
+        totalAlerts:
+          type: integer
+
+    AutoAssignSummary:
+      type: object
+      required: [assigned, skipped]
+      properties:
+        assigned:
+          type: integer
+        skipped:
+          type: integer
+        reasons:
+          type: array
+          items:
+            type: string
+        details:
+          type: array
+          items:
+            type: object
+
+    LivePosition:
+      type: object
+      required: [tripVehicleId, lat, lng, timestamp]
+      properties:
+        tripVehicleId:
+          type: string
+        tripId:
+          type: string
+        deviceId:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        speed:
+          type: number
+        heading:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+        vehicleStatus:
+          type: string
+        markerColor:
+          type: string
+        customerName:
+          type: string
+        driverName:
+          type: string
+
+    TrackMilestone:
+      type: object
+      required: [seq, label, status]
+      properties:
+        seq:
+          type: integer
+        label:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, ACTIVE, DONE]
+        arrivedAt:
+          type: string
+          format: date-time
+        address:
+          type: string
+
+    PathPoint:
+      type: object
+      required: [lat, lng, timestamp]
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    TrackDetail:
+      type: object
+      required: [tripVehicleId, milestones]
+      properties:
+        tripVehicleId:
+          type: string
+        currentLat:
+          type: number
+        currentLng:
+          type: number
+        etaMinutes:
+          type: integer
+        milestones:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackMilestone"
+        path:
+          type: array
+          items:
+            $ref: "#/components/schemas/PathPoint"
+
+    InvoiceLine:
+      type: object
+      required: [id, tripId, amountMinor, currency, description]
+      properties:
+        id:
+          type: string
+        tripId:
+          type: string
+        vehicleId:
+          type: string
+        amountMinor:
+          type: integer
+        currency:
+          type: string
+        description:
+          type: string
+        rateCardVersion:
+          type: integer
+        voided:
+          type: boolean
+
+    InvoiceDetail:
+      type: object
+      required: [id, status, totalMinor, currency, customerId, createdAt]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, ISSUED, VOIDED, PAID]
+        totalMinor:
+          type: integer
+        currency:
+          type: string
+        customerId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        dueDate:
+          type: string
+          format: date
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLine"
+        adjustments:
+          type: array
+          items:
+            type: object
+        reference:
+          type: string
+
+    Statement:
+      type: object
+      required: [id, customerId, periodStart, periodEnd, totalMinor, currency]
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        periodStart:
+          type: string
+          format: date
+        periodEnd:
+          type: string
+          format: date
+        totalMinor:
+          type: integer
+        currency:
+          type: string
+        invoiceCount:
+          type: integer
+        generatedAt:
+          type: string
+          format: date-time
+        downloadUrl:
+          type: string
+
+    DownloadUrl:
+      type: object
+      required: [url, expiresAt]
+      properties:
+        url:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    Payout:
+      type: object
+      required: [id, vendorId, amountMinor, currency, status]
+      properties:
+        id:
+          type: string
+        vendorId:
+          type: string
+        amountMinor:
+          type: integer
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, APPROVED, PAID]
+        approvedAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+        reference:
+          type: string
+        tripIds:
+          type: array
+          items:
+            type: string
+
+    Envelope_TripPage:
+      type: object
+      required: [result]
+      properties:
+        result:
+          allOf:
+            - $ref: "#/components/schemas/CursorPage"
+            - type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/TripSummary"
+        error:
+          type: "null"
+
+    Envelope_TripVehicle:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/TripVehicle"
+        error:
+          type: "null"
+
+    Envelope_CancelPreview:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/CancelPreview"
+        error:
+          type: "null"
+
+    Envelope_QuoteResult:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/QuoteResult"
+        error:
+          type: "null"
+
+    Envelope_BulkValidateResult:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/BulkValidateResult"
+        error:
+          type: "null"
+
+    Envelope_BulkCommitResult:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/BulkCommitResult"
+        error:
+          type: "null"
+
+    Envelope_RecurringRule:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/RecurringRule"
+        error:
+          type: "null"
+
+    Envelope_RecurringRuleList:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecurringRule"
+        error:
+          type: "null"
+
+    Envelope_DispatchBoard:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/DispatchBoard"
+        error:
+          type: "null"
+
+    Envelope_AutoAssignResult:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/AutoAssignSummary"
+        error:
+          type: "null"
+
+    Envelope_LivePositionList:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: array
+          items:
+            $ref: "#/components/schemas/LivePosition"
+        error:
+          type: "null"
+
+    Envelope_TrackDetail:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/TrackDetail"
+        error:
+          type: "null"
+
+    Envelope_InvoicePage:
+      type: object
+      required: [result]
+      properties:
+        result:
+          allOf:
+            - $ref: "#/components/schemas/CursorPage"
+            - type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/InvoiceDetail"
+        error:
+          type: "null"
+
+    Envelope_StatementPage:
+      type: object
+      required: [result]
+      properties:
+        result:
+          allOf:
+            - $ref: "#/components/schemas/CursorPage"
+            - type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Statement"
+        error:
+          type: "null"
+
+    Envelope_PayoutPage:
+      type: object
+      required: [result]
+      properties:
+        result:
+          allOf:
+            - $ref: "#/components/schemas/CursorPage"
+            - type: object
+              required: [results]
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Payout"
+        error:
+          type: "null"
+
+    Envelope_Payout:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/Payout"
+        error:
+          type: "null"
+
+    Envelope_DownloadUrl:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/DownloadUrl"
         error:
           type: "null"

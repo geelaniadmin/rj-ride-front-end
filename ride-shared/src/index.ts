@@ -37,8 +37,11 @@ export { id } from './helpers';
 export { apiClient, client, ApiError, isApiError, getErrorCode } from './api/client';
 export type { ApiErrorData } from './api/client';
 export { formatMoney, toMinor } from './api/money';
-export { createQueryClient, keys } from './api/query';
+export { createQueryClient, keys, wsInvalidationMap } from './api/query';
 export { ApiProviders } from './api/ApiProviders';
+export { useCursorList } from './api/useCursorList';
+export type { CursorPage } from './api/useCursorList';
+export { QueryBoundary } from './api/QueryBoundary';
 
 // Auth
 export { AuthProvider, useSession, useAuth, requireRole } from './auth/AuthProvider';

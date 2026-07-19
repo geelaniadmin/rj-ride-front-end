@@ -1,299 +1,285 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { useTripStore } from "@/stores/tripStore";
-import { useCustomerStore } from "@ride/shared";
-import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
-import { useTenantStore } from "@ride/shared";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiClient, keys, isApiError } from "@ride/shared";
+import type { components } from "@ride/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
-import { getOffers } from "@/lib/quote";
-import { createTripVehicle } from "@/lib/tripHelpers";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
-import { Badge } from "@/components/ui/Badge";
-import { TripMetadata } from "@/components/trips/TripMetadata";
+import { Drawer } from "@/components/ui/Drawer";
+import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
 
-interface RecurringCreationProps {
-  onCreated?: () => void;
-}
+type RecurringRule = components["schemas"]["RecurringRule"];
+type RecurringRuleInput = components["schemas"]["RecurringRuleInput"];
+type ConfigCustomer = components["schemas"]["ConfigCustomer"];
+type ConfigVehicleType = components["schemas"]["ConfigVehicleType"];
 
-export const RecurringCreation: React.FC<RecurringCreationProps> = ({ onCreated }) => {
-  const activeTenantId = useTenantStore((s) => s.activeTenantId);
-  const allCustomers = useCustomerStore((s) => s.customers) || [];
-  const customers = useMemo(() => allCustomers.filter((c) => c.tenantId === activeTenantId), [allCustomers, activeTenantId]);
-  const allVTs = useVehicleTypeStore((s) => s.vehicleTypes) || [];
-  const vts = useMemo(() => allVTs.filter((v) => v.tenantId === activeTenantId), [allVTs, activeTenantId]);
+const DAYS_OF_WEEK = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const addTrip = useTripStore((s) => s.addTrip);
+const DEFAULT_INPUT: RecurringRuleInput = {
+  customerId: "",
+  freq: "DAILY",
+  time: "08:00",
+  vehicleSlots: [{ vehicleTypeId: "", slotRef: "slot-1" }],
+  stops: [],
+  reference: undefined,
+};
+
+export const RecurringCreation: React.FC<{ onDone?: () => void }> = () => {
   const addToast = useToastStore((s) => s.addToast);
+  const qc = useQueryClient();
 
-  const [customerId, setCustomerId] = useState<string>(customers[0]?.id || "");
-  const [vehicleTypeId, setVehicleTypeId] = useState<string>(vts[0]?.id || "");
-  const [pickupAddress, setPickupAddress] = useState("Corporate Office, MG Road");
-  const [pickupLat, setPickupLat] = useState("12.9716");
-  const [pickupLng, setPickupLng] = useState("77.595");
-  const [dropAddress, setDropAddress] = useState("Airport, Bangalore");
-  const [dropLat, setDropLat] = useState("13.1939");
-  const [dropLng, setDropLng] = useState("77.7064");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<RecurringRuleInput>(DEFAULT_INPUT);
 
-  const [freq, setFreq] = useState<"DAILY" | "WEEKLY">("DAILY");
-  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri
-  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
-  const [endDate, setEndDate] = useState(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
-  const [scheduleTime, setScheduleTime] = useState("08:00");
-
-  const [metadata, setMetadata] = useState<{ coordinator: { name?: string; phone?: string }; viewers: string[]; costCenter: string; pos: string }>({
-    coordinator: {},
-    viewers: [],
-    costCenter: "",
-    pos: "",
+  const { data: rules, isLoading } = useQuery({
+    queryKey: keys.trips.recurringRules.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/trips/recurring-rules", {});
+      if (err) throw err;
+      return res?.result ?? [];
+    },
   });
 
-  const [isCommitting, setIsCommitting] = useState(false);
+  const { data: customers } = useQuery({
+    queryKey: keys.config.customers.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/customers", {});
+      if (err) throw err;
+      return res?.result?.results ?? [];
+    },
+  });
 
-  const generateDates = (): string[] => {
-    const dates: string[] = [];
-    const start = new Date(startDate!);
-    const end = new Date(endDate!);
+  const { data: vehicleTypes } = useQuery({
+    queryKey: keys.config.vehicleTypes.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/vehicle-types", {});
+      if (err) throw err;
+      return res?.result?.results ?? [];
+    },
+  });
 
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      if (freq === "DAILY") {
-        dates.push(d.toISOString().split("T")[0]!);
-      } else if (freq === "WEEKLY" && daysOfWeek.includes(d.getDay())) {
-        dates.push(d.toISOString().split("T")[0]!);
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (editingId) {
+        const { data: res, error: err } = await apiClient.PATCH("/v1/trips/recurring-rules/{id}", {
+          params: { path: { id: editingId } },
+          body: form,
+        });
+        if (err) throw err;
+        return res?.result;
+      } else {
+        const { data: res, error: err } = await apiClient.POST("/v1/trips/recurring-rules", {
+          body: form,
+        });
+        if (err) throw err;
+        return res?.result;
       }
-    }
+    },
+    onSuccess: () => {
+      addToast(editingId ? "Rule updated" : "Rule created", "success");
+      void qc.invalidateQueries({ queryKey: keys.trips.recurringRules.list() });
+      setDrawerOpen(false);
+      setEditingId(null);
+      setForm(DEFAULT_INPUT);
+    },
+    onError: (err) => {
+      addToast(isApiError(err) ? err.message : "Save failed", "error");
+    },
+  });
 
-    return dates;
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: err } = await apiClient.DELETE("/v1/trips/recurring-rules/{id}", {
+        params: { path: { id } },
+      });
+      if (err) throw err;
+    },
+    onSuccess: () => {
+      addToast("Rule deleted", "success");
+      void qc.invalidateQueries({ queryKey: keys.trips.recurringRules.list() });
+    },
+    onError: (err) => {
+      addToast(isApiError(err) ? err.message : "Delete failed", "error");
+    },
+  });
+
+  const openCreate = () => {
+    setEditingId(null);
+    setForm(DEFAULT_INPUT);
+    setDrawerOpen(true);
   };
 
-  const dates = generateDates();
-
-  const handleCreate = async () => {
-    if (!customerId || !vehicleTypeId) {
-      addToast("Please select customer and vehicle type", "error");
-      return;
-    }
-
-    if (dates.length === 0) {
-      addToast("No dates match the recurrence rule", "error");
-      return;
-    }
-
-    setIsCommitting(true);
-
-    try {
-      let createdCount = 0;
-      const errors: string[] = [];
-
-      for (const date of dates) {
-        try {
-          const vehicle = createTripVehicle(vehicleTypeId);
-          const offers = getOffers({
-            tenantId: activeTenantId,
-            vendorId: "V1",
-            customerId,
-            vehicleTypeId,
-            quotedAt: date,
-            currency: "INR",
-            distance: 10,
-          });
-
-          const tripVehicle = {
-            ...vehicle,
-            priceId: offers.length > 0 ? offers[0]!.priceId : undefined,
-            lockedPrice: offers.length > 0 ? offers[0]!.price : undefined,
-            lockedRateCardVersion: offers.length > 0 ? offers[0]!.rateCardVersion : undefined,
-          };
-
-          const tripId = addTrip({
-            tenantId: activeTenantId,
-            customerId,
-            createdVia: "RECURRING",
-            stops: [
-              {
-                seq: 0,
-                type: "PICKUP",
-                locationType: "ADDRESS",
-                address: pickupAddress,
-                lat: parseFloat(pickupLat),
-                lng: parseFloat(pickupLng),
-              },
-              {
-                seq: 1,
-                type: "DROP",
-                locationType: "ADDRESS",
-                address: dropAddress,
-                lat: parseFloat(dropLat),
-                lng: parseFloat(dropLng),
-              },
-            ],
-            vehicles: [tripVehicle],
-            schedule: { type: "ONE_OFF", when: `${date}T${scheduleTime}:00Z` },
-            status: "DRAFT",
-            autoAssign: false,
-            coordinator: (metadata.coordinator.name || metadata.coordinator.phone) ? metadata.coordinator : undefined,
-            viewers: metadata.viewers.length > 0 ? metadata.viewers : undefined,
-            costCenter: metadata.costCenter || undefined,
-            pos: metadata.pos || undefined,
-          });
-
-          createdCount++;
-        } catch (err) {
-          errors.push(`${date}: ${err instanceof Error ? err.message : "Unknown error"}`);
-        }
-      }
-
-      if (createdCount > 0) {
-        addToast(`Created ${createdCount} recurring trips`, "success");
-      }
-      if (errors.length > 0) {
-        addToast(`${errors.length} trips failed`, "error");
-      }
-
-      if (createdCount > 0) {
-        onCreated?.();
-      }
-    } finally {
-      setIsCommitting(false);
-    }
+  const openEdit = (rule: RecurringRule) => {
+    setEditingId(rule.id);
+    setForm({
+      customerId: rule.customerId,
+      freq: rule.freq as "DAILY" | "WEEKLY",
+      daysOfWeek: rule.daysOfWeek,
+      startDate: rule.startDate,
+      endDate: rule.endDate,
+      time: rule.time,
+      vehicleSlots: [{ vehicleTypeId: "", slotRef: "slot-1" }],
+      stops: [],
+    });
+    setDrawerOpen(true);
   };
 
-  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const toggleDay = (day: number) => {
+    const current = form.daysOfWeek ?? [];
+    const next = current.includes(day) ? current.filter((d) => d !== day) : [...current, day];
+    setForm((f) => ({ ...f, daysOfWeek: next }));
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Base Trip Details */}
-      <Card padding="lg" header={<h3 className="font-semibold">Base Trip Details</h3>}>
-        <div className="space-y-4">
-          <FormField label="Customer" required>
-            <Select
-              value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
-              options={customers.map((c) => ({ value: c.id, label: c.name }))}
-            />
-          </FormField>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-text-secondary">
+          Configure auto-recurring trip rules. The scheduler creates trips daily/weekly at the set time.
+        </p>
+        <Button size="sm" onClick={openCreate}>
+          <Plus className="w-3 h-3 mr-1" /> New Rule
+        </Button>
+      </div>
 
-          <FormField label="Vehicle Type" required>
-            <Select
-              value={vehicleTypeId}
-              onChange={(e) => setVehicleTypeId(e.target.value)}
-              options={vts.map((v) => ({ value: v.id, label: v.name }))}
-            />
-          </FormField>
-
-          <FormField label="Pickup Address">
-            <Input value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} />
-          </FormField>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Latitude">
-              <Input type="number" step="0.0001" value={pickupLat} onChange={(e) => setPickupLat(e.target.value)} />
-            </FormField>
-            <FormField label="Longitude">
-              <Input type="number" step="0.0001" value={pickupLng} onChange={(e) => setPickupLng(e.target.value)} />
-            </FormField>
-          </div>
-
-          <FormField label="Drop Address">
-            <Input value={dropAddress} onChange={(e) => setDropAddress(e.target.value)} />
-          </FormField>
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField label="Latitude">
-              <Input type="number" step="0.0001" value={dropLat} onChange={(e) => setDropLat(e.target.value)} />
-            </FormField>
-            <FormField label="Longitude">
-              <Input type="number" step="0.0001" value={dropLng} onChange={(e) => setDropLng(e.target.value)} />
-            </FormField>
-          </div>
+      {isLoading ? (
+        <div className="py-4 text-center text-sm text-text-secondary">Loading rules…</div>
+      ) : !rules?.length ? (
+        <Card padding="lg" className="text-center py-8 text-text-secondary">
+          <RefreshCw className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No recurring rules yet.</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {rules.map((rule: RecurringRule) => {
+            const customer = (customers as ConfigCustomer[] | undefined)?.find((c) => c.id === rule.customerId);
+            return (
+              <Card key={rule.id} padding="md">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">
+                      {customer?.name ?? rule.customerId} · {rule.freq}
+                    </p>
+                    <p className="text-xs text-text-secondary">
+                      {rule.time}
+                      {rule.daysOfWeek?.length ? ` — ${rule.daysOfWeek.map((d) => DAYS_OF_WEEK[d]).join(", ")}` : ""}
+                      {rule.startDate && ` · from ${rule.startDate}`}
+                      {rule.endDate && ` to ${rule.endDate}`}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(rule)}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-danger"
+                      onClick={() => deleteMutation.mutate(rule.id)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </div>
-      </Card>
+      )}
 
-      {/* Recurrence Rule */}
-      <Card padding="lg" header={<h3 className="font-semibold">Recurrence Rule</h3>}>
-        <div className="space-y-4">
+      <Drawer
+        open={drawerOpen}
+        onClose={() => { setDrawerOpen(false); setEditingId(null); }}
+        title={editingId ? "Edit Rule" : "New Recurring Rule"}
+      >
+        <div className="space-y-4 p-4">
+          <FormField label="Customer">
+            <Select
+              value={form.customerId}
+              onChange={(e) => setForm((f) => ({ ...f, customerId: e.target.value }))}
+              options={(customers as ConfigCustomer[] ?? []).map((c) => ({ value: c.id, label: c.name }))}
+            />
+          </FormField>
+
           <FormField label="Frequency">
             <Select
-              value={freq}
-              onChange={(e) => setFreq(e.target.value as "DAILY" | "WEEKLY")}
-              options={[
-                { value: "DAILY", label: "Daily" },
-                { value: "WEEKLY", label: "Weekly" },
-              ]}
+              value={form.freq}
+              onChange={(e) => setForm((f) => ({ ...f, freq: e.target.value as "DAILY" | "WEEKLY" }))}
+              options={[{ value: "DAILY", label: "Daily" }, { value: "WEEKLY", label: "Weekly" }]}
             />
           </FormField>
 
-          {freq === "WEEKLY" && (
+          {form.freq === "WEEKLY" && (
             <FormField label="Days of Week">
-              <div className="flex gap-2">
-                {dayLabels.map((label, idx) => (
+              <div className="flex gap-1 flex-wrap">
+                {DAYS_OF_WEEK.map((day, i) => (
                   <button
-                    key={idx}
-                    onClick={() => {
-                      const newDays = daysOfWeek.includes(idx) ? daysOfWeek.filter((d) => d !== idx) : [...daysOfWeek, idx];
-                      setDaysOfWeek(newDays.sort());
-                    }}
-                    className={`px-3 py-2 rounded text-xs font-medium transition-colors ${
-                      daysOfWeek.includes(idx) ? "bg-indigo-600 text-white" : "bg-ops-bg text-text-secondary"
+                    key={day}
+                    type="button"
+                    onClick={() => toggleDay(i)}
+                    className={`px-2 py-1 text-xs rounded border transition-colors ${
+                      form.daysOfWeek?.includes(i) ? "bg-brand-blue text-white border-brand-blue" : "border-border text-text-secondary"
                     }`}
                   >
-                    {label}
+                    {day}
                   </button>
                 ))}
               </div>
             </FormField>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <FormField label="Time">
+            <Input
+              type="time"
+              value={form.time}
+              onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
+            />
+          </FormField>
+
+          <div className="grid grid-cols-2 gap-2">
             <FormField label="Start Date">
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <Input
+                type="date"
+                value={form.startDate ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value || undefined }))}
+              />
             </FormField>
             <FormField label="End Date">
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <Input
+                type="date"
+                value={form.endDate ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value || undefined }))}
+              />
             </FormField>
           </div>
 
-          <FormField label="Schedule Time">
-            <Input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} />
+          <FormField label="Vehicle Type">
+            <Select
+              value={form.vehicleSlots[0]?.vehicleTypeId ?? ""}
+              onChange={(e) => setForm((f) => ({
+                ...f,
+                vehicleSlots: [{ vehicleTypeId: e.target.value, slotRef: "slot-1" }],
+              }))}
+              options={(vehicleTypes as ConfigVehicleType[] ?? []).map((v) => ({ value: v.id, label: v.name }))}
+            />
           </FormField>
+
+          <Button
+            onClick={() => saveMutation.mutate()}
+            variant="primary"
+            className="w-full"
+            disabled={!form.customerId || !form.time || saveMutation.isPending}
+          >
+            {saveMutation.isPending ? "Saving…" : editingId ? "Update Rule" : "Create Rule"}
+          </Button>
         </div>
-      </Card>
-
-      {/* Preview */}
-      {/* Trip Metadata — applies to all created trips */}
-      <TripMetadata
-        coordinator={metadata.coordinator}
-        viewers={metadata.viewers}
-        costCenter={metadata.costCenter}
-        pos={metadata.pos}
-        onUpdate={(updates) => setMetadata((prev) => ({ ...prev, ...updates }))}
-      />
-
-      <Card padding="lg" header={<h3 className="font-semibold">Preview ({dates.length} trips)</h3>}>
-        <div className="space-y-2 max-h-40 overflow-y-auto">
-          {dates.length === 0 ? (
-            <p className="text-xs text-text-secondary">No dates match the recurrence rule</p>
-          ) : (
-            dates.slice(0, 10).map((date) => (
-              <div key={date} className="flex items-center justify-between bg-ops-bg p-2 rounded text-xs">
-                <span className="text-text-primary">{date}</span>
-                <span className="text-text-secondary">{scheduleTime}</span>
-              </div>
-            ))
-          )}
-          {dates.length > 10 && <p className="text-xs text-text-secondary pt-2">... and {dates.length - 10} more</p>}
-        </div>
-      </Card>
-
-      <div className="flex gap-2">
-        <Button onClick={handleCreate} variant="primary" loading={isCommitting} disabled={dates.length === 0}>
-          Create {dates.length} Recurring Trip{dates.length !== 1 ? "s" : ""}
-        </Button>
-      </div>
+      </Drawer>
     </div>
   );
 };

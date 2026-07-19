@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
-import { useVendorStore } from "@/stores/vendorStore";
-import { useCustomerStore } from "@ride/shared";
-import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
-import { useTenantStore } from "@ride/shared";
+import React, { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { apiClient, keys, formatMoney } from "@ride/shared";
+import type { components } from "@ride/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -12,44 +11,78 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
-import { getOffers, getOfferDetails, QuoteInput } from "@/lib/quote";
-import { Offer } from "@/lib/types";
+
+type SimulateInput = components["schemas"]["SimulateInput"];
+type SimulateOffer = components["schemas"]["SimulateOffer"];
 
 interface QuoteSimulatorTabProps {
   searchQuery?: string;
 }
 
-export const QuoteSimulatorTab: React.FC<QuoteSimulatorTabProps> = ({ searchQuery = "" }) => {
-  const activeTenantId = useTenantStore((s) => s.activeTenantId);
-  const allVendors = useVendorStore((s) => s.vendors) || [];
-  const vendors = useMemo(() => allVendors.filter((v) => v.tenantId === activeTenantId), [allVendors, activeTenantId]);
-  const allCustomers = useCustomerStore((s) => s.customers) || [];
-  const customers = useMemo(() => allCustomers.filter((c) => c.tenantId === activeTenantId), [allCustomers, activeTenantId]);
-  const allVTs = useVehicleTypeStore((s) => s.vehicleTypes) || [];
-  const vts = useMemo(() => allVTs.filter((v) => v.tenantId === activeTenantId), [allVTs, activeTenantId]);
-
+export const QuoteSimulatorTab: React.FC<QuoteSimulatorTabProps> = () => {
   const addToast = useToastStore((s) => s.addToast);
 
-  const [vendorId, setVendorId] = useState<string>(((vendors?.[0]?.id as string | undefined) || "") as string);
-  const [customerId, setCustomerId] = useState<string>(((customers?.[0]?.id as string | undefined) || "") as string);
-  const [vehicleTypeId, setVehicleTypeId] = useState<string>(((vts?.[0]?.id as string | undefined) || "") as string);
-  const [distance, setDistance] = useState(10);
-  const [hours, setHours] = useState(1);
-  const [quotedAt, setQuotedAt] = useState<string>((new Date().toISOString().split("T")[0] || "") as string);
-  const [offers, setOffers] = useState<Offer[]>([]);
-  const [validityCountdowns, setValidityCountdowns] = useState<Record<string, number>>({});
+  const { data: vendorsData } = useQuery({
+    queryKey: keys.config.vendors.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/vendors", {});
+      if (err) throw err;
+      return res?.result?.results ?? [];
+    },
+  });
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const newCountdowns: Record<string, number> = {};
-      offers.forEach((offer) => {
-        const { validityMins } = getOfferDetails(offer);
-        newCountdowns[offer.priceId] = validityMins;
+  const { data: customersData } = useQuery({
+    queryKey: keys.config.customers.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/customers", {});
+      if (err) throw err;
+      return res?.result?.results ?? [];
+    },
+  });
+
+  const { data: vehicleTypesData } = useQuery({
+    queryKey: keys.config.vehicleTypes.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/vehicle-types", {});
+      if (err) throw err;
+      return res?.result?.results ?? [];
+    },
+  });
+
+  const vendors = vendorsData ?? [];
+  const customers = customersData ?? [];
+  const vts = vehicleTypesData ?? [];
+
+  const today = new Date().toISOString().split("T")[0] ?? "";
+
+  const [vendorId, setVendorId] = useState<string>("");
+  const [customerId, setCustomerId] = useState<string>("");
+  const [vehicleTypeId, setVehicleTypeId] = useState<string>("");
+  const [distanceKm, setDistanceKm] = useState<number>(10);
+  const [hours, setHours] = useState<number>(1);
+  const [quotedAt, setQuotedAt] = useState<string>(today);
+  const [offers, setOffers] = useState<SimulateOffer[]>([]);
+
+  const simulateMutation = useMutation({
+    mutationFn: async (input: SimulateInput) => {
+      const { data: res, error: err } = await apiClient.POST("/v1/config/pricing/simulate", {
+        body: input,
       });
-      setValidityCountdowns(newCountdowns);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [offers]);
+      if (err) throw err;
+      return res?.result?.offers ?? [];
+    },
+    onSuccess: (result) => {
+      setOffers(result);
+      if (result.length === 0) {
+        addToast("No applicable rate card found for the selected combination", "info");
+      } else {
+        addToast(`Got ${result.length} offer(s)`, "success");
+      }
+    },
+    onError: (err: unknown) => {
+      addToast(err instanceof Error ? err.message : "Failed to get offers", "error");
+    },
+  });
 
   const handleGetOffers = () => {
     if (!vendorId || !customerId || !vehicleTypeId) {
@@ -57,24 +90,15 @@ export const QuoteSimulatorTab: React.FC<QuoteSimulatorTabProps> = ({ searchQuer
       return;
     }
 
-    const input: QuoteInput = {
-      tenantId: activeTenantId,
+    simulateMutation.mutate({
       vendorId,
       customerId,
       vehicleTypeId,
       quotedAt,
-      currency: "INR",
-      distance,
+      distanceKm,
       hours,
-    };
-
-    const results = getOffers(input);
-    if (results.length === 0) {
-      addToast("No applicable rate card found for the selected combination", "info");
-    } else {
-      addToast(`Got ${results.length} offer(s)`, "success");
-    }
-    setOffers(results);
+      currency: "INR",
+    });
   };
 
   return (
@@ -110,16 +134,30 @@ export const QuoteSimulatorTab: React.FC<QuoteSimulatorTabProps> = ({ searchQuer
           </FormField>
 
           <FormField label="Distance (KM)">
-            <Input type="number" value={distance} onChange={(e) => setDistance(parseFloat(e.target.value) || 0)} />
+            <Input
+              type="number"
+              value={distanceKm}
+              onChange={(e) => setDistanceKm(parseFloat(e.target.value) || 0)}
+            />
           </FormField>
 
           <FormField label="Hours">
-            <Input type="number" value={hours} onChange={(e) => setHours(parseFloat(e.target.value) || 0)} step="0.5" />
+            <Input
+              type="number"
+              value={hours}
+              onChange={(e) => setHours(parseFloat(e.target.value) || 0)}
+              step="0.5"
+            />
           </FormField>
         </div>
 
-        <Button onClick={handleGetOffers} variant="primary" className="mt-4">
-          Get Offers
+        <Button
+          onClick={handleGetOffers}
+          variant="primary"
+          className="mt-4"
+          disabled={simulateMutation.isPending}
+        >
+          {simulateMutation.isPending ? "Getting offers…" : "Get Offers"}
         </Button>
       </Card>
 
@@ -127,13 +165,18 @@ export const QuoteSimulatorTab: React.FC<QuoteSimulatorTabProps> = ({ searchQuer
         <Card padding="lg" header={<h3 className="font-semibold">Offers ({offers.length})</h3>}>
           <div className="space-y-3">
             {offers.map((offer) => {
-              const validityMins = validityCountdowns[offer.priceId] ?? getOfferDetails(offer).validityMins;
+              const expiresAt = new Date(offer.expiresAt);
+              const validityMins = Math.max(0, Math.round((expiresAt.getTime() - Date.now()) / 60000));
               return (
                 <div key={offer.priceId} className="p-4 bg-ops-bg rounded border border-border space-y-2">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="font-mono text-sm text-text-secondary">Price ID: {offer.priceId.substring(0, 8)}...</p>
-                      <p className="text-2xl font-bold text-text-primary mt-2">₹{offer.price}</p>
+                      <p className="font-mono text-sm text-text-secondary">
+                        Price ID: {offer.priceId.substring(0, 8)}…
+                      </p>
+                      <p className="text-2xl font-bold text-text-primary mt-2">
+                        {formatMoney(offer.priceMinor, offer.currency)}
+                      </p>
                     </div>
                     <div className="text-right space-y-1">
                       <Badge variant="blue">v{offer.rateCardVersion}</Badge>
@@ -166,9 +209,9 @@ export const QuoteSimulatorTab: React.FC<QuoteSimulatorTabProps> = ({ searchQuer
         </Card>
       )}
 
-      {offers.length === 0 && (
+      {offers.length === 0 && !simulateMutation.isPending && (
         <Card padding="lg" className="text-center text-text-secondary py-8">
-          <p>No offers yet. Select parameters and click "Get Offers" to generate a quote.</p>
+          <p>No offers yet. Select parameters and click &quot;Get Offers&quot; to generate a quote.</p>
         </Card>
       )}
     </div>

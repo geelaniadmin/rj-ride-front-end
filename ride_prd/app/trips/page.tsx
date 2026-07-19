@@ -81,12 +81,12 @@ export default function TripsPage() {
               ← {t("backToMethods", language)}
             </button>
             <div className="flex-1 overflow-y-auto -mx-4 px-4">
-              {creationMethod === "MANUAL" && <ManualTripCreation onCreated={handleTripCreated} />}
-              {creationMethod === "BULK_UPLOAD" && <BulkUploadCreation onCreated={handleTripCreated} />}
+              {creationMethod === "MANUAL" && <ManualTripCreation onDone={handleTripCreated} />}
+              {creationMethod === "BULK_UPLOAD" && <BulkUploadCreation onDone={handleTripCreated} />}
               {creationMethod === "API_PAX" && <ApiPaxCreation onCreated={handleTripCreated} />}
               {creationMethod === "API_VEHICLE_COUNT" && <ApiVehicleCountCreation onCreated={handleTripCreated} />}
-              {creationMethod === "RECURRING" && <RecurringCreation onCreated={handleTripCreated} />}
-              {creationMethod === "CLONE" && <CloneCreation onCreated={handleTripCreated} />}
+              {creationMethod === "RECURRING" && <RecurringCreation />}
+              {creationMethod === "CLONE" && <CloneCreation onDone={handleTripCreated} />}
             </div>
           </div>
         )}

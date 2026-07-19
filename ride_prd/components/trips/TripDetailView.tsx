@@ -1,234 +1,177 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { TripRequest, VehicleStatus, TripStatus } from "@/lib/types";
-import { useCustomerStore } from "@ride/shared";
-import { useVehicleStore } from "@/stores/vehicleStore";
-import { useDriverStore } from "@/stores/driverStore";
-import { useTenantStore } from "@ride/shared";
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient, keys, formatMoney } from "@ride/shared";
+import type { components } from "@ride/shared/api/schema.d";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { Button } from "@/components/ui/Button";
 import { PII } from "@/components/ui/PII";
 import { StateTransitionManager } from "@/components/trips/StateTransitionManager";
-import { VehicleAssignmentModal } from "@/components/trips/VehicleAssignmentModal";
-import { TripMapView } from "@/components/trips/TripMapView";
-import { TripAlerts } from "@/components/trips/TripAlerts";
-import { OfferReQuote } from "@/components/trips/OfferReQuote";
-import { BillingSection } from "@/components/trips/BillingSection";
-import { MapPin, Users, Clock, FileText, ArrowRight } from "lucide-react";
+import { MapPin, Clock, Users, CreditCard, Activity } from "lucide-react";
+
+type TripDetail = components["schemas"]["TripDetail"];
+type TripStop = components["schemas"]["TripStop"];
+type TripVehicle = components["schemas"]["TripVehicle"];
+type TripEvent = components["schemas"]["TripEvent"];
 
 interface TripDetailViewProps {
-  trip: TripRequest;
-  onStatusChange?: (newStatus: TripStatus) => void;
-  onAssignVehicle?: (vehicleIndex: number, vehicleId: string, driverId?: string) => void;
-  onReQuote?: (vehicleIndex: number, newPrice: number, newPriceId: string, newVersion: number) => void;
-  onMarkBilled?: () => void;
+  tripId: string;
 }
 
-export const TripDetailView: React.FC<TripDetailViewProps> = ({ trip, onStatusChange, onAssignVehicle, onReQuote, onMarkBilled }) => {
-  const activeTenantId = useTenantStore((s) => s.activeTenantId);
-  const allCustomers = useCustomerStore((s) => s.customers) || [];
-  const customers = useMemo(() => allCustomers.filter((c) => c.tenantId === activeTenantId), [allCustomers, activeTenantId]);
-  const allVehicles = useVehicleStore((s) => s.vehicles) || [];
-  const vehicles = useMemo(() => allVehicles.filter((v) => v.tenantId === activeTenantId), [allVehicles, activeTenantId]);
-  const allDrivers = useDriverStore((s) => s.drivers) || [];
-  const drivers = useMemo(() => allDrivers.filter((d) => d.tenantId === activeTenantId), [allDrivers, activeTenantId]);
+const STOP_TYPE_ICON: Record<string, string> = {
+  PICKUP: "🟢",
+  DROP: "🔴",
+  WAYPOINT: "🔵",
+};
 
-  const customer = customers.find((c) => c.id === trip.customerId);
-  const [assignmentVehicleIndex, setAssignmentVehicleIndex] = useState<number | null>(null);
+const LOCATION_TYPE_BADGE: Record<string, string> = {
+  AIRPORT: "✈",
+  RAIL: "🚂",
+  HOTEL: "🏨",
+  CITY: "🏙",
+  ADDRESS: "📍",
+};
+
+export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId }) => {
+  const { data: trip, isLoading, error } = useQuery<TripDetail>({
+    queryKey: keys.trips.detail(tripId),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/trips/{id}", {
+        params: { path: { id: tripId } },
+      });
+      if (err) throw err;
+      return res!.result as unknown as TripDetail;
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="py-8 text-center text-sm text-text-secondary">
+        <span className="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full mr-2" />
+        Loading trip…
+      </div>
+    );
+  }
+
+  if (error || !trip) {
+    return (
+      <Card padding="lg" className="text-center text-danger py-8">
+        <p>Failed to load trip details.</p>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <Card padding="lg" className="bg-gradient-to-r from-slate-800 to-slate-750">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-text-secondary">Trip ID</p>
-              <p className="font-mono text-sm text-text-primary">{trip.id.substring(0, 12)}</p>
-            </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
             <StatusBadge status={trip.status} />
+            <span className="text-xs text-text-secondary font-mono">{trip.id}</span>
+            {trip.reference && <span className="text-xs text-text-secondary">ref: {trip.reference}</span>}
           </div>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-xs text-text-secondary">Customer</p>
-              <p className="text-text-primary font-medium">{customer?.name || "Unknown"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-text-secondary">Created Via</p>
-              <Badge variant="blue">{trip.createdVia}</Badge>
-            </div>
-          </div>
-          {trip.reference && (
-            <div>
-              <p className="text-xs text-text-secondary">Reference</p>
-              <p className="text-text-primary">{trip.reference}</p>
-            </div>
-          )}
+          <p className="text-xs text-text-secondary mt-1">
+            Created {new Date(trip.createdAt).toLocaleString()}
+            {trip.createdVia && ` via ${trip.createdVia}`}
+          </p>
         </div>
+      </div>
+
+      <Card padding="md" header={
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <MapPin className="w-4 h-4" /> Stops
+        </h3>
+      }>
+        <ol className="space-y-2">
+          {(trip.stops as TripStop[]).map((stop) => (
+            <li key={stop.seq} className="flex items-start gap-3">
+              <span className="text-lg leading-none pt-0.5">{STOP_TYPE_ICON[stop.type] ?? "•"}</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-text-primary">{stop.address}</p>
+                  <span className="text-xs">{LOCATION_TYPE_BADGE[stop.locationType]}</span>
+                </div>
+                <div className="text-xs text-text-secondary flex flex-wrap gap-2 mt-0.5">
+                  {stop.plannedTime && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {new Date(stop.plannedTime).toLocaleString()}
+                    </span>
+                  )}
+                  {stop.flightNumber && <span>✈ {stop.flightNumber}</span>}
+                  {stop.trainNumber && <span>🚂 {stop.trainNumber}</span>}
+                  {stop.terminal && <span>Terminal: {stop.terminal}</span>}
+                </div>
+              </div>
+              <Badge variant="default" className="text-xs shrink-0">{stop.type}</Badge>
+            </li>
+          ))}
+        </ol>
       </Card>
 
-      {/* State Transition Manager */}
-      <StateTransitionManager trip={trip} onStatusChange={onStatusChange} />
-
-      {/* Stops & Map */}
-      <Card padding="lg" header={<h3 className="font-semibold">📍 Route ({trip.stops.length} stops)</h3>}>
+      <Card padding="md" header={
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <CreditCard className="w-4 h-4" /> Vehicles
+        </h3>
+      }>
         <div className="space-y-3">
-          {trip.stops.map((stop, idx) => (
-            <div key={idx} className="flex items-start gap-3">
-              <div className="flex flex-col items-center">
-                <Badge variant={stop.type === "PICKUP" ? "green" : "blue"}>{idx === 0 ? "P" : "D"}</Badge>
-                {idx < trip.stops.length - 1 && <div className="h-8 w-0.5 bg-ops-bg mt-2" />}
+          {(trip.vehicles as TripVehicle[]).map((v) => (
+            <div key={v.id} className="p-3 rounded border border-border space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm">
+                  <span className="font-mono text-xs text-text-secondary">{v.id.substring(0, 8)}…</span>
+                  <span className="ml-2 text-text-secondary">vtid: {v.requestedVehicleTypeId.substring(0, 8)}</span>
+                </div>
+                <StatusBadge status={v.status} />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-text-primary">{stop.address}</p>
-                <p className="text-xs text-text-secondary">{stop.lat.toFixed(4)}, {stop.lng.toFixed(4)}</p>
-                {stop.plannedTime && <p className="text-xs text-text-secondary mt-1">📅 {new Date(stop.plannedTime).toLocaleString()}</p>}
-                {stop.flightNumber && <p className="text-xs text-text-secondary">✈️ {stop.flightNumber}</p>}
-                {stop.trainNumber && <p className="text-xs text-text-secondary">🚂 {stop.trainNumber}</p>}
-              </div>
+
+              {v.lockedPriceMinor != null && v.lockedPriceCurrency && (
+                <p className="text-sm font-semibold text-brand-blue">
+                  {formatMoney(v.lockedPriceMinor, v.lockedPriceCurrency)}
+                  {v.lockedRateCardVersion != null && (
+                    <span className="ml-1 text-xs font-normal text-text-secondary">v{v.lockedRateCardVersion}</span>
+                  )}
+                </p>
+              )}
+
+              {v.pax && v.pax.length > 0 && (
+                <div className="text-xs text-text-secondary flex items-center gap-1">
+                  <Users className="w-3 h-3" /> {v.pax.length} pax
+                </div>
+              )}
+
+              <StateTransitionManager tripId={trip.id} vehicleId={v.id} currentStatus={v.status} />
             </div>
           ))}
         </div>
       </Card>
 
-      {/* Mini Map */}
-      <TripMapView stops={trip.stops} />
-
-      {/* Vehicles & Assignment */}
-      <Card padding="lg" header={<h3 className="font-semibold">🚗 Vehicles ({trip.vehicles.length})</h3>}>
-        <div className="space-y-3">
-          {trip.vehicles.map((vehicle, idx) => {
-            const assignedVehicle = vehicle.vehicleId ? vehicles.find((v) => v.id === vehicle.vehicleId) : null;
-            const assignedDriver = vehicle.driverId ? drivers.find((d) => d.id === vehicle.driverId) : null;
-
-            return (
-              <div key={vehicle.id} className="p-3 bg-ops-bg rounded border border-border space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-text-primary">Vehicle {idx + 1}</span>
-                    <StatusBadge status={vehicle.status as VehicleStatus} />
+      {trip.timeline && trip.timeline.length > 0 && (
+        <Card padding="md" header={
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Activity className="w-4 h-4" /> Event Timeline
+          </h3>
+        }>
+          <ol className="relative border-l border-border pl-4 space-y-3">
+            {(trip.timeline as TripEvent[]).map((ev) => (
+              <li key={ev.id} className="relative">
+                <span className="absolute -left-[1.125rem] top-0.5 w-3 h-3 rounded-full bg-ops-sidebar border-2 border-border" />
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-medium text-text-primary">{ev.type}</p>
+                    {ev.actorRole && (
+                      <p className="text-xs text-text-secondary">{ev.actorRole}</p>
+                    )}
                   </div>
-                  {trip.status === "ASSIGNED" || trip.status === "DRAFT" ? (
-                    <Button size="sm" variant="secondary" onClick={() => setAssignmentVehicleIndex(idx)}>
-                      Assign
-                    </Button>
-                  ) : null}
-                </div>
-
-                {/* Pricing */}
-                {vehicle.lockedPrice && (
-                  <p className="text-xs">
-                    <span className="text-text-secondary">Price: </span>
-                    <span className="text-text-primary font-medium">₹{vehicle.lockedPrice}</span>
-                    <span className="text-text-secondary"> (v{vehicle.lockedRateCardVersion})</span>
+                  <p className="text-xs text-text-secondary shrink-0">
+                    {new Date(ev.occurredAt).toLocaleTimeString()}
                   </p>
-                )}
-
-                {/* Assignment Info */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <p className="text-text-secondary">Vehicle</p>
-                    <p className="text-text-primary">{assignedVehicle ? `${assignedVehicle.make} ${assignedVehicle.model}` : "Unassigned"}</p>
-                  </div>
-                  <div>
-                    <p className="text-text-secondary">Driver</p>
-                    <p className="text-text-primary">
-                      {assignedDriver ? (
-                        <>
-                          <PII value={assignedDriver.name} type="name" /> <PII value={assignedDriver.phone} type="phone" />
-                        </>
-                      ) : (
-                        "Unassigned"
-                      )}
-                    </p>
-                  </div>
                 </div>
-
-                {/* Pax */}
-                {vehicle.pax.length > 0 && (
-                  <div className="pt-2 border-t border-border">
-                    <p className="text-xs font-medium text-text-primary mb-1">Passengers ({vehicle.pax.length}):</p>
-                    <div className="flex gap-2 flex-wrap">
-                      {vehicle.pax.map((pax) => (
-                        <div key={pax.id} className="text-xs bg-ops-bg px-2 py-1 rounded">
-                          {pax.name ? <PII value={pax.name} type="name" /> : "PAX"}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
-      {/* Trip Alerts */}
-      <TripAlerts vehicles={trip.vehicles} />
-
-      {/* Re-Quote Expired Offers */}
-      <OfferReQuote
-        tripId={trip.id}
-        customerId={trip.customerId}
-        tenantId={trip.tenantId}
-        vehicles={trip.vehicles}
-        quotedAt={trip.createdAt}
-        onReQuote={onReQuote}
-      />
-
-      {/* Metadata */}
-      {(trip.coordinator || trip.costCenter || trip.pos || trip.viewers) && (
-        <Card padding="lg" header={<h3 className="font-semibold">📋 Metadata</h3>}>
-          <div className="space-y-2 text-xs">
-            {trip.coordinator && (
-              <p>
-                <span className="text-text-secondary">Coordinator: </span>
-                {trip.coordinator.name && <PII value={trip.coordinator.name} type="name" />}
-                {trip.coordinator.phone && <PII value={trip.coordinator.phone} type="phone" />}
-              </p>
-            )}
-            {trip.costCenter && (
-              <p>
-                <span className="text-text-secondary">Cost Center: </span>
-                <span className="text-text-primary">{trip.costCenter}</span>
-              </p>
-            )}
-            {trip.pos && (
-              <p>
-                <span className="text-text-secondary">POS: </span>
-                <span className="text-text-primary">{trip.pos}</span>
-              </p>
-            )}
-            {trip.viewers && trip.viewers.length > 0 && (
-              <p>
-                <span className="text-text-secondary">Viewers: </span>
-                <span className="text-text-primary">{trip.viewers.join(", ")}</span>
-              </p>
-            )}
-          </div>
+              </li>
+            ))}
+          </ol>
         </Card>
-      )}
-
-      {/* Billing */}
-      <BillingSection trip={trip} onMarkBilled={onMarkBilled} />
-
-      {/* Assignment Modal */}
-      {assignmentVehicleIndex !== null && (
-        <VehicleAssignmentModal
-          vehicleIndex={assignmentVehicleIndex}
-          assignedVehicleId={trip.vehicles[assignmentVehicleIndex]?.vehicleId}
-          assignedDriverId={trip.vehicles[assignmentVehicleIndex]?.driverId}
-          vehicles={vehicles}
-          drivers={drivers}
-          onAssign={(vehicleId, driverId) => {
-            onAssignVehicle?.(assignmentVehicleIndex, vehicleId, driverId);
-            setAssignmentVehicleIndex(null);
-          }}
-          onClose={() => setAssignmentVehicleIndex(null)}
-        />
       )}
     </div>
   );

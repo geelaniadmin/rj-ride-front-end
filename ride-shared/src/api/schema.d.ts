@@ -89,6 +89,155 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/config/vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List vendors */
+        get: operations["listVendors"];
+        put?: never;
+        post: operations["createVendor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/vendors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete (deactivate) a vendor */
+        delete: operations["deactivateVendor"];
+        options?: never;
+        head?: never;
+        patch: operations["updateVendor"];
+        trace?: never;
+    };
+    "/v1/config/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listCustomers"];
+        put?: never;
+        post: operations["createCustomer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/customers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Soft-delete (deactivate) a customer */
+        delete: operations["deactivateCustomer"];
+        options?: never;
+        head?: never;
+        patch: operations["updateCustomer"];
+        trace?: never;
+    };
+    "/v1/config/vehicle-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listVehicleTypes"];
+        put?: never;
+        post: operations["createVehicleType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/vehicle-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deactivateVehicleType"];
+        options?: never;
+        head?: never;
+        patch: operations["updateVehicleType"];
+        trace?: never;
+    };
+    "/v1/config/pricing/rate-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listConfigRateCards"];
+        put?: never;
+        post: operations["createConfigRateCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/pricing/rate-cards/{id}/supersede": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a new version superseding an existing rate card */
+        post: operations["supersedeRateCard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/pricing/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Simulate a quote using the pricing engine */
+        post: operations["simulateQuote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/trips": {
         parameters: {
             query?: never;
@@ -96,10 +245,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List trip requests */
+        /** List trip requests (cursor-paginated) */
         get: operations["listTrips"];
         put?: never;
-        /** Create a new trip request (book) */
+        /** Book a trip (send priceIds locked from quote) */
         post: operations["createTrip"];
         delete?: never;
         options?: never;
@@ -114,15 +263,30 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get a single trip */
         get: operations["getTrip"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /** Update a trip */
         patch: operations["updateTrip"];
+        trace?: never;
+    };
+    "/v1/trips/{id}/check-cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview cancellation penalty before confirming */
+        post: operations["checkCancelTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/trips/{id}/cancel": {
@@ -134,8 +298,75 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Cancel a trip */
         post: operations["cancelTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/clone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clone a trip with optional overrides */
+        post: operations["cloneTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/vehicles/{vehicleId}/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Advance vehicle state machine — 409 if transition not allowed */
+        post: operations["transitionVehicle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/vehicles/{vehicleId}/verify-otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify OTP for pickup or drop */
+        post: operations["verifyOtp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/vehicles/{vehicleId}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assign a fleet vehicle and driver to a trip vehicle slot */
+        post: operations["assignVehicleDriver"];
         delete?: never;
         options?: never;
         head?: never;
@@ -151,7 +382,6 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a price adjustment for a trip */
         post: operations["createTripAdjustment"];
         delete?: never;
         options?: never;
@@ -159,7 +389,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/trips/{id}/approve": {
+    "/v1/trips/bulk-validate": {
         parameters: {
             query?: never;
             header?: never;
@@ -168,8 +398,75 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Approve a trip */
-        post: operations["approveTrip"];
+        /** Phase-1 of bulk upload — per-row verdict */
+        post: operations["bulkValidateTrips"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/bulk-commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Phase-2 of bulk upload — commit valid rows */
+        post: operations["bulkCommitTrips"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/recurring-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List recurring trip rules */
+        get: operations["listRecurringRules"];
+        put?: never;
+        post: operations["createRecurringRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/recurring-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteRecurringRule"];
+        options?: never;
+        head?: never;
+        patch: operations["updateRecurringRule"];
+        trace?: never;
+    };
+    "/v1/pricing/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Get priced offers for a set of vehicle type slots */
+        post: operations["getQuote"];
         delete?: never;
         options?: never;
         head?: never;
@@ -183,7 +480,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List vehicles */
         get: operations["listVehicles"];
         put?: never;
         post?: never;
@@ -216,7 +512,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List drivers */
         get: operations["listDrivers"];
         put?: never;
         post?: never;
@@ -249,7 +544,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List rate cards */
         get: operations["listRateCards"];
         put?: never;
         post?: never;
@@ -275,6 +569,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dispatch/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Kanban board grouped by vehicle status columns */
+        get: operations["getDispatchBoard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dispatch/auto-assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Auto-assign all PENDING vehicles */
+        post: operations["autoAssignAll"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dispatch/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAssignments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tracking/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current positions of all active tracked vehicles */
+        get: operations["getLivePositions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tracking/{tripVehicleId}/track": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Path, milestones and ETA for a specific vehicle */
+        get: operations["trackTripVehicle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/billing/invoices": {
         parameters: {
             query?: never;
@@ -282,7 +660,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List invoices */
+        /** List billable invoices */
         get: operations["listInvoices"];
         put?: never;
         post?: never;
@@ -308,17 +686,113 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/dispatch/assignments": {
+    "/v1/billing/invoices/{id}/void": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List dispatch assignments */
-        get: operations["listAssignments"];
+        get?: never;
+        put?: never;
+        post: operations["voidInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/invoices/{id}/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adjustInvoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/statements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listStatements"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/statements/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Returns a presigned URL for PDF download */
+        get: operations["downloadStatement"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPayouts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/payouts/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["approvePayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/payouts/{id}/mark-paid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markPayoutPaid"];
         delete?: never;
         options?: never;
         head?: never;
@@ -332,7 +806,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List SOS events */
         get: operations["listSosEvents"];
         put?: never;
         post?: never;
@@ -372,13 +845,6 @@ export interface components {
             ticket: string;
             /** Format: date-time */
             expiresAt: string;
-        };
-        TripCreateInput: {
-            stops: Record<string, never>[];
-            vehicles: Record<string, never>[];
-            schedule: Record<string, never>;
-            customerId?: string;
-            reference?: string;
         };
         Trip: {
             id: string;
@@ -501,6 +967,626 @@ export interface components {
         };
         Envelope_SosList: {
             result: components["schemas"]["SosEvent"][];
+            error?: null;
+        };
+        CursorPage: {
+            count: number;
+            next?: string | null;
+            previous?: string | null;
+        };
+        VendorDocument: {
+            kind: string;
+            number?: string;
+            expiry?: string;
+            fileName?: string;
+        };
+        ConfigVendor: {
+            id: string;
+            tenantId?: string;
+            name: string;
+            /** @enum {string} */
+            type: "SELF" | "SUB_VENDOR";
+            gstin?: string;
+            contactName?: string;
+            phone?: string;
+            email?: string;
+            active: boolean;
+        };
+        VendorInput: {
+            name: string;
+            /** @enum {string} */
+            type: "SELF" | "SUB_VENDOR";
+            gstin?: string;
+            contactName?: string;
+            phone?: string;
+            email?: string;
+        };
+        ConfigCustomer: {
+            id: string;
+            tenantId?: string;
+            name: string;
+            code: string;
+            /** @enum {string} */
+            billingCycle?: "WEEKLY" | "FORTNIGHTLY" | "MONTHLY";
+            spocName?: string;
+            phone?: string;
+            email?: string;
+            approvedVehicleTypeIds?: string[];
+            defaultCostCenter?: string;
+            active: boolean;
+        };
+        CustomerInput: {
+            name: string;
+            code: string;
+            /** @enum {string} */
+            billingCycle?: "WEEKLY" | "FORTNIGHTLY" | "MONTHLY";
+            spocName?: string;
+            phone?: string;
+            email?: string;
+            approvedVehicleTypeIds?: string[];
+            defaultCostCenter?: string;
+        };
+        ConfigVehicleType: {
+            id: string;
+            tenantId?: string;
+            name: string;
+            seatingCapacity: number;
+            ac: boolean;
+            class?: string;
+            active: boolean;
+        };
+        VehicleTypeInput: {
+            name: string;
+            seatingCapacity: number;
+            ac: boolean;
+            class?: string;
+        };
+        RateModifiers: {
+            minFare?: number;
+            nightCharge?: number;
+            waitingPerHour?: number;
+            /** @enum {string} */
+            tollHandling?: "INCLUDED" | "EXTRA";
+            /** @enum {string} */
+            parkingHandling?: "INCLUDED" | "EXTRA";
+            interStateSurcharge?: number;
+            deadMileagePerKm?: number;
+        };
+        FixedPair: {
+            fromZone: string;
+            toZone: string;
+            price: number;
+        };
+        PackageRate: {
+            hours: number;
+            km: number;
+            price: number;
+            extraPerHour?: number;
+            extraPerKm?: number;
+        };
+        ConfigRateCard: {
+            id: string;
+            tenantId?: string;
+            vendorId: string;
+            customerId: string;
+            vehicleTypeId: string;
+            /** @enum {string} */
+            basis: "PER_KM" | "FIXED_LOCATION_PAIR" | "HOURLY" | "PACKAGE";
+            perKm?: number;
+            hourlyRate?: number;
+            fixedPairs?: components["schemas"]["FixedPair"][];
+            package?: components["schemas"]["PackageRate"];
+            modifiers?: components["schemas"]["RateModifiers"];
+            /** Format: date */
+            validFrom: string;
+            /** Format: date */
+            validTo?: string;
+            version: number;
+        };
+        ConfigRateCardInput: {
+            vendorId: string;
+            customerId: string;
+            vehicleTypeId: string;
+            /** @enum {string} */
+            basis: "PER_KM" | "FIXED_LOCATION_PAIR" | "HOURLY" | "PACKAGE";
+            perKm?: number;
+            hourlyRate?: number;
+            fixedPairs?: components["schemas"]["FixedPair"][];
+            package?: components["schemas"]["PackageRate"];
+            modifiers?: components["schemas"]["RateModifiers"];
+            /** Format: date */
+            validFrom: string;
+            /** Format: date */
+            validTo?: string;
+        };
+        SimulateInput: {
+            vendorId: string;
+            customerId: string;
+            vehicleTypeId: string;
+            /** Format: date */
+            quotedAt: string;
+            distanceKm?: number;
+            hours?: number;
+            currency?: string;
+        };
+        SimulateOffer: {
+            priceId: string;
+            rateCardId: string;
+            rateCardVersion: number;
+            basis: string;
+            /** @description Price in minor currency units */
+            priceMinor: number;
+            currency: string;
+            freeCancellationHours: number;
+            minLeadTimeHours: number;
+            /** Format: date-time */
+            quotedAt: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        SimulateResult: {
+            offers: components["schemas"]["SimulateOffer"][];
+        };
+        Envelope_Vendor: {
+            result: components["schemas"]["ConfigVendor"];
+            error?: null;
+        };
+        Envelope_VendorPage: {
+            result: components["schemas"]["CursorPage"] & {
+                results: components["schemas"]["ConfigVendor"][];
+            };
+            error?: null;
+        };
+        Envelope_Customer: {
+            result: components["schemas"]["ConfigCustomer"];
+            error?: null;
+        };
+        Envelope_CustomerPage: {
+            result: components["schemas"]["CursorPage"] & {
+                results: components["schemas"]["ConfigCustomer"][];
+            };
+            error?: null;
+        };
+        Envelope_VehicleType: {
+            result: components["schemas"]["ConfigVehicleType"];
+            error?: null;
+        };
+        Envelope_VehicleTypePage: {
+            result: components["schemas"]["CursorPage"] & {
+                results: components["schemas"]["ConfigVehicleType"][];
+            };
+            error?: null;
+        };
+        Envelope_ConfigRateCard: {
+            result: components["schemas"]["ConfigRateCard"];
+            error?: null;
+        };
+        Envelope_ConfigRateCardPage: {
+            result: components["schemas"]["CursorPage"] & {
+                results: components["schemas"]["ConfigRateCard"][];
+            };
+            error?: null;
+        };
+        Envelope_SimulateResult: {
+            result: components["schemas"]["SimulateResult"];
+            error?: null;
+        };
+        TripStop: {
+            seq: number;
+            /** @enum {string} */
+            type: "PICKUP" | "DROP" | "WAYPOINT";
+            /** @enum {string} */
+            locationType: "AIRPORT" | "RAIL" | "HOTEL" | "CITY" | "ADDRESS";
+            address: string;
+            lat: number;
+            lng: number;
+            /** Format: date-time */
+            plannedTime?: string;
+            flightNumber?: string;
+            trainNumber?: string;
+            terminal?: string;
+        };
+        TripPax: {
+            id: string;
+            name?: string;
+            phone?: string;
+            email?: string;
+            employeeId?: string;
+            pnr?: string;
+        };
+        TripVehicle: {
+            id: string;
+            requestedVehicleTypeId: string;
+            priceId?: string;
+            /** @description Locked price in minor units */
+            lockedPriceMinor?: number;
+            lockedPriceCurrency?: string;
+            lockedRateCardVersion?: number;
+            vehicleId?: string;
+            driverId?: string;
+            /** @enum {string} */
+            status: "PENDING" | "ASSIGNED" | "DRIVER_ACCEPTED" | "DRIVER_REJECTED" | "EN_ROUTE_PICKUP" | "AT_PICKUP" | "PAX_PICKED" | "IN_TRANSIT" | "AT_DROP" | "PAX_DROPPED" | "COMPLETED" | "NO_SHOW" | "BREAKDOWN" | "ACCIDENT" | "VEHICLE_SWAP" | "DELAYED" | "SOS" | "CANCELLED";
+            pax?: components["schemas"]["TripPax"][];
+            addonServiceIds?: string[];
+        };
+        TripEvent: {
+            id: string;
+            type: string;
+            /** Format: date-time */
+            occurredAt: string;
+            actorId?: string;
+            actorRole?: string;
+            vehicleId?: string;
+            payload?: Record<string, never>;
+        };
+        TripDetail: {
+            id: string;
+            tenantId?: string;
+            customerId?: string;
+            /** @enum {string} */
+            status: "DRAFT" | "CONFIRMED" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED" | "BILLED" | "CANCELLED";
+            stops: components["schemas"]["TripStop"][];
+            vehicles: components["schemas"]["TripVehicle"][];
+            schedule: Record<string, never>;
+            /** Format: date-time */
+            createdAt: string;
+            reference?: string;
+            costCenter?: string;
+            timeline?: components["schemas"]["TripEvent"][];
+            createdVia?: string;
+        };
+        TripSummary: {
+            id: string;
+            customerId?: string;
+            status: string;
+            /** Format: date-time */
+            createdAt: string;
+            reference?: string;
+            vehicleCount?: number;
+            stopCount?: number;
+            pickupAddress?: string;
+            /** Format: date-time */
+            scheduleWhen?: string;
+        };
+        CancelPreview: {
+            allowed: boolean;
+            free: boolean;
+            penaltyPct?: number;
+            /** @description Penalty amount in minor units */
+            penaltyMinor?: number;
+            penaltyCurrency?: string;
+            /** Format: date-time */
+            deadline?: string;
+            resultingStatus?: string;
+        };
+        TransitionInput: {
+            targetStatus: string;
+            note?: string;
+        };
+        OtpVerifyInput: {
+            /** @enum {string} */
+            phase: "pickup" | "drop";
+            otp: string;
+        };
+        AssignInput: {
+            fleetVehicleId: string;
+            driverId: string;
+        };
+        QuoteSlot: {
+            vehicleTypeId: string;
+            slotRef?: string;
+        };
+        QuoteInput: {
+            customerId: string;
+            stops: components["schemas"]["TripStop"][];
+            vehicleSlots: components["schemas"]["QuoteSlot"][];
+            /** Format: date-time */
+            quotedAt: string;
+            currency?: string;
+        };
+        QuoteOffer: {
+            priceId: string;
+            slotRef: string;
+            vehicleTypeId: string;
+            priceMinor: number;
+            currency: string;
+            freeCancellationHours: number;
+            minLeadTimeHours?: number;
+            /** Format: date-time */
+            expiresAt: string;
+            rateCardId?: string;
+            rateCardVersion?: number;
+            basis?: string;
+        };
+        QuoteResult: {
+            offers: components["schemas"]["QuoteOffer"][];
+            expiredSlots?: string[];
+        };
+        TripVehicleSlotInput: {
+            vehicleTypeId: string;
+            priceId: string;
+        };
+        TripCreateInput: {
+            customerId: string;
+            stops: components["schemas"]["TripStop"][];
+            vehicleSlots: components["schemas"]["TripVehicleSlotInput"][];
+            schedule: {
+                /** @enum {string} */
+                type?: "ONE_OFF" | "RECURRING";
+                /** Format: date-time */
+                when?: string;
+            };
+            reference?: string;
+            costCenter?: string;
+            autoAssign?: boolean;
+        };
+        BulkRow: {
+            rowIndex: number;
+            customerId: string;
+            pickupAddress: string;
+            pickupLat?: number;
+            pickupLng?: number;
+            dropAddress: string;
+            dropLat?: number;
+            dropLng?: number;
+            /** Format: date */
+            scheduleDate: string;
+            vehicleTypes: string[];
+            reference?: string;
+        };
+        BulkRowVerdict: {
+            rowIndex: number;
+            valid: boolean;
+            errors?: string[];
+            offers?: components["schemas"]["QuoteOffer"][];
+        };
+        BulkValidateInput: {
+            rows: components["schemas"]["BulkRow"][];
+        };
+        BulkValidateResult: {
+            verdicts: components["schemas"]["BulkRowVerdict"][];
+            validCount?: number;
+            invalidCount?: number;
+        };
+        BulkCommitRow: {
+            rowIndex: number;
+            priceIds: string[];
+        };
+        BulkCommitInput: {
+            rows: components["schemas"]["BulkCommitRow"][];
+        };
+        BulkCommitResult: {
+            created: string[];
+            failed: Record<string, never>[];
+        };
+        RecurringRuleInput: {
+            customerId: string;
+            /** @enum {string} */
+            freq: "DAILY" | "WEEKLY";
+            daysOfWeek?: number[];
+            /** Format: date */
+            startDate?: string;
+            /** Format: date */
+            endDate?: string;
+            time: string;
+            vehicleSlots: components["schemas"]["QuoteSlot"][];
+            stops: components["schemas"]["TripStop"][];
+            reference?: string;
+        };
+        RecurringRule: {
+            id: string;
+            customerId: string;
+            freq: string;
+            daysOfWeek?: number[];
+            startDate?: string;
+            endDate?: string;
+            time: string;
+            active: boolean;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        DispatchBoardCard: {
+            tripId: string;
+            vehicleId: string;
+            fleetVehicleId?: string;
+            driverId?: string;
+            vehicleStatus: string;
+            customerName: string;
+            pickupAddress?: string;
+            /** Format: date-time */
+            scheduleWhen?: string;
+            lockedPriceMinor?: number;
+            lockedPriceCurrency?: string;
+            markerColor?: string;
+            paxCount?: number;
+            reference?: string;
+        };
+        DispatchBoardColumn: {
+            status: string;
+            label: string;
+            cards: components["schemas"]["DispatchBoardCard"][];
+        };
+        DispatchBoard: {
+            columns: components["schemas"]["DispatchBoardColumn"][];
+            totalActive: number;
+            totalAlerts: number;
+        };
+        AutoAssignSummary: {
+            assigned: number;
+            skipped: number;
+            reasons?: string[];
+            details?: Record<string, never>[];
+        };
+        LivePosition: {
+            tripVehicleId: string;
+            tripId?: string;
+            deviceId?: string;
+            lat: number;
+            lng: number;
+            speed?: number;
+            heading?: number;
+            /** Format: date-time */
+            timestamp: string;
+            vehicleStatus?: string;
+            markerColor?: string;
+            customerName?: string;
+            driverName?: string;
+        };
+        TrackMilestone: {
+            seq: number;
+            label: string;
+            /** @enum {string} */
+            status: "PENDING" | "ACTIVE" | "DONE";
+            /** Format: date-time */
+            arrivedAt?: string;
+            address?: string;
+        };
+        PathPoint: {
+            lat: number;
+            lng: number;
+            /** Format: date-time */
+            timestamp: string;
+        };
+        TrackDetail: {
+            tripVehicleId: string;
+            currentLat?: number;
+            currentLng?: number;
+            etaMinutes?: number;
+            milestones: components["schemas"]["TrackMilestone"][];
+            path?: components["schemas"]["PathPoint"][];
+        };
+        InvoiceLine: {
+            id: string;
+            tripId: string;
+            vehicleId?: string;
+            amountMinor: number;
+            currency: string;
+            description: string;
+            rateCardVersion?: number;
+            voided?: boolean;
+        };
+        InvoiceDetail: {
+            id: string;
+            /** @enum {string} */
+            status: "DRAFT" | "ISSUED" | "VOIDED" | "PAID";
+            totalMinor: number;
+            currency: string;
+            customerId: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date */
+            dueDate?: string;
+            lines?: components["schemas"]["InvoiceLine"][];
+            adjustments?: Record<string, never>[];
+            reference?: string;
+        };
+        Statement: {
+            id: string;
+            customerId: string;
+            /** Format: date */
+            periodStart: string;
+            /** Format: date */
+            periodEnd: string;
+            totalMinor: number;
+            currency: string;
+            invoiceCount?: number;
+            /** Format: date-time */
+            generatedAt?: string;
+            downloadUrl?: string;
+        };
+        DownloadUrl: {
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        Payout: {
+            id: string;
+            vendorId: string;
+            amountMinor: number;
+            currency: string;
+            /** @enum {string} */
+            status: "PENDING" | "APPROVED" | "PAID";
+            /** Format: date-time */
+            approvedAt?: string;
+            /** Format: date-time */
+            paidAt?: string;
+            reference?: string;
+            tripIds?: string[];
+        };
+        Envelope_TripPage: {
+            result: components["schemas"]["CursorPage"] & {
+                results: components["schemas"]["TripSummary"][];
+            };
+            error?: null;
+        };
+        Envelope_TripVehicle: {
+            result: components["schemas"]["TripVehicle"];
+            error?: null;
+        };
+        Envelope_CancelPreview: {
+            result: components["schemas"]["CancelPreview"];
+            error?: null;
+        };
+        Envelope_QuoteResult: {
+            result: components["schemas"]["QuoteResult"];
+            error?: null;
+        };
+        Envelope_BulkValidateResult: {
+            result: components["schemas"]["BulkValidateResult"];
+            error?: null;
+        };
+        Envelope_BulkCommitResult: {
+            result: components["schemas"]["BulkCommitResult"];
+            error?: null;
+        };
+        Envelope_RecurringRule: {
+            result: components["schemas"]["RecurringRule"];
+            error?: null;
+        };
+        Envelope_RecurringRuleList: {
+            result: components["schemas"]["RecurringRule"][];
+            error?: null;
+        };
+        Envelope_DispatchBoard: {
+            result: components["schemas"]["DispatchBoard"];
+            error?: null;
+        };
+        Envelope_AutoAssignResult: {
+            result: components["schemas"]["AutoAssignSummary"];
+            error?: null;
+        };
+        Envelope_LivePositionList: {
+            result: components["schemas"]["LivePosition"][];
+            error?: null;
+        };
+        Envelope_TrackDetail: {
+            result: components["schemas"]["TrackDetail"];
+            error?: null;
+        };
+        Envelope_InvoicePage: {
+            result: components["schemas"]["CursorPage"] & {
+                results: components["schemas"]["InvoiceDetail"][];
+            };
+            error?: null;
+        };
+        Envelope_StatementPage: {
+            result: components["schemas"]["CursorPage"] & {
+                results: components["schemas"]["Statement"][];
+            };
+            error?: null;
+        };
+        Envelope_PayoutPage: {
+            result: components["schemas"]["CursorPage"] & {
+                results: components["schemas"]["Payout"][];
+            };
+            error?: null;
+        };
+        Envelope_Payout: {
+            result: components["schemas"]["Payout"];
+            error?: null;
+        };
+        Envelope_DownloadUrl: {
+            result: components["schemas"]["DownloadUrl"];
             error?: null;
         };
     };
@@ -634,13 +1720,12 @@ export interface operations {
             };
         };
     };
-    listTrips: {
+    listVendors: {
         parameters: {
             query?: {
-                status?: string;
-                customerId?: string;
-                page?: number;
-                pageSize?: number;
+                cursor?: string;
+                page_size?: number;
+                search?: string;
             };
             header?: never;
             path?: never;
@@ -648,13 +1733,403 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Trip list */
+            /** @description Vendor cursor page */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_TripList"];
+                    "application/json": components["schemas"]["Envelope_VendorPage"];
+                };
+            };
+        };
+    };
+    createVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VendorInput"];
+            };
+        };
+        responses: {
+            /** @description Created vendor */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Vendor"];
+                };
+            };
+        };
+    };
+    deactivateVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deactivated vendor */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Vendor"];
+                };
+            };
+        };
+    };
+    updateVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VendorInput"];
+            };
+        };
+        responses: {
+            /** @description Updated vendor */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Vendor"];
+                };
+            };
+        };
+    };
+    listCustomers: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Customer cursor page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_CustomerPage"];
+                };
+            };
+        };
+    };
+    createCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerInput"];
+            };
+        };
+        responses: {
+            /** @description Created customer */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Customer"];
+                };
+            };
+        };
+    };
+    deactivateCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deactivated customer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Customer"];
+                };
+            };
+        };
+    };
+    updateCustomer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerInput"];
+            };
+        };
+        responses: {
+            /** @description Updated customer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Customer"];
+                };
+            };
+        };
+    };
+    listVehicleTypes: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description VehicleType cursor page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_VehicleTypePage"];
+                };
+            };
+        };
+    };
+    createVehicleType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleTypeInput"];
+            };
+        };
+        responses: {
+            /** @description Created vehicle type */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_VehicleType"];
+                };
+            };
+        };
+    };
+    deactivateVehicleType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deactivated vehicle type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_VehicleType"];
+                };
+            };
+        };
+    };
+    updateVehicleType: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VehicleTypeInput"];
+            };
+        };
+        responses: {
+            /** @description Updated vehicle type */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_VehicleType"];
+                };
+            };
+        };
+    };
+    listConfigRateCards: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+                vendor_id?: string;
+                customer_id?: string;
+                vehicle_type_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description RateCard cursor page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ConfigRateCardPage"];
+                };
+            };
+        };
+    };
+    createConfigRateCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigRateCardInput"];
+            };
+        };
+        responses: {
+            /** @description Created rate card */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ConfigRateCard"];
+                };
+            };
+        };
+    };
+    supersedeRateCard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigRateCardInput"];
+            };
+        };
+        responses: {
+            /** @description New version created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ConfigRateCard"];
+                };
+            };
+        };
+    };
+    simulateQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimulateInput"];
+            };
+        };
+        responses: {
+            /** @description Simulation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_SimulateResult"];
+                };
+            };
+        };
+    };
+    listTrips: {
+        parameters: {
+            query?: {
+                status?: string;
+                customerId?: string;
+                dateFrom?: string;
+                dateTo?: string;
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trip cursor page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_TripPage"];
                 };
             };
         };
@@ -694,7 +2169,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Trip detail */
+            /** @description Trip detail with vehicles and timeline */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -731,6 +2206,28 @@ export interface operations {
             };
         };
     };
+    checkCancelTrip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancellation preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_CancelPreview"];
+                };
+            };
+        };
+    };
     cancelTrip: {
         parameters: {
             query?: never;
@@ -759,6 +2256,134 @@ export interface operations {
             };
         };
     };
+    cloneTrip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    scheduleWhen?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Cloned trip */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Trip"];
+                };
+            };
+        };
+    };
+    transitionVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionInput"];
+            };
+        };
+        responses: {
+            /** @description Vehicle updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_TripVehicle"];
+                };
+            };
+            /** @description Transition not allowed by state machine */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    verifyOtp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OtpVerifyInput"];
+            };
+        };
+        responses: {
+            /** @description OTP verified */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_TripVehicle"];
+                };
+            };
+            /** @description Wrong OTP */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    assignVehicleDriver: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignInput"];
+            };
+        };
+        responses: {
+            /** @description Assigned */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_TripVehicle"];
+                };
+            };
+        };
+    };
     createTripAdjustment: {
         parameters: {
             query?: never;
@@ -771,8 +2396,9 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @description Minor units */
-                    amount: number;
+                    /** @description Signed minor units (negative = credit) */
+                    amountMinor: number;
+                    currency: string;
                     reason: string;
                 };
             };
@@ -789,7 +2415,99 @@ export interface operations {
             };
         };
     };
-    approveTrip: {
+    bulkValidateTrips: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkValidateInput"];
+            };
+        };
+        responses: {
+            /** @description Per-row validation result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_BulkValidateResult"];
+                };
+            };
+        };
+    };
+    bulkCommitTrips: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkCommitInput"];
+            };
+        };
+        responses: {
+            /** @description Committed trips */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_BulkCommitResult"];
+                };
+            };
+        };
+    };
+    listRecurringRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rules list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RecurringRuleList"];
+                };
+            };
+        };
+    };
+    createRecurringRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Created rule */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_RecurringRule"];
+                };
+            };
+        };
+    };
+    deleteRecurringRule: {
         parameters: {
             query?: never;
             header?: never;
@@ -800,20 +2518,72 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Approved */
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateRecurringRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Updated rule */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_Trip"];
+                    "application/json": components["schemas"]["Envelope_RecurringRule"];
+                };
+            };
+        };
+    };
+    getQuote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuoteInput"];
+            };
+        };
+        responses: {
+            /** @description Offers with priceId + expiry */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_QuoteResult"];
                 };
             };
         };
     };
     listVehicles: {
         parameters: {
-            query?: never;
+            query?: {
+                cursor?: string;
+                page_size?: number;
+                available?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -855,7 +2625,11 @@ export interface operations {
     };
     listDrivers: {
         parameters: {
-            query?: never;
+            query?: {
+                cursor?: string;
+                page_size?: number;
+                available?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -937,7 +2711,7 @@ export interface operations {
             };
         };
     };
-    listInvoices: {
+    getDispatchBoard: {
         parameters: {
             query?: never;
             header?: never;
@@ -946,35 +2720,33 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Invoice list */
+            /** @description Board columns */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_InvoiceList"];
+                    "application/json": components["schemas"]["Envelope_DispatchBoard"];
                 };
             };
         };
     };
-    getInvoice: {
+    autoAssignAll: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                id: string;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Invoice */
+            /** @description Assignment summary */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_Invoice"];
+                    "application/json": components["schemas"]["Envelope_AutoAssignResult"];
                 };
             };
         };
@@ -995,6 +2767,274 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope_AssignmentList"];
+                };
+            };
+        };
+    };
+    getLivePositions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live positions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_LivePositionList"];
+                };
+            };
+        };
+    };
+    trackTripVehicle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tripVehicleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Track detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_TrackDetail"];
+                };
+            };
+        };
+    };
+    listInvoices: {
+        parameters: {
+            query?: {
+                status?: string;
+                customerId?: string;
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoice cursor page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_InvoicePage"];
+                };
+            };
+        };
+    };
+    getInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoice with lines */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Invoice"];
+                };
+            };
+        };
+    };
+    voidInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Voided */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Invoice"];
+                };
+            };
+        };
+    };
+    adjustInvoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Signed minor units */
+                    amountMinor: number;
+                    currency: string;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Adjustment applied */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Invoice"];
+                };
+            };
+        };
+    };
+    listStatements: {
+        parameters: {
+            query?: {
+                customerId?: string;
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Statement list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_StatementPage"];
+                };
+            };
+        };
+    };
+    downloadStatement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Presigned download URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_DownloadUrl"];
+                };
+            };
+        };
+    };
+    listPayouts: {
+        parameters: {
+            query?: {
+                status?: string;
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payout list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_PayoutPage"];
+                };
+            };
+        };
+    };
+    approvePayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Payout approved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Payout"];
+                };
+            };
+        };
+    };
+    markPayoutPaid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reference?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Payout marked paid */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Payout"];
                 };
             };
         };

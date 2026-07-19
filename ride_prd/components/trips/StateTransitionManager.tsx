@@ -1,196 +1,198 @@
 "use client";
 
 import React, { useState } from "react";
-import { TripRequest, TripStatus } from "@/lib/types";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiClient, keys, isApiError } from "@ride/shared";
 import { useToastStore } from "@/stores/toastStore";
-import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
+import { Input } from "@/components/ui/Input";
 
 interface StateTransitionManagerProps {
-  trip: TripRequest;
-  onStatusChange?: (newStatus: TripStatus) => void;
+  tripId: string;
+  vehicleId: string;
+  currentStatus: string;
 }
 
-export const StateTransitionManager: React.FC<StateTransitionManagerProps> = ({ trip, onStatusChange }) => {
+const VEHICLE_STATUS = [
+  "PENDING", "ASSIGNED", "DRIVER_ACCEPTED", "DRIVER_REJECTED",
+  "EN_ROUTE_PICKUP", "AT_PICKUP", "PAX_PICKED", "IN_TRANSIT",
+  "AT_DROP", "PAX_DROPPED", "COMPLETED",
+  "NO_SHOW", "BREAKDOWN", "ACCIDENT", "VEHICLE_SWAP", "DELAYED", "SOS", "CANCELLED",
+] as const;
+
+const TRANSITION_LABELS: Record<string, string> = {
+  ASSIGNED: "Mark Assigned",
+  DRIVER_ACCEPTED: "Driver Accepted",
+  EN_ROUTE_PICKUP: "En Route Pickup",
+  AT_PICKUP: "At Pickup",
+  PAX_PICKED: "Pax Picked (OTP)",
+  IN_TRANSIT: "In Transit",
+  AT_DROP: "At Drop",
+  PAX_DROPPED: "Pax Dropped (OTP)",
+  COMPLETED: "Complete",
+  NO_SHOW: "No Show",
+  BREAKDOWN: "Breakdown",
+  DELAYED: "Mark Delayed",
+  CANCELLED: "Cancel Vehicle",
+};
+
+const OTP_REQUIRED_STATUSES = new Set(["PAX_PICKED", "PAX_DROPPED"]);
+
+const OTP_PHASE_MAP: Record<string, "pickup" | "drop"> = {
+  PAX_PICKED: "pickup",
+  PAX_DROPPED: "drop",
+};
+
+const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED", "ACCIDENT"]);
+
+function getAvailableTargets(currentStatus: string): string[] {
+  const allTargets = Object.keys(TRANSITION_LABELS);
+  return allTargets.filter(
+    (t) => t !== currentStatus && !TERMINAL_STATUSES.has(currentStatus)
+  );
+}
+
+export const StateTransitionManager: React.FC<StateTransitionManagerProps> = ({
+  tripId,
+  vehicleId,
+  currentStatus,
+}) => {
   const addToast = useToastStore((s) => s.addToast);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const qc = useQueryClient();
 
-  const checkCanConfirm = (): { allowed: boolean; reason?: string } => {
-    if (trip.status !== "DRAFT") {
-      return { allowed: false, reason: "Trip must be in DRAFT status" };
-    }
+  const [otpModal, setOtpModal] = useState<{ targetStatus: string; phase: "pickup" | "drop" } | null>(null);
+  const [otpValue, setOtpValue] = useState("");
+  const [pendingTarget, setPendingTarget] = useState<string | null>(null);
 
-    // All vehicles must have a price locked
-    const unpriced = trip.vehicles.filter((v) => !v.lockedPrice);
-    if (unpriced.length > 0) {
-      return { allowed: false, reason: `${unpriced.length} vehicle(s) missing locked price` };
-    }
+  const transitionMutation = useMutation({
+    mutationFn: async ({ targetStatus, note }: { targetStatus: string; note?: string }) => {
+      const { data: res, error: err } = await apiClient.POST(
+        "/v1/trips/{id}/vehicles/{vehicleId}/transitions",
+        {
+          params: { path: { id: tripId, vehicleId } },
+          body: { targetStatus, note },
+        }
+      );
+      if (err) throw err;
+      return res?.result;
+    },
+    onSuccess: (_, vars) => {
+      addToast(`Vehicle → ${vars.targetStatus}`, "success");
+      void qc.invalidateQueries({ queryKey: keys.trips.detail(tripId) });
+      void qc.invalidateQueries({ queryKey: keys.dispatch.board() });
+    },
+    onError: (err, vars) => {
+      if (isApiError(err) && err.status === 409) {
+        addToast(`Transition to ${vars.targetStatus} not allowed: ${err.message}`, "error");
+      } else {
+        addToast(isApiError(err) ? err.message : "Transition failed", "error");
+      }
+    },
+  });
 
-    // At least 1 vehicle
-    if (trip.vehicles.length === 0) {
-      return { allowed: false, reason: "Trip must have at least 1 vehicle" };
-    }
+  const verifyOtpMutation = useMutation({
+    mutationFn: async ({ phase, otp }: { phase: "pickup" | "drop"; otp: string }) => {
+      const { data: res, error: err } = await apiClient.POST(
+        "/v1/trips/{id}/vehicles/{vehicleId}/verify-otp",
+        {
+          params: { path: { id: tripId, vehicleId } },
+          body: { phase, otp },
+        }
+      );
+      if (err) throw err;
+      return res?.result;
+    },
+    onSuccess: () => {
+      addToast("OTP verified", "success");
+      void qc.invalidateQueries({ queryKey: keys.trips.detail(tripId) });
+      void qc.invalidateQueries({ queryKey: keys.dispatch.board() });
+      setOtpModal(null);
+      setOtpValue("");
+      setPendingTarget(null);
+    },
+    onError: (err) => {
+      const msg = isApiError(err) ? err.message : "OTP verification failed";
+      addToast(msg, "error");
+    },
+  });
 
-    return { allowed: true };
-  };
+  if (TERMINAL_STATUSES.has(currentStatus)) {
+    return null;
+  }
 
-  const checkCanAssign = (): { allowed: boolean; reason?: string } => {
-    if (trip.status !== "CONFIRMED" && trip.status !== "DRAFT") {
-      return { allowed: false, reason: "Trip must be DRAFT or CONFIRMED" };
-    }
+  const availableTargets = getAvailableTargets(currentStatus);
 
-    // All vehicles must be assigned (vehicle + driver)
-    const unassigned = trip.vehicles.filter((v) => !v.vehicleId || !v.driverId);
-    if (unassigned.length > 0) {
-      return { allowed: false, reason: `${unassigned.length} vehicle(s) need vehicle + driver assignment` };
-    }
-
-    return { allowed: true };
-  };
-
-  const handleConfirm = async () => {
-    const check = checkCanConfirm();
-    if (!check.allowed) {
-      addToast(`Cannot confirm: ${check.reason}`, "error");
+  const handleTransition = (targetStatus: string) => {
+    if (OTP_REQUIRED_STATUSES.has(targetStatus)) {
+      const phase = OTP_PHASE_MAP[targetStatus] ?? "pickup";
+      setPendingTarget(targetStatus);
+      setOtpModal({ targetStatus, phase });
       return;
     }
-
-    setIsTransitioning(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      onStatusChange?.("CONFIRMED");
-      addToast("Trip confirmed", "success");
-    } finally {
-      setIsTransitioning(false);
-    }
+    transitionMutation.mutate({ targetStatus });
   };
 
-  const handleAssign = async () => {
-    const check = checkCanAssign();
-    if (!check.allowed) {
-      addToast(`Cannot assign: ${check.reason}`, "error");
-      return;
-    }
-
-    setIsTransitioning(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      onStatusChange?.("ASSIGNED");
-      addToast("Trip assigned", "success");
-    } finally {
-      setIsTransitioning(false);
-    }
+  const handleOtpSubmit = () => {
+    if (!otpModal || !otpValue.trim()) return;
+    verifyOtpMutation.mutate({ phase: otpModal.phase, otp: otpValue.trim() });
   };
-
-  const handleCancel = async () => {
-    if (trip.status === "COMPLETED" || trip.status === "BILLED") {
-      addToast("Cannot cancel completed/billed trips", "error");
-      return;
-    }
-
-    setIsTransitioning(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      onStatusChange?.("CANCELLED");
-      addToast("Trip cancelled", "info");
-    } finally {
-      setIsTransitioning(false);
-    }
-  };
-
-  const confirmCheck = checkCanConfirm();
-  const assignCheck = checkCanAssign();
 
   return (
-    <Card padding="lg" header={<h3 className="font-semibold">⚙️ State Management</h3>}>
-      <div className="space-y-3">
-        {/* Current Status */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-text-secondary">Current Status:</span>
-          <Badge variant={trip.status === "DRAFT" ? "amber" : trip.status === "CONFIRMED" ? "blue" : "green"}>{trip.status}</Badge>
-        </div>
+    <div className="flex flex-wrap gap-1.5 mt-2">
+      {availableTargets.map((target) => (
+        <Button
+          key={target}
+          size="sm"
+          variant={["BREAKDOWN", "NO_SHOW", "ACCIDENT", "CANCELLED"].includes(target) ? "ghost" : "secondary"}
+          className={["BREAKDOWN", "NO_SHOW", "ACCIDENT", "CANCELLED"].includes(target) ? "text-danger border-danger/30 text-xs" : "text-xs"}
+          onClick={() => handleTransition(target)}
+          disabled={transitionMutation.isPending}
+        >
+          {TRANSITION_LABELS[target] ?? target}
+        </Button>
+      ))}
 
-        {/* Workflow Diagram */}
-        <div className="flex items-center gap-2 text-xs my-3">
-          <span className={trip.status === "DRAFT" ? "font-bold text-text-primary" : "text-text-secondary"}>DRAFT</span>
-          <span className="text-text-secondary">→</span>
-          <span className={trip.status === "CONFIRMED" ? "font-bold text-text-primary" : "text-text-secondary"}>CONFIRMED</span>
-          <span className="text-text-secondary">→</span>
-          <span className={trip.status === "ASSIGNED" ? "font-bold text-text-primary" : "text-text-secondary"}>ASSIGNED</span>
-          <span className="text-text-secondary">→</span>
-          <span className={trip.status === "IN_PROGRESS" ? "font-bold text-text-primary" : "text-text-secondary"}>IN_PROGRESS</span>
-        </div>
-
-        {/* Pre-flight Checks */}
-        <div className="bg-ops-bg rounded p-3 space-y-2 text-xs">
-          {trip.status === "DRAFT" && (
-            <>
-              <p className="font-medium text-text-primary">To Confirm (DRAFT → CONFIRMED):</p>
-              <div className="space-y-1 pl-2">
-                <p className={trip.vehicles.length > 0 ? "text-green-400" : "text-red-400"}>
-                  {trip.vehicles.length > 0 ? "✓" : "✗"} {trip.vehicles.length} vehicle(s) added
-                </p>
-                <p className={trip.vehicles.every((v) => v.lockedPrice) ? "text-green-400" : "text-red-400"}>
-                  {trip.vehicles.every((v) => v.lockedPrice) ? "✓" : "✗"} All vehicles priced
-                </p>
-              </div>
-            </>
-          )}
-
-          {(trip.status === "CONFIRMED" || trip.status === "DRAFT") && (
-            <>
-              <p className="font-medium text-text-primary">To Assign (→ ASSIGNED):</p>
-              <div className="space-y-1 pl-2">
-                <p className={trip.vehicles.every((v) => v.vehicleId) ? "text-green-400" : "text-orange-400"}>
-                  {trip.vehicles.every((v) => v.vehicleId) ? "✓" : "○"} All vehicles assigned
-                </p>
-                <p className={trip.vehicles.every((v) => v.driverId) ? "text-green-400" : "text-orange-400"}>
-                  {trip.vehicles.every((v) => v.driverId) ? "✓" : "○"} All drivers assigned
-                </p>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 pt-2">
-          {trip.status === "DRAFT" && (
-            <Button onClick={handleConfirm} variant="primary" loading={isTransitioning} disabled={!confirmCheck.allowed}>
-              <CheckCircle className="w-3 h-3 mr-1" /> Confirm
-            </Button>
-          )}
-
-          {(trip.status === "CONFIRMED" || trip.status === "DRAFT") && (
-            <Button onClick={handleAssign} variant="primary" loading={isTransitioning} disabled={!assignCheck.allowed}>
-              <Clock className="w-3 h-3 mr-1" /> Assign
-            </Button>
-          )}
-
-          {trip.status !== "COMPLETED" && trip.status !== "BILLED" && trip.status !== "CANCELLED" && (
-            <Button onClick={handleCancel} variant="ghost" loading={isTransitioning}>
-              Cancel
-            </Button>
-          )}
-        </div>
-
-        {/* Hints */}
-        {!confirmCheck.allowed && trip.status === "DRAFT" && (
-          <p className="text-xs text-red-400 flex items-center gap-1">
-            <AlertCircle className="w-3 h-3" /> {confirmCheck.reason}
-          </p>
-        )}
-        {!assignCheck.allowed && (trip.status === "CONFIRMED" || trip.status === "DRAFT") && (
-          <p className="text-xs text-orange-400 flex items-center gap-1">
-            <AlertCircle className="w-3 h-3" /> {assignCheck.reason}
-          </p>
-        )}
-      </div>
-    </Card>
+      {otpModal && (
+        <Modal
+          open={true}
+          onClose={() => { setOtpModal(null); setOtpValue(""); setPendingTarget(null); }}
+          title={`OTP Verification — ${otpModal.phase === "pickup" ? "Pickup" : "Drop"}`}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-text-secondary">
+              Enter the OTP provided by the passenger to confirm {otpModal.phase}.
+            </p>
+            <Input
+              value={otpValue}
+              onChange={(e) => setOtpValue(e.target.value)}
+              placeholder="Enter OTP"
+              maxLength={8}
+              className="text-center text-xl tracking-widest font-mono"
+              onKeyDown={(e) => { if (e.key === "Enter") handleOtpSubmit(); }}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={handleOtpSubmit}
+                disabled={!otpValue.trim() || verifyOtpMutation.isPending}
+              >
+                {verifyOtpMutation.isPending ? "Verifying…" : "Verify OTP"}
+              </Button>
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => { setOtpModal(null); setOtpValue(""); setPendingTarget(null); }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 };
 

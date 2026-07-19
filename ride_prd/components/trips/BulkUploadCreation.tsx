@@ -1,283 +1,210 @@
 "use client";
 
 import React, { useState } from "react";
-import { useTripStore } from "@/stores/tripStore";
-import { useCustomerStore } from "@ride/shared";
-import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
-import { useTenantStore } from "@ride/shared";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiClient, keys, isApiError } from "@ride/shared";
+import type { components } from "@ride/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
-import { getOffers } from "@/lib/quote";
-import { parseCSV, ParsedBulkRow, BulkTripRow } from "@/lib/csvParser";
-import { createTripVehicle } from "@/lib/tripHelpers";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { DataTable, Column } from "@/components/ui/DataTable";
-import { Badge } from "@/components/ui/Badge";
-import { TripMetadata } from "@/components/trips/TripMetadata";
-import { Upload } from "lucide-react";
+import { Upload, CheckCircle, XCircle, ArrowRight } from "lucide-react";
 
-interface BulkUploadCreationProps {
-  onCreated?: () => void;
+type BulkRow = components["schemas"]["BulkRow"];
+type BulkRowVerdict = components["schemas"]["BulkRowVerdict"];
+type BulkValidateResult = components["schemas"]["BulkValidateResult"];
+
+type Phase = "upload" | "verdict" | "done";
+
+function parseCsv(text: string): BulkRow[] {
+  const lines = text.trim().split("\n");
+  return lines.slice(1).map((line, idx) => {
+    const parts = line.split(",").map((p) => p.trim());
+    return {
+      rowIndex: idx + 1,
+      customerId: parts[0] ?? "",
+      pickupAddress: parts[1] ?? "",
+      dropAddress: parts[2] ?? "",
+      scheduleDate: parts[3] ?? "",
+      vehicleTypes: (parts[4] ?? "").split("|").filter(Boolean),
+      reference: parts[5] ?? undefined,
+    };
+  });
 }
 
-export const BulkUploadCreation: React.FC<BulkUploadCreationProps> = ({ onCreated }) => {
-  const activeTenantId = useTenantStore((s) => s.activeTenantId);
-  const allCustomers = useCustomerStore((s) => s.customers) || [];
-  const customers = allCustomers.filter((c) => c.tenantId === activeTenantId);
-  const allVTs = useVehicleTypeStore((s) => s.vehicleTypes) || [];
-  const vts = allVTs.filter((v) => v.tenantId === activeTenantId);
-
-  const addTrip = useTripStore((s) => s.addTrip);
+export const BulkUploadCreation: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
   const addToast = useToastStore((s) => s.addToast);
+  const qc = useQueryClient();
 
-  const [parsedRows, setParsedRows] = useState<ParsedBulkRow[]>([]);
-  const [isCommitting, setIsCommitting] = useState(false);
-  const [metadata, setMetadata] = useState<{ coordinator: { name?: string; phone?: string }; viewers: string[]; costCenter: string; pos: string }>({
-    coordinator: {},
-    viewers: [],
-    costCenter: "",
-    pos: "",
+  const [phase, setPhase] = useState<Phase>("upload");
+  const [rows, setRows] = useState<BulkRow[]>([]);
+  const [verdicts, setVerdicts] = useState<BulkRowVerdict[]>([]);
+  const [validateResult, setValidateResult] = useState<BulkValidateResult | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+
+  const validateMutation = useMutation({
+    mutationFn: async (data: BulkRow[]) => {
+      const { data: res, error: err } = await apiClient.POST("/v1/trips/bulk-validate", {
+        body: { rows: data },
+      });
+      if (err) throw err;
+      return res?.result;
+    },
+    onSuccess: (result) => {
+      if (!result) return;
+      setVerdicts(result.verdicts);
+      setValidateResult(result);
+      const validRows = new Set(
+        result.verdicts.filter((v) => v.valid).map((v) => v.rowIndex)
+      );
+      setSelectedRows(validRows);
+      setPhase("verdict");
+    },
+    onError: (err) => {
+      addToast(isApiError(err) ? err.message : "Validation failed", "error");
+    },
   });
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const commitMutation = useMutation({
+    mutationFn: async () => {
+      const commitRows = verdicts
+        .filter((v) => v.valid && selectedRows.has(v.rowIndex))
+        .map((v) => ({
+          rowIndex: v.rowIndex,
+          priceIds: (v.offers ?? []).map((o) => o.priceId),
+        }));
+
+      const { data: res, error: err } = await apiClient.POST("/v1/trips/bulk-commit", {
+        body: { rows: commitRows },
+      });
+      if (err) throw err;
+      return res?.result;
+    },
+    onSuccess: (result) => {
+      addToast(`${result?.created?.length ?? 0} trips created`, "success");
+      void qc.invalidateQueries({ queryKey: keys.trips.all() });
+      setPhase("done");
+      onDone?.();
+    },
+    onError: (err) => {
+      addToast(isApiError(err) ? err.message : "Commit failed", "error");
+    },
+  });
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const content = event.target?.result as string;
-        const rows = parseCSV(content);
-        setParsedRows(rows);
-        addToast(`Parsed ${rows.filter((r) => r.errors.length === 0).length} valid rows`, "info");
-      } catch (err) {
-        addToast(`Error parsing file: ${err instanceof Error ? err.message : "Unknown error"}`, "error");
-      }
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const parsed = parseCsv(text);
+      setRows(parsed);
+      validateMutation.mutate(parsed);
     };
     reader.readAsText(file);
   };
 
-  const handleCommit = async () => {
-    const validRows = parsedRows.filter((r) => r.errors.length === 0);
-
-    if (validRows.length === 0) {
-      addToast("No valid rows to commit", "error");
-      return;
-    }
-
-    setIsCommitting(true);
-
-    try {
-      let createdCount = 0;
-      const errors: string[] = [];
-
-      for (const parsedRow of validRows) {
-        try {
-          const row = parsedRow.data;
-          const customer = customers.find((c) => c.code === row.customer_code);
-
-          if (!customer) {
-            errors.push(`Row ${parsedRow.index}: Customer code "${row.customer_code}" not found`);
-            continue;
-          }
-
-          // Parse vehicle types from comma-separated list
-          const vehicleTypeNames = row.vehicle_types.split(",").map((v) => v.trim());
-          const vehicleTypeIds = vehicleTypeNames
-            .map((name) => vts.find((vt) => vt.name.toLowerCase() === name.toLowerCase())?.id)
-            .filter(Boolean) as string[];
-
-          if (vehicleTypeIds.length === 0) {
-            errors.push(`Row ${parsedRow.index}: No valid vehicle types found for "${row.vehicle_types}"`);
-            continue;
-          }
-
-          // Create trip vehicles with offers
-          const vehicles = vehicleTypeIds.map((vtId) => {
-            const vehicle = createTripVehicle(vtId);
-            const offers = getOffers({
-              tenantId: activeTenantId,
-              vendorId: "V1", // TODO: configurable
-              customerId: customer.id,
-              vehicleTypeId: vtId,
-              quotedAt: row.schedule_date,
-              currency: "INR",
-              distance: 10, // Default distance for bulk trips
-            });
-
-            if (offers.length > 0) {
-              const offer = offers[0]!;
-              return {
-                ...vehicle,
-                priceId: offer.priceId,
-                lockedPrice: offer.price,
-                lockedRateCardVersion: offer.rateCardVersion,
-              };
-            }
-            return vehicle;
-          });
-
-          // Create trip
-          const tripId = addTrip({
-            tenantId: activeTenantId,
-            customerId: customer.id,
-            createdVia: "BULK_UPLOAD",
-            stops: [
-              {
-                seq: 0,
-                type: "PICKUP",
-                locationType: "ADDRESS",
-                address: row.pickup_address,
-                lat: parseFloat(row.pickup_lat),
-                lng: parseFloat(row.pickup_lng),
-              },
-              {
-                seq: 1,
-                type: "DROP",
-                locationType: "ADDRESS",
-                address: row.drop_address,
-                lat: parseFloat(row.drop_lat),
-                lng: parseFloat(row.drop_lng),
-              },
-            ],
-            vehicles,
-            schedule: { type: "ONE_OFF", when: `${row.schedule_date}T08:00:00Z` },
-            status: "DRAFT",
-            autoAssign: false,
-            reference: row.reference,
-            coordinator: (metadata.coordinator.name || metadata.coordinator.phone) ? metadata.coordinator : undefined,
-            viewers: metadata.viewers.length > 0 ? metadata.viewers : undefined,
-            costCenter: metadata.costCenter || undefined,
-            pos: metadata.pos || undefined,
-          });
-
-          createdCount++;
-        } catch (err) {
-          errors.push(`Row ${parsedRow.index}: ${err instanceof Error ? err.message : "Unknown error"}`);
-        }
-      }
-
-      if (createdCount > 0) {
-        addToast(`Created ${createdCount} trips`, "success");
-      }
-      if (errors.length > 0) {
-        addToast(`${errors.length} rows failed: ${errors.slice(0, 3).join("; ")}...`, "error");
-      }
-
-      if (createdCount > 0) {
-        onCreated?.();
-      }
-    } finally {
-      setIsCommitting(false);
-    }
+  const toggleRow = (idx: number) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
   };
 
-  const validRows = parsedRows.filter((r) => r.errors.length === 0);
-  const invalidRows = parsedRows.filter((r) => r.errors.length > 0);
-
-  const columns: Column[] = [
-    { key: "index", header: "Row", sortable: true },
-    { key: "customer_code", header: "Customer", sortable: true },
-    { key: "vehicle_types", header: "Vehicles", sortable: false },
-    {
-      key: "schedule_date",
-      header: "Date",
-      sortable: true,
-    },
-    {
-      key: "errors",
-      header: "Status",
-      render: (val): React.ReactNode => {
-        const errors = val as string[];
-        return errors && errors.length > 0 ? (
-          <Badge variant="red">Invalid</Badge>
-        ) : (
-          <Badge variant="green">Valid</Badge>
-        );
-      },
-    },
-  ];
-
-  return (
-    <div className="space-y-6">
-      {/* File Upload */}
-      <Card padding="lg" header={<h3 className="font-semibold">Upload CSV File</h3>}>
-        <div className="space-y-4">
-          <p className="text-sm text-text-secondary">
-            Required columns: customer_code, pickup_address, pickup_lat, pickup_lng, drop_address, drop_lat, drop_lng, vehicle_types, schedule_date
-          </p>
-
-          <label className="block">
-            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors">
-              <Upload className="w-8 h-8 mx-auto mb-2 text-text-secondary" />
-              <p className="text-sm text-text-primary mb-1">Click to select CSV file</p>
-              <p className="text-xs text-text-secondary">or drag and drop</p>
-            </div>
-            <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
-          </label>
-        </div>
+  if (phase === "done") {
+    return (
+      <Card padding="lg" className="text-center py-8 space-y-3">
+        <p className="text-2xl">✅</p>
+        <p className="font-semibold text-text-primary">Bulk trips created!</p>
+        <Button onClick={() => { setPhase("upload"); setRows([]); setVerdicts([]); setValidateResult(null); }}>
+          Upload another
+        </Button>
       </Card>
+    );
+  }
 
-      {/* Preview */}
-      {parsedRows.length > 0 && (
-        <Card padding="lg" header={<h3 className="font-semibold">Preview ({parsedRows.length} rows)</h3>}>
-          <div className="space-y-4">
-            {validRows.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-green-400 mb-3">Valid rows: {validRows.length}</p>
-                <DataTable
-                  columns={columns}
-                  data={validRows.map((r) => ({
-                    ...r.data,
-                    index: r.index,
-                    errors: r.errors,
-                  })) as Record<string, unknown>[]}
-                  pageSize={5}
-                  emptyMessage="No valid rows"
-                />
-              </div>
-            )}
-
-            {invalidRows.length > 0 && (
-              <div>
-                <p className="text-sm font-medium text-red-400 mb-3">Invalid rows: {invalidRows.length}</p>
-                <div className="space-y-2">
-                  {invalidRows.map((row) => (
-                    <div key={row.index} className="p-3 bg-red-900/20 border border-red-700/40 rounded text-xs">
-                      <p className="font-medium text-red-300">Row {row.index}:</p>
-                      <ul className="mt-1 list-disc list-inside text-red-200 space-y-1">
-                        {row.errors.map((err, i) => (
-                          <li key={i}>{err}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+  if (phase === "verdict") {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Validation Results</h3>
+          <div className="flex gap-2 text-xs text-text-secondary">
+            <span className="text-green-400">{validateResult?.validCount ?? 0} valid</span>
+            <span>·</span>
+            <span className="text-danger">{validateResult?.invalidCount ?? 0} invalid</span>
           </div>
-        </Card>
-      )}
+        </div>
 
-      {/* Trip Metadata — applies to all created trips */}
-      {validRows.length > 0 && (
-        <TripMetadata
-          coordinator={metadata.coordinator}
-          viewers={metadata.viewers}
-          costCenter={metadata.costCenter}
-          pos={metadata.pos}
-          onUpdate={(updates) => setMetadata((prev) => ({ ...prev, ...updates }))}
-        />
-      )}
+        <div className="space-y-2 max-h-80 overflow-y-auto">
+          {verdicts.map((verdict) => (
+            <div key={verdict.rowIndex} className={`p-3 rounded border text-xs ${verdict.valid ? "border-green-700/40 bg-green-900/10" : "border-danger/30 bg-danger/5"}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {verdict.valid ? (
+                    <CheckCircle className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-danger" />
+                  )}
+                  <span className="font-medium">Row {verdict.rowIndex}</span>
+                </div>
+                {verdict.valid && (
+                  <input
+                    type="checkbox"
+                    checked={selectedRows.has(verdict.rowIndex)}
+                    onChange={() => toggleRow(verdict.rowIndex)}
+                    className="w-4 h-4"
+                  />
+                )}
+              </div>
+              {verdict.errors && verdict.errors.length > 0 && (
+                <ul className="mt-1 pl-6 space-y-0.5 text-danger">
+                  {verdict.errors.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              )}
+              {verdict.valid && verdict.offers && verdict.offers.length > 0 && (
+                <p className="mt-1 text-green-300 pl-6">{verdict.offers.length} offer(s) available</p>
+              )}
+            </div>
+          ))}
+        </div>
 
-      {/* Actions */}
-      {validRows.length > 0 && (
-        <div className="flex gap-2">
-          <Button onClick={handleCommit} variant="primary" loading={isCommitting}>
-            Create {validRows.length} Trip{validRows.length !== 1 ? "s" : ""}
+        <div className="flex gap-2 pt-2">
+          <Button onClick={() => setPhase("upload")} variant="secondary">Back</Button>
+          <Button
+            onClick={() => commitMutation.mutate()}
+            variant="primary"
+            disabled={selectedRows.size === 0 || commitMutation.isPending}
+            className="flex-1"
+          >
+            {commitMutation.isPending ? "Creating…" : `Commit ${selectedRows.size} trip(s)`} <ArrowRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card padding="lg" className="border-dashed text-center space-y-3 py-8">
+        <Upload className="w-8 h-8 mx-auto text-text-secondary" />
+        <p className="text-sm text-text-secondary">
+          Upload a CSV file with columns:<br />
+          <code className="text-xs">customerId, pickupAddress, dropAddress, scheduleDate, vehicleTypes(|sep), reference</code>
+        </p>
+        <label className="cursor-pointer">
+          <input
+            type="file"
+            accept=".csv"
+            className="sr-only"
+            onChange={handleFile}
+            disabled={validateMutation.isPending}
+          />
+          <span className={`inline-flex items-center px-4 py-2 rounded text-sm font-medium border border-border bg-white text-text-primary cursor-pointer ${validateMutation.isPending ? "opacity-50 pointer-events-none" : "hover:bg-ops-bg"}`}>
+            {validateMutation.isPending ? "Validating…" : "Choose CSV File"}
+          </span>
+        </label>
+      </Card>
     </div>
   );
 };

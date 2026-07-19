@@ -20,11 +20,42 @@ type FiltersShape = Record<string, string | number | boolean | undefined | null>
 export const keys = {
   me: () => ["me"] as const,
 
+  config: {
+    all: () => ["config"] as const,
+    vendors: {
+      list: (filters?: FiltersShape) =>
+        ["config", "vendors", "list", filters ?? {}] as const,
+      detail: (id: string) => ["config", "vendors", "detail", id] as const,
+    },
+    customers: {
+      list: (filters?: FiltersShape) =>
+        ["config", "customers", "list", filters ?? {}] as const,
+      detail: (id: string) => ["config", "customers", "detail", id] as const,
+    },
+    vehicleTypes: {
+      list: (filters?: FiltersShape) =>
+        ["config", "vehicle-types", "list", filters ?? {}] as const,
+      detail: (id: string) =>
+        ["config", "vehicle-types", "detail", id] as const,
+    },
+    rateCards: {
+      list: (filters?: FiltersShape) =>
+        ["config", "pricing", "rate-cards", "list", filters ?? {}] as const,
+      detail: (id: string) =>
+        ["config", "pricing", "rate-cards", "detail", id] as const,
+    },
+  },
+
   trips: {
     all: () => ["trips"] as const,
     list: (filters?: FiltersShape) =>
       ["trips", "list", filters ?? {}] as const,
     detail: (id: string) => ["trips", "detail", id] as const,
+    recurringRules: {
+      list: () => ["trips", "recurring-rules", "list"] as const,
+      detail: (id: string) =>
+        ["trips", "recurring-rules", "detail", id] as const,
+    },
   },
 
   fleet: {
@@ -57,16 +88,33 @@ export const keys = {
         ["billing", "invoices", "list", filters ?? {}] as const,
       detail: (id: string) => ["billing", "invoices", "detail", id] as const,
     },
+    statements: {
+      list: (filters?: FiltersShape) =>
+        ["billing", "statements", "list", filters ?? {}] as const,
+    },
+    payouts: {
+      list: (filters?: FiltersShape) =>
+        ["billing", "payouts", "list", filters ?? {}] as const,
+      detail: (id: string) => ["billing", "payouts", "detail", id] as const,
+    },
   },
 
   dispatch: {
     all: () => ["dispatch"] as const,
+    board: () => ["dispatch", "board"] as const,
     assignments: {
       list: (filters?: FiltersShape) =>
         ["dispatch", "assignments", "list", filters ?? {}] as const,
       detail: (id: string) =>
         ["dispatch", "assignments", "detail", id] as const,
     },
+  },
+
+  tracking: {
+    all: () => ["tracking"] as const,
+    live: () => ["tracking", "live"] as const,
+    track: (tripVehicleId: string) =>
+      ["tracking", "track", tripVehicleId] as const,
   },
 
   safety: {
@@ -77,4 +125,14 @@ export const keys = {
       detail: (id: string) => ["safety", "sos", "detail", id] as const,
     },
   },
+} as const;
+
+export const wsInvalidationMap = {
+  "trip.created": keys.trips.all(),
+  "trip.updated": keys.trips.all(),
+  "trip.cancelled": keys.trips.all(),
+  "trip.completed": keys.trips.all(),
+  "trip.assigned": keys.dispatch.board(),
+  "billing.invoice_created": keys.billing.all(),
+  "billing.invoice_updated": keys.billing.all(),
 } as const;
