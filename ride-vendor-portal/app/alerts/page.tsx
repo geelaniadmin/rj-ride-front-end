@@ -1,227 +1,161 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
-import { useSessionStore, useAlertStore, useLanguageStore, t } from "@ride/shared";
-import { useFleetAlerts } from "@/hooks/useFleetAlerts";
-import { Tabs, type Tab } from "@/components/ui/Tabs";
-import { EmptyState } from "@/components/ui/EmptyState";
-import {
-  Bell, AlertTriangle, FileText, CheckCircle, Eye, X,
-  CheckCheck, Truck, User, Info
-} from "lucide-react";
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient, keys, useLanguageStore, t } from "@ride/shared";
+import type { components } from "@ride/shared/api/schema.d";
+import { Bell, AlertCircle, CheckCircle, Truck, Users } from "lucide-react";
+
+type Vehicle = components["schemas"]["Vehicle"];
+type Driver = components["schemas"]["Driver"];
+
+type LocalAlert = {
+  id: string;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  title: string;
+  message: string;
+  entityType: "vehicle" | "driver";
+  daysRemaining?: number;
+};
+
+function computeDocAlerts(vehicles: Vehicle[], drivers: Driver[]): LocalAlert[] {
+  const alerts: LocalAlert[] = [];
+  for (const v of vehicles) {
+    if (v.active === false) {
+      alerts.push({
+        id: `vehicle-inactive-${v.id}`,
+        severity: "MEDIUM",
+        title: "Vehicle inactive",
+        message: `${v.registrationNo} is currently marked as inactive`,
+        entityType: "vehicle",
+      });
+    }
+  }
+
+  for (const d of drivers) {
+    if (d.active === false) {
+      alerts.push({
+        id: `driver-inactive-${d.id}`,
+        severity: "LOW",
+        title: "Driver inactive",
+        message: `${d.name} is currently inactive`,
+        entityType: "driver",
+      });
+    } else if (d.available === false) {
+      alerts.push({
+        id: `driver-unavailable-${d.id}`,
+        severity: "LOW",
+        title: "Driver unavailable",
+        message: `${d.name} is not currently available`,
+        entityType: "driver",
+      });
+    }
+  }
+
+  return alerts.sort((a, b) => {
+    const order: Record<string, number> = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+    return (order[a.severity] ?? 2) - (order[b.severity] ?? 2);
+  });
+}
+
+function severityStyle(severity: string) {
+  if (severity === "HIGH") return "border-danger/30 bg-danger/5";
+  if (severity === "MEDIUM") return "border-warning/30 bg-warning/5";
+  return "border-border bg-card-bg";
+}
+
+function SeverityIcon({ severity }: { severity: string }) {
+  if (severity === "HIGH") return <AlertCircle className="w-4 h-4 text-danger" />;
+  if (severity === "MEDIUM") return <AlertCircle className="w-4 h-4 text-warning" />;
+  return <Bell className="w-4 h-4 text-text-muted" />;
+}
 
 export default function AlertsPage() {
-  const vendorSession = useSessionStore((s) => s.vendorSession);
-  const notifications = useAlertStore((s) => s.notifications);
-  const markNotificationRead = useAlertStore((s) => s.markNotificationRead);
-  const markAllNotificationsRead = useAlertStore((s) => s.markAllNotificationsRead);
-  const dismissAlert = useAlertStore((s) => s.dismissAlert);
-  const markAlertRead = useAlertStore((s) => s.markAlertRead);
   const language = useLanguageStore((s) => s.language);
 
-  if (!vendorSession) return null;
+  const { data: vehicles = [] } = useQuery({
+    queryKey: keys.fleet.vehicles.list({}),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/fleet/vehicles", {});
+      if (err) throw err;
+      return (res?.result ?? []) as Vehicle[];
+    },
+  });
 
-  const vendorId = vendorSession.vendorId;
-  const { computedAlerts, highCount, mediumCount, lowCount } = useFleetAlerts(vendorId);
-  const [activeTab, setActiveTab] = useState("notifications");
+  const { data: drivers = [] } = useQuery({
+    queryKey: keys.fleet.drivers.list({}),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/fleet/drivers", {});
+      if (err) throw err;
+      return (res?.result ?? []) as Driver[];
+    },
+  });
 
-  const vendorNotifications = useMemo(
-    () => notifications.filter((n) => n.vendorId === vendorId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [notifications, vendorId]
-  );
+  const alerts = computeDocAlerts(vehicles, drivers);
 
-  const unreadCount = vendorNotifications.filter((n) => !n.read).length;
-
-  const tabs: Tab[] = [
-    { id: "notifications", label: t("notifications", language), count: unreadCount || undefined },
-    { id: "alerts", label: t("fleetAlerts", language), count: highCount + mediumCount + lowCount || undefined },
-  ];
-
-  const handleMarkAllRead = () => {
-    markAllNotificationsRead(vendorId);
-  };
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case "TRIP_ASSIGNED": return Truck;
-      case "TRIP_ACCEPTED": return CheckCircle;
-      case "TRIP_COMPLETED": return CheckCircle;
-      case "VEHICLE_BREAKDOWN": return AlertTriangle;
-      case "DOC_EXPIRY": return FileText;
-      case "DRIVER_OFFLINE": return User;
-      case "FAILOVER": return Info;
-      default: return Bell;
-    }
-  };
-
-  const getNotificationColor = (type: string) => {
-    switch (type) {
-      case "TRIP_ASSIGNED": return "text-brand-blue bg-brand-blue/10";
-      case "TRIP_ACCEPTED": return "text-success bg-success/10";
-      case "TRIP_COMPLETED": return "text-success bg-success/10";
-      case "VEHICLE_BREAKDOWN": return "text-danger bg-danger/10";
-      case "DOC_EXPIRY": return "text-warning bg-warning/10";
-      case "DRIVER_OFFLINE": return "text-text-muted bg-ops-bg";
-      case "FAILOVER": return "text-warning bg-warning/10";
-      default: return "text-text-muted bg-ops-bg";
-    }
-  };
+  const highCount = alerts.filter((a) => a.severity === "HIGH").length;
+  const mediumCount = alerts.filter((a) => a.severity === "MEDIUM").length;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-text-primary">{t("alertsAndNotifications", language)}</h2>
-          <p className="text-sm text-text-muted mt-1">{t("tripNotificationsAndAlerts", language)}</p>
+      <div>
+        <h2 className="text-2xl font-bold text-text-primary">{t("alerts", language)}</h2>
+        <p className="text-sm text-text-muted mt-1">Fleet status alerts and document warnings</p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className={`rounded-xl p-4 border ${highCount > 0 ? "bg-danger/5 border-danger/20" : "bg-card-bg border-card-border"}`}>
+          <p className="text-xs text-text-muted uppercase tracking-wider">High</p>
+          <p className={`text-2xl font-bold mt-1 ${highCount > 0 ? "text-danger" : "text-text-primary"}`}>{highCount}</p>
+        </div>
+        <div className={`rounded-xl p-4 border ${mediumCount > 0 ? "bg-warning/5 border-warning/20" : "bg-card-bg border-card-border"}`}>
+          <p className="text-xs text-text-muted uppercase tracking-wider">Medium</p>
+          <p className={`text-2xl font-bold mt-1 ${mediumCount > 0 ? "text-warning" : "text-text-primary"}`}>{mediumCount}</p>
+        </div>
+        <div className="rounded-xl p-4 border bg-card-bg border-card-border">
+          <p className="text-xs text-text-muted uppercase tracking-wider">Total</p>
+          <p className="text-2xl font-bold text-text-primary mt-1">{alerts.length}</p>
         </div>
       </div>
 
-      <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
-
-      {/* NOTIFICATIONS TAB */}
-      {activeTab === "notifications" && (
-        <div className="bg-card-bg border border-card-border rounded-xl overflow-hidden">
-          {vendorNotifications.length > 0 && unreadCount > 0 && (
-            <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-ops-bg/30">
-              <p className="text-xs text-text-muted">
-                {unreadCount} {t("unread", language)} {t("notification", language)}{unreadCount !== 1 ? "s" : ""}
-              </p>
-              <button
-                onClick={handleMarkAllRead}
-                className="flex items-center gap-1 text-xs text-brand-blue hover:underline font-medium"
-              >
-                <CheckCheck className="w-3.5 h-3.5" /> {t("markAllRead", language)}
-              </button>
-            </div>
-          )}
-
-          {vendorNotifications.length === 0 ? (
-            <EmptyState
-              icon={Bell}
-              title={t("noNotifications", language)}
-              message={t("noNotificationsMessage", language)}
-            />
-          ) : (
-            <div className="divide-y divide-border/50">
-              {vendorNotifications.map((notif) => {
-                const Icon = getNotificationIcon(notif.type);
-                const colorClass = getNotificationColor(notif.type);
-                return (
-                  <div
-                    key={notif.id}
-                    className={`px-5 py-4 flex items-start gap-4 hover:bg-ops-bg/30 transition-colors ${
-                      !notif.read ? "bg-brand-blue/[0.02]" : ""
-                    }`}
-                  >
-                    <div className={`w-8 h-8 rounded-full ${colorClass} flex items-center justify-center shrink-0 mt-0.5`}>
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${!notif.read ? "font-semibold text-text-primary" : "text-text-primary"}`}>
-                        {notif.title}
-                      </p>
-                      <p className="text-xs text-text-muted mt-0.5">{notif.message}</p>
-                      <p className="text-xs text-text-muted mt-1">
-                        {new Date(notif.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                    {!notif.read && (
-                      <button
-                        onClick={() => markNotificationRead(notif.id)}
-                        className="p-1.5 hover:bg-ops-bg rounded-lg transition-colors shrink-0"
-                        title={t("markRead", language)}
-                      >
-                        <Eye className="w-4 h-4 text-text-muted" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+      {alerts.length === 0 ? (
+        <div className="text-center py-16 space-y-3">
+          <div className="w-14 h-14 bg-success/10 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle className="w-7 h-7 text-success" />
+          </div>
+          <p className="text-text-muted text-sm">No alerts — your fleet is in good shape</p>
         </div>
-      )}
-
-      {/* FLEET ALERTS TAB */}
-      {activeTab === "alerts" && (
-        <div className="bg-card-bg border border-card-border rounded-xl overflow-hidden">
-          {computedAlerts.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle}
-              title={t("allClear", language)}
-              message={t("noAlertsMessage", language)}
-            />
-          ) : (
-            <div className="divide-y divide-border/50">
-              {computedAlerts.map((alert) => (
-                <div
-                  key={alert.id}
-                  className={`px-5 py-4 flex items-start gap-4 hover:bg-ops-bg/30 transition-colors ${
-                    !alert.read ? "bg-brand-blue/[0.02]" : ""
-                  }`}
-                >
-                  <div className="mt-0.5 shrink-0">
-                    {alert.severity === "HIGH" ? (
-                      <div className="w-8 h-8 rounded-full bg-danger/10 flex items-center justify-center">
-                        <AlertTriangle className="w-4 h-4 text-danger" />
-                      </div>
-                    ) : alert.severity === "MEDIUM" ? (
-                      <div className="w-8 h-8 rounded-full bg-warning/10 flex items-center justify-center">
-                        <AlertTriangle className="w-4 h-4 text-warning" />
-                      </div>
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-brand-blue/10 flex items-center justify-center">
-                        <FileText className="w-4 h-4 text-brand-blue" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-semibold uppercase ${
-                        alert.severity === "HIGH" ? "text-danger" : alert.severity === "MEDIUM" ? "text-warning" : "text-text-muted"
-                      }`}>
-                        {alert.severity}
-                      </span>
-                      <span className="text-xs text-text-muted">
-                        {alert.type.replace(/_/g, " ")}
-                      </span>
-                      {alert.daysRemaining !== undefined && (
-                        <span className={`text-xs ${alert.daysRemaining < 0 ? "text-danger" : "text-text-muted"}`}>
-                          · {alert.daysRemaining < 0
-                            ? `${Math.abs(alert.daysRemaining)} ${t("daysOverdue", language)}`
-                            : `${alert.daysRemaining} ${t("daysRemainingLabel", language)}`}
-                        </span>
+      ) : (
+        <div className="space-y-3">
+          {alerts.map((alert) => (
+            <div key={alert.id} className={`rounded-xl p-4 border ${severityStyle(alert.severity)}`}>
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 shrink-0">
+                  <SeverityIcon severity={alert.severity} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-semibold text-text-primary">{alert.title}</p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                      alert.severity === "HIGH" ? "bg-danger/10 text-danger" :
+                      alert.severity === "MEDIUM" ? "bg-warning/10 text-warning" :
+                      "bg-gray-100 text-gray-600"
+                    }`}>
+                      {alert.severity}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {alert.entityType === "vehicle" ? (
+                        <Truck className="w-3 h-3 text-text-muted" />
+                      ) : (
+                        <Users className="w-3 h-3 text-text-muted" />
                       )}
                     </div>
-                    <p className="text-sm text-text-primary">{alert.message}</p>
-                    <p className="text-xs text-text-muted mt-1">
-                      {new Date(alert.createdAt).toLocaleString()}
-                    </p>
                   </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {!alert.read && (
-                      <button
-                        onClick={() => markAlertRead(alert.id)}
-                        className="p-1.5 hover:bg-ops-bg rounded-lg transition-colors"
-                        title={t("markRead", language)}
-                      >
-                        <Eye className="w-4 h-4 text-text-muted" />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => dismissAlert(alert.id)}
-                      className="p-1.5 hover:bg-ops-bg rounded-lg transition-colors"
-                      title={t("dismiss", language)}
-                    >
-                      <X className="w-4 h-4 text-text-muted hover:text-danger" />
-                    </button>
-                  </div>
+                  <p className="text-xs text-text-muted mt-1">{alert.message}</p>
                 </div>
-              ))}
+              </div>
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>

@@ -16,17 +16,20 @@ interface RouteMapProps {
 
 export const RouteMap: React.FC<RouteMapProps> = ({ stops, height = "h-56" }) => {
   const mapRef = useRef<HTMLDivElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapInstanceRef = useRef<any>(null);
 
   useEffect(() => {
     if (!mapRef.current || stops.length === 0) return;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let L: any;
 
     const initMap = async () => {
       L = (await import("leaflet")).default;
       await import("leaflet/dist/leaflet.css");
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       L.Icon.Default.mergeOptions({
         iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
@@ -50,12 +53,14 @@ export const RouteMap: React.FC<RouteMapProps> = ({ stops, height = "h-56" }) =>
       if (!map) return;
 
       // Clear existing overlays
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       map.eachLayer((layer: any) => {
         if (layer instanceof L.Marker || layer instanceof L.Polyline) {
           map.removeLayer(layer);
         }
       });
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const markers: any[] = [];
 
       // Stop markers with SVGs for pickup (green) and drop (red)

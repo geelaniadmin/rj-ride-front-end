@@ -1,232 +1,232 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
-import { useSessionStore, useTripStore, useDriverStore, useVehicleStore, useVendorInfoStore, useVehicleTypeStore, useLanguageStore, t } from "@ride/shared";
-import { useVendorTrips, type VendorTrip } from "@/hooks/useVendorTrips";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiClient, keys, isApiError, useLanguageStore, t, formatMoney } from "@ride/shared";
+import type { components } from "@ride/shared/api/schema.d";
+import { useVendorTrips, useVendorTripDetail } from "@/hooks/useVendorTrips";
 import { useToast } from "@/components/ui/Toast";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { DataTable, type Column } from "@/components/ui/DataTable";
-import { PiiField } from "@/components/ui/PiiField";
 import { Modal } from "@/components/ui/Modal";
 import { Drawer } from "@/components/ui/Drawer";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { TripMapViewWrapper } from "@/components/trips/TripMapViewWrapper";
-import { ReceiptModal } from "@/components/trips/ReceiptModal";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Search, X, Filter, MapPin, Route, User, DollarSign, ChevronDown, Star, CheckCircle, XCircle, Receipt } from "lucide-react";
+import { Search, X, CheckCircle, RefreshCw, Key } from "lucide-react";
 
-const VEHICLE_TYPES = ["All", "Sedan", "SUV", "Tempo Traveller", "Coach"];
+type TripSummary = components["schemas"]["TripSummary"];
+type Vehicle = components["schemas"]["Vehicle"];
+type Driver = components["schemas"]["Driver"];
+
+const ACTIVE_STATUSES = new Set([
+  "ASSIGNED", "DRIVER_ACCEPTED", "EN_ROUTE_PICKUP", "AT_PICKUP",
+  "PAX_PICKED", "IN_TRANSIT", "AT_DROP", "PAX_DROPPED",
+]);
+
+const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
+
+const OTP_PHASES: Record<string, "pickup" | "drop"> = {
+  PAX_PICKED: "pickup",
+  PAX_DROPPED: "drop",
+};
+
+const TRANSITION_TARGETS: Record<string, string[]> = {
+  ASSIGNED: ["DRIVER_ACCEPTED", "EN_ROUTE_PICKUP"],
+  DRIVER_ACCEPTED: ["EN_ROUTE_PICKUP"],
+  EN_ROUTE_PICKUP: ["AT_PICKUP"],
+  AT_PICKUP: ["PAX_PICKED"],
+  PAX_PICKED: ["IN_TRANSIT"],
+  IN_TRANSIT: ["AT_DROP"],
+  AT_DROP: ["PAX_DROPPED"],
+  PAX_DROPPED: ["COMPLETED"],
+};
 
 export default function TripsPage() {
-  const vendorSession = useSessionStore((s) => s.vendorSession);
-  const acceptTrip = useTripStore((s) => s.acceptTrip);
-  const declineTrip = useTripStore((s) => s.declineTrip);
-  const drivers = useDriverStore((s) => s.drivers);
-  const vehicles = useVehicleStore((s) => s.vehicles);
-  const vehicleTypes = useVehicleTypeStore((s) => s.vehicleTypes);
-  const getVendorName = useVendorInfoStore((s) => s.getVendorName);
   const language = useLanguageStore((s) => s.language);
   const { addToast } = useToast();
+  const qc = useQueryClient();
 
-  if (!vendorSession) return null;
-
-  const { vendorTrips } = useVendorTrips(vendorSession.vendorId);
-
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [typeFilter, setTypeFilter] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  const [showFilters, setShowFilters] = useState(false);
-
-  const [selectedTrip, setSelectedTrip] = useState<VendorTrip | null>(null);
-  const [showAcceptModal, setShowAcceptModal] = useState(false);
-  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const { data: trips = [], isLoading } = useVendorTrips();
+  const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
-  const [showTrackModal, setShowTrackModal] = useState(false);
-  const [showReceiptModal, setShowReceiptModal] = useState(false);
-  const [acceptDriverId, setAcceptDriverId] = useState("");
-  const [acceptVehicleId, setAcceptVehicleId] = useState("");
-  const [declineReason, setDeclineReason] = useState(t("noDriversAvailableReason", language));
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState<{ tripId: string; vehicleId: string } | null>(null);
+  const [otpModal, setOtpModal] = useState<{ tripId: string; vehicleId: string; phase: "pickup" | "drop"; targetStatus: string } | null>(null);
+  const [otpValue, setOtpValue] = useState("");
+  const [reassignVehicleId, setReassignVehicleId] = useState("");
+  const [reassignDriverId, setReassignDriverId] = useState("");
+  const [reassignReason, setReassignReason] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
+  const { data: tripDetail } = useVendorTripDetail(selectedTripId);
+
+  const { data: fleetVehicles = [] } = useQuery({
+    queryKey: keys.fleet.vehicles.list({}),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/fleet/vehicles", {});
+      if (err) throw err;
+      return (res?.result ?? []) as Vehicle[];
+    },
+  });
+
+  const { data: fleetDrivers = [] } = useQuery({
+    queryKey: keys.fleet.drivers.list({}),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/fleet/drivers", {});
+      if (err) throw err;
+      return (res?.result ?? []) as Driver[];
+    },
+  });
 
   const statusOptions = useMemo(() => {
-    const set = new Set(vendorTrips.map((trip) => trip.status));
+    const set = new Set(trips.map((t) => t.status));
     return ["All", ...Array.from(set)];
-  }, [vendorTrips]);
+  }, [trips]);
 
   const filteredTrips = useMemo(() => {
-    return vendorTrips.filter((t) => {
-      if (statusFilter !== "All" && t.status !== statusFilter) return false;
-      if (typeFilter !== "All" && t.vehicleType !== typeFilter) return false;
-      if (debouncedSearchQuery) {
-        const q = debouncedSearchQuery.toLowerCase();
-        const matchId = t.tripId.toLowerCase().includes(q);
-        const matchCustomer = t.customerId.toLowerCase().includes(q);
-        const matchRoute = t.stops.some((s) => s.address.toLowerCase().includes(q));
-        if (!matchId && !matchCustomer && !matchRoute) return false;
+    return trips.filter((trip) => {
+      if (statusFilter !== "All" && trip.status !== statusFilter) return false;
+      if (debouncedSearch) {
+        const q = debouncedSearch.toLowerCase();
+        const matchId = trip.id.toLowerCase().includes(q);
+        const matchRef = trip.reference?.toLowerCase().includes(q) ?? false;
+        const matchAddr = trip.pickupAddress?.toLowerCase().includes(q) ?? false;
+        if (!matchId && !matchRef && !matchAddr) return false;
       }
       return true;
     });
-  }, [vendorTrips, statusFilter, typeFilter, debouncedSearchQuery]);
+  }, [trips, statusFilter, debouncedSearch]);
 
-  const availableDrivers = useMemo(() => {
-    return drivers.filter((d) => d.vendorId === vendorSession.vendorId && d.available && d.active);
-  }, [drivers, vendorSession.vendorId]);
-
-  const vendorVehicles = useMemo(() => {
-    return vehicles.filter((v) => v.ownerVendorId === vendorSession.vendorId && v.active);
-  }, [vehicles, vendorSession.vendorId]);
-
-  const clearFilters = useCallback(() => {
-    setStatusFilter("All");
-    setTypeFilter("All");
-    setSearchQuery("");
-  }, []);
-
-  const hasFilters = statusFilter !== "All" || typeFilter !== "All" || searchQuery !== "";
-
-  const handleAccept = useCallback(async () => {
-    if (!selectedTrip || !acceptDriverId || !acceptVehicleId) return;
-    setIsProcessing(true);
-    const driver = drivers.find((d) => d.id === acceptDriverId);
-    const vehicle = vehicles.find((v) => v.id === acceptVehicleId);
-    try {
-      const result = acceptTrip(selectedTrip.tripId, vendorSession!.vendorId, acceptDriverId, acceptVehicleId);
-      if (result.success) {
-        addToast(`${t("trip", language)} ${selectedTrip.tripId.slice(0, 8)} ${t("accepted", language)} — ${driver?.name ? driver.name.split(" ")[0] + " assigned" : "driver assigned"} ${t("to", language)} ${vehicle?.registrationNo || "vehicle"}`, "success");
-        setShowAcceptModal(false);
-        setSelectedTrip(null);
-      } else {
-        addToast(result.message, "error");
-      }
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [selectedTrip, acceptDriverId, acceptVehicleId, drivers, vehicles, vendorSession, acceptTrip, addToast, language, t]);
-
-  const handleDecline = useCallback(async () => {
-    if (!selectedTrip) return;
-    setIsProcessing(true);
-    try {
-      const result = declineTrip(selectedTrip.tripId, vendorSession!.vendorId, declineReason);
-      if (result.success) {
-        addToast(`${t("trip", language)} ${selectedTrip.tripId.slice(0, 8)} ${t("declined", language)} — ${result.failoverTo ? `${t("assignedTo", language)} ${getVendorName(result.failoverTo)}` : t("noVendorsAvailable", language)}`, "info");
-        setShowDeclineModal(false);
-        setSelectedTrip(null);
-      } else {
-        addToast(result.message, "error");
-      }
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [selectedTrip, vendorSession, declineReason, declineTrip, addToast, getVendorName, language, t]);
-
-  const handleRowClick = (trip: VendorTrip) => {
-    setSelectedTrip(trip);
-    setShowDetailDrawer(true);
-  };
-
-  const autoAssign = useCallback(() => {
-    const bestDriver = [...availableDrivers].sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
-    const matchingVehicle = vendorVehicles.find((v) => {
-      const vType = selectedTrip?.vehicleType?.toLowerCase();
-      return v.vehicleTypeId && vType && vehicleTypes.find((vt) => vt.id === v.vehicleTypeId && vt.name.toLowerCase() === vType);
-    }) || vendorVehicles[0];
-    setAcceptDriverId(bestDriver?.id || "");
-    setAcceptVehicleId(matchingVehicle?.id || (vendorVehicles[0]?.id || ""));
-  }, [availableDrivers, vendorVehicles, selectedTrip, vehicleTypes]);
-
-  const handleAcceptClick = (trip: VendorTrip) => {
-    setSelectedTrip(trip);
-    const bestDriver = [...availableDrivers].sort((a, b) => (b.rating || 0) - (a.rating || 0))[0];
-    const matchingVehicle = vendorVehicles.find((v) => {
-      const vType = trip.vehicleType?.toLowerCase();
-      return v.vehicleTypeId && vType && vehicleTypes.find((vt) => vt.id === v.vehicleTypeId && vt.name.toLowerCase() === vType);
-    }) || vendorVehicles[0];
-    setAcceptDriverId(bestDriver?.id || "");
-    setAcceptVehicleId(matchingVehicle?.id || (vendorVehicles[0]?.id || ""));
-    setShowAcceptModal(true);
-  };
-
-  const handleDeclineClick = (trip: VendorTrip) => {
-    setSelectedTrip(trip);
-    setDeclineReason(t("noDriversAvailableReason", language));
-    setShowDeclineModal(true);
-  };
-
-  const tripDriver = selectedTrip?.assignedDriverId ? drivers.find((d) => d.id === selectedTrip.assignedDriverId) : undefined;
-  const tripVehicle = selectedTrip?.assignedVehicleId ? vehicles.find((v) => v.id === selectedTrip.assignedVehicleId) : undefined;
-
-  const columns: Column<VendorTrip>[] = [
-    { key: "tripId", header: t("tripId", language), render: (trip) => <span className="font-mono text-xs">{trip.tripId.slice(0, 8)}</span>, sortable: true },
-    { key: "vehicleType", header: t("type", language), render: (trip) => <span className="text-sm">{trip.vehicleType}</span>, sortable: true },
-    { key: "route", header: t("route", language), render: (trip) => (
-      <span className="text-xs text-text-muted truncate max-w-[200px] inline-block">
-        {trip.stops[0]?.address?.split(",")[0] || "?"} → {trip.stops[1]?.address?.split(",")[0] || "?"}
-      </span>
-    )},
-    { key: "driver", header: t("driver", language), render: (trip) => {
-      const driver = trip.assignedDriverId ? drivers.find((d) => d.id === trip.assignedDriverId) : undefined;
-      return driver ? <PiiField value={driver.name} /> : <span className="text-text-muted">—</span>;
-    }},
-    { key: "vehicle", header: t("assignedVehicle", language), render: (trip) => {
-      const vehicle = trip.assignedVehicleId ? vehicles.find((v) => v.id === trip.assignedVehicleId) : undefined;
-      if (!vehicle) return <span className="text-text-muted">—</span>;
-      return (
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-text-primary">{vehicle.registrationNo}</span>
-          <span className="text-[10px] text-text-muted">{vehicle.make} {vehicle.model}</span>
-        </div>
+  const transitionMutation = useMutation({
+    mutationFn: async ({ tripId, vehicleId, targetStatus }: { tripId: string; vehicleId: string; targetStatus: string }) => {
+      const { data: res, error: err } = await apiClient.POST(
+        "/v1/trips/{id}/vehicles/{vehicleId}/transitions",
+        { params: { path: { id: tripId, vehicleId } }, body: { targetStatus } }
       );
-    }},
-    { key: "status", header: t("status", language), render: (trip) => <StatusBadge status={trip.status} />, sortable: true },
-    { key: "lockedPrice", header: t("price", language), render: (trip) => `₹${Math.round(trip.lockedPrice)}`, sortable: true },
-    { key: "actions", header: t("actions", language), render: (trip) => {
-      if (trip.status === "ASSIGNED" || trip.status === "PENDING") {
-        return (
-          <div className="flex gap-1.5">
-            <button
-              onClick={(e) => { e.stopPropagation(); handleAcceptClick(trip); }}
-              className="px-2.5 py-1 bg-success text-white text-xs rounded-md hover:bg-success/90 transition-colors font-medium"
-            >
-              {t("accept", language)}
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleDeclineClick(trip); }}
-              className="px-2.5 py-1 bg-danger/10 text-danger text-xs rounded-md hover:bg-danger/20 transition-colors font-medium"
-            >
-              {t("decline", language)}
-            </button>
-          </div>
-        );
+      if (err) throw err;
+      return res?.result;
+    },
+    onSuccess: (_, vars) => {
+      addToast(`Status updated → ${vars.targetStatus.replace(/_/g, " ")}`, "success");
+      void qc.invalidateQueries({ queryKey: keys.trips.all() });
+    },
+    onError: (err, vars) => {
+      if (isApiError(err) && err.status === 409) {
+        addToast(`Transition to ${vars.targetStatus} not allowed: ${(err as { message: string }).message}`, "error");
+      } else {
+        addToast(isApiError(err) ? (err as { message: string }).message : "Transition failed", "error");
       }
-      if (trip.status === "COMPLETED") {
-        return (
-          <div className="flex gap-1.5">
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowDetailDrawer(false); setSelectedTrip(trip); setShowReceiptModal(true); }}
-              className="px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs rounded-md hover:bg-emerald-100 transition-colors font-medium flex items-center gap-1"
-            >
-              <Receipt className="w-3 h-3" /> {t("receipt", language)}
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setSelectedTrip(trip); setShowDetailDrawer(true); }}
-              className="px-2.5 py-1 text-xs text-brand-blue hover:bg-brand-blue/5 rounded-md transition-colors font-medium"
-            >
-              {t("view", language)}
-            </button>
-          </div>
-        );
-      }
-      return (
+    },
+  });
+
+  const otpMutation = useMutation({
+    mutationFn: async ({ tripId, vehicleId, phase, otp }: { tripId: string; vehicleId: string; phase: "pickup" | "drop"; otp: string }) => {
+      const { data: res, error: err } = await apiClient.POST(
+        "/v1/trips/{id}/vehicles/{vehicleId}/verify-otp",
+        { params: { path: { id: tripId, vehicleId } }, body: { phase, otp } }
+      );
+      if (err) throw err;
+      return res?.result;
+    },
+    onSuccess: (_, vars) => {
+      addToast(`OTP verified — ${vars.phase}`, "success");
+      setOtpModal(null);
+      setOtpValue("");
+      void qc.invalidateQueries({ queryKey: keys.trips.all() });
+    },
+    onError: (err) => {
+      addToast(isApiError(err) ? (err as { message: string }).message : "OTP verification failed", "error");
+    },
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: async ({ tripId, vehicleId, fleetVehicleId, driverId }: {
+      tripId: string; vehicleId: string; fleetVehicleId: string; driverId: string;
+    }) => {
+      const { data: res, error: err } = await apiClient.POST(
+        "/v1/trips/{id}/vehicles/{vehicleId}/assign",
+        {
+          params: { path: { id: tripId, vehicleId } },
+          body: { fleetVehicleId, driverId },
+        }
+      );
+      if (err) throw err;
+      return res?.result;
+    },
+    onSuccess: () => {
+      addToast("Vehicle and driver reassigned", "success");
+      setShowReassignModal(null);
+      setReassignVehicleId("");
+      setReassignDriverId("");
+      setReassignReason("");
+      void qc.invalidateQueries({ queryKey: keys.trips.all() });
+    },
+    onError: (err) => {
+      addToast(isApiError(err) ? (err as { message: string }).message : "Reassignment failed", "error");
+    },
+  });
+
+  const handleTransition = useCallback((tripId: string, vehicleId: string, targetStatus: string) => {
+    if (OTP_PHASES[targetStatus]) {
+      setOtpModal({ tripId, vehicleId, phase: OTP_PHASES[targetStatus]!, targetStatus });
+    } else {
+      transitionMutation.mutate({ tripId, vehicleId, targetStatus });
+    }
+  }, [transitionMutation]);
+
+  const handleOtpSubmit = () => {
+    if (!otpModal || !otpValue.trim()) return;
+    otpMutation.mutate({ ...otpModal, otp: otpValue });
+  };
+
+  const columns: Column<TripSummary>[] = [
+    {
+      key: "id", header: t("tripId", language),
+      render: (trip) => <span className="font-mono text-xs">{trip.id.substring(0, 8)}…</span>,
+      sortable: true,
+    },
+    {
+      key: "status", header: t("status", language),
+      render: (trip) => <StatusBadge status={trip.status} />,
+      sortable: true,
+    },
+    {
+      key: "route", header: t("route", language),
+      render: (trip) => (
+        <span className="text-xs text-text-muted truncate max-w-[200px] inline-block">
+          {trip.pickupAddress ?? "—"}
+        </span>
+      ),
+    },
+    {
+      key: "vehicles", header: "Vehicles",
+      render: (trip) => <span className="text-sm">{trip.vehicleCount ?? 1}</span>,
+    },
+    {
+      key: "scheduled", header: t("scheduled", language),
+      render: (trip) => trip.scheduleWhen ? (
+        <span className="text-xs">{new Date(trip.scheduleWhen).toLocaleString()}</span>
+      ) : <span className="text-text-muted">—</span>,
+      sortable: true,
+    },
+    {
+      key: "ref", header: "Ref",
+      render: (trip) => trip.reference ? (
+        <span className="text-xs text-text-muted">{trip.reference}</span>
+      ) : <span className="text-text-muted">—</span>,
+    },
+    {
+      key: "actions", header: t("actions", language),
+      render: (trip) => (
         <button
-          onClick={(e) => { e.stopPropagation(); setSelectedTrip(trip); setShowDetailDrawer(true); }}
+          onClick={(e) => { e.stopPropagation(); setSelectedTripId(trip.id); setShowDetailDrawer(true); }}
           className="px-2.5 py-1 text-xs text-brand-blue hover:bg-brand-blue/5 rounded-md transition-colors font-medium"
         >
           {t("view", language)}
         </button>
-      );
-    }},
+      ),
+    },
   ];
 
   return (
@@ -234,7 +234,7 @@ export default function TripsPage() {
       <div>
         <h2 className="text-2xl font-bold text-text-primary">{t("trips", language)}</h2>
         <p className="text-sm text-text-muted mt-1">
-          {vendorTrips.length} {t("tripsAssignedToFleet", language)}
+          {trips.length} {t("tripsAssignedToFleet", language)}
         </p>
       </div>
 
@@ -257,23 +257,15 @@ export default function TripsPage() {
             className="px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
           >
             {statusOptions.map((opt) => (
-              <option key={opt} value={opt}>{opt === "All" ? t("allStatuses", language) : opt.replace(/_/g, " ")}</option>
+              <option key={opt} value={opt}>
+                {opt === "All" ? t("allStatuses", language) : opt.replace(/_/g, " ")}
+              </option>
             ))}
           </select>
 
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-          >
-            {VEHICLE_TYPES.map((vtype) => (
-              <option key={vtype} value={vtype}>{vtype === "All" ? t("allTypes", language) : vtype}</option>
-            ))}
-          </select>
-
-          {hasFilters && (
+          {(searchQuery || statusFilter !== "All") && (
             <button
-              onClick={clearFilters}
+              onClick={() => { setSearchQuery(""); setStatusFilter("All"); }}
               className="flex items-center gap-1 px-3 py-2 text-sm text-text-muted hover:text-text-primary transition-colors"
             >
               <X className="w-4 h-4" /> {t("clear", language)}
@@ -282,344 +274,269 @@ export default function TripsPage() {
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={filteredTrips}
-        pageSize={15}
-        emptyMessage={t("noTripsMatch", language)}
-        onRowClick={handleRowClick}
-      />
-
-      {/* ACCEPT MODAL */}
-      <Modal open={showAcceptModal} onClose={() => setShowAcceptModal(false)} title={`${t("acceptTrip", language)} ${selectedTrip?.tripId?.slice(0, 8) || ""}`} size="lg">
-        {selectedTrip && (
-          <div className="space-y-4">
-            <div className="p-4 bg-ops-bg rounded-lg space-y-2 text-sm">
-              <div className="grid grid-cols-2 gap-2">
-                <div><span className="text-text-muted">{t("route", language)}:</span> <span className="text-text-primary">{selectedTrip.stops[0]?.address?.split(",")[0]} → {selectedTrip.stops[1]?.address?.split(",")[0]}</span></div>
-                <div><span className="text-text-muted">{t("scheduled", language)}:</span> <span className="text-text-primary">{new Date(selectedTrip.scheduledAt).toLocaleString()}</span></div>
-                <div><span className="text-text-muted">{t("vehicleType", language)}:</span> <span className="text-text-primary">{selectedTrip.vehicleType}</span></div>
-                <div><span className="text-text-muted">{t("lockedPrice", language)}:</span> <span className="text-text-primary font-semibold">₹{Math.round(selectedTrip.lockedPrice)}</span></div>
-              </div>
-            </div>
-
-            <button
-              onClick={autoAssign}
-              className="w-full px-3 py-2 bg-brand-blue/10 text-brand-blue text-sm rounded-lg font-medium hover:bg-brand-blue/20 transition-colors flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              {t("autoAssignBest", language)}
-            </button>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">
-                  {t("assignDriver", language)} <span className="text-danger">*</span>
-                </label>
-                <select
-                  value={acceptDriverId}
-                  onChange={(e) => setAcceptDriverId(e.target.value)}
-                  className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-                >
-                  {availableDrivers.length === 0 && <option value="">{t("noAvailableDrivers", language)}</option>}
-                  {availableDrivers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} — ★ {d.rating || "—"}
-                    </option>
-                  ))}
-                </select>
-                {acceptDriverId && (() => {
-                  const d = drivers.find((x) => x.id === acceptDriverId);
-                  return d ? (
-                    <div className="mt-1.5 flex items-center gap-2 text-xs text-text-muted">
-                      <span className="bg-ops-bg px-2 py-0.5 rounded">📞 {d.phone}</span>
-                      {d.assignedVehicleIds?.length ? (
-                        <span className="bg-ops-bg px-2 py-0.5 rounded">🚗 {d.assignedVehicleIds.length} {t("vehicle", language).toLowerCase()}(s)</span>
-                      ) : null}
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-2">
-                  {t("assignVehicle", language)} <span className="text-danger">*</span>
-                </label>
-                <select
-                  value={acceptVehicleId}
-                  onChange={(e) => setAcceptVehicleId(e.target.value)}
-                  className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-                >
-                  {vendorVehicles.length === 0 && <option value="">{t("noVehiclesAvailable", language)}</option>}
-                  {vendorVehicles.map((v) => {
-                    const vTypeName = vehicleTypes.find((vt) => vt.id === v.vehicleTypeId)?.name;
-                    return (
-                      <option key={v.id} value={v.id}>
-                        {v.registrationNo} — {v.make} {v.model}{vTypeName ? ` (${vTypeName})` : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-                {acceptVehicleId && (() => {
-                  const v = vehicles.find((x) => x.id === acceptVehicleId);
-                  return v ? (
-                    <div className="mt-1.5 flex items-center gap-2 text-xs text-text-muted">
-                      <span className="bg-ops-bg px-2 py-0.5 rounded">👤 {t("seats", language)} {v.seatingCapacity}</span>
-                      <span className="bg-ops-bg px-2 py-0.5 rounded">{v.fuelType}</span>
-                      {v.ac ? <span className="bg-ops-bg px-2 py-0.5 rounded">❄️ {t("ac", language)}</span> : null}
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={handleAccept}
-                disabled={!acceptDriverId || !acceptVehicleId || isProcessing}
-                className="flex-1 px-4 py-2.5 bg-success text-white rounded-lg font-medium text-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isProcessing ? `${t("accepting", language)}...` : t("confirmAccept", language)}
-              </button>
-              <button
-                onClick={() => setShowAcceptModal(false)}
-                className="px-4 py-2.5 border border-border text-text-primary rounded-lg font-medium text-sm hover:bg-ops-bg transition-colors"
-              >
-                {t("cancel", language)}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
-
-      {/* DECLINE MODAL */}
-      <Modal open={showDeclineModal} onClose={() => setShowDeclineModal(false)} title={`${t("declineTrip", language)} ${selectedTrip?.tripId?.slice(0, 8) || ""}`}>
-        {selectedTrip && (
-          <div className="space-y-4">
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-xs text-amber-800">
-                ⚠ {t("operatorWillBeNotified", language)}
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">{t("reasonRequired", language)}</label>
-              <select
-                value={declineReason}
-                onChange={(e) => setDeclineReason(e.target.value)}
-                className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-              >
-                <option value={t("noDriversAvailableReason", language)}>{t("noDriversAvailableReason", language)}</option>
-                <option value={t("noVehiclesAvailableReason", language)}>{t("noVehiclesAvailableReason", language)}</option>
-                <option value={t("locationOutOfCoverage", language)}>{t("locationOutOfCoverage", language)}</option>
-                <option value={t("schedulingConflict", language)}>{t("schedulingConflict", language)}</option>
-              </select>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={handleDecline}
-                disabled={isProcessing}
-                className="flex-1 px-4 py-2.5 bg-danger text-white rounded-lg font-medium text-sm hover:bg-danger/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isProcessing ? `${t("rejecting", language)}...` : t("confirmReject", language)}
-              </button>
-              <button
-                onClick={() => setShowDeclineModal(false)}
-                className="px-4 py-2.5 border border-border text-text-primary rounded-lg font-medium text-sm hover:bg-ops-bg transition-colors"
-              >
-                {t("cancel", language)}
-              </button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {isLoading ? (
+        <div className="text-center py-8 text-text-muted text-sm">Loading trips…</div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={filteredTrips}
+          pageSize={15}
+          emptyMessage={t("noTripsMatch", language)}
+          onRowClick={(trip) => { setSelectedTripId(trip.id); setShowDetailDrawer(true); }}
+        />
+      )}
 
       {/* TRIP DETAIL DRAWER */}
-      <Drawer open={showDetailDrawer} onClose={() => setShowDetailDrawer(false)} title={t("tripDetails", language)} width="max-w-xl">
-        {selectedTrip && (
+      <Drawer open={showDetailDrawer} onClose={() => { setShowDetailDrawer(false); setSelectedTripId(null); }} title={t("tripDetails", language)} width="max-w-2xl">
+        {selectedTripId && tripDetail && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-sm text-text-muted">{selectedTrip.tripId}</span>
-              <StatusBadge status={selectedTrip.status} size="md" />
+              <span className="font-mono text-sm text-text-muted">{tripDetail.id}</span>
+              <StatusBadge status={tripDetail.status} size="md" />
             </div>
 
-            <div>
-              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">{t("route", language)}</h4>
-              <div className="space-y-3">
-                {selectedTrip.stops.map((stop, idx) => (
-                  <div key={idx} className="flex items-start gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-3 h-3 rounded-full ${idx === 0 ? "bg-success" : idx === selectedTrip.stops.length - 1 ? "bg-danger" : "bg-warning"} mt-1`} />
-                      {idx < selectedTrip.stops.length - 1 && <div className="w-0.5 h-8 bg-border" />}
-                    </div>
-                    <div>
-                      <p className="text-sm text-text-primary font-medium">{stop.address}</p>
-                      <p className="text-xs text-text-muted">
-                        {stop.locationType} · {stop.type}
-                        {stop.plannedTime && ` · ${new Date(stop.plannedTime).toLocaleTimeString()}`}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">{t("routeMap", language)}</h4>
-              <TripMapViewWrapper stops={selectedTrip.stops} />
-            </div>
-
-            <div>
-              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
-                {tripDriver && tripVehicle ? t("assignedCrew", language) : t("assignment", language)}
-              </h4>
-              <div className={`p-4 rounded-lg ${tripDriver && tripVehicle ? "bg-emerald-50 border border-emerald-200" : "bg-ops-bg"}`}>
-                {tripDriver && tripVehicle && (
-                  <div className="flex items-center gap-2 mb-3">
-                    <CheckCircle className="w-4 h-4 text-success" />
-                    <span className="text-xs font-medium text-success">{t("driverVehicleAssigned", language)}</span>
-                  </div>
-                )}
-                <div className="space-y-3 text-sm">
-                  {tripDriver ? (
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-brand-blue/10 flex items-center justify-center shrink-0">
-                        <User className="w-4 h-4 text-brand-blue" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-text-muted">{t("driver", language)}</p>
-                        <p className="text-text-primary font-medium"><PiiField value={tripDriver.name} /></p>
-                        <p className="text-xs text-text-muted"><PiiField value={tripDriver.phone} /></p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-text-muted">
-                      <User className="w-4 h-4" />
-                      <span className="text-sm">{t("noDriverAssigned", language)}</span>
-                    </div>
-                  )}
-                  <div className="border-t border-border/50" />
-                  {tripVehicle ? (
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-                        <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-xs text-text-muted">{t("vehicle", language)}</p>
-                        <p className="text-text-primary font-medium">{tripVehicle.registrationNo}</p>
-                        <p className="text-xs text-text-muted">{tripVehicle.make} {tripVehicle.model} · {tripVehicle.seatingCapacity} {t("seats", language).toLowerCase()} · {tripVehicle.fuelType}{tripVehicle.ac ? ` · ${t("ac", language)}` : ""}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-text-muted">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      <span className="text-sm">{t("noVehicleAssigned", language)}</span>
-                    </div>
-                  )}
-                  <div className="border-t border-border/50" />
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-text-muted">{t("vehicleType", language)}</span>
-                      <p className="text-text-primary font-medium">{selectedTrip.vehicleType}</p>
-                    </div>
-                    <div>
-                      <span className="text-text-muted">{t("scheduled", language)}</span>
-                      <p className="text-text-primary font-medium">{new Date(selectedTrip.scheduledAt).toLocaleDateString()}</p>
-                      <p className="text-text-muted">{new Date(selectedTrip.scheduledAt).toLocaleTimeString()}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">{t("pricing", language)}</h4>
-              <div className="p-3 bg-ops-bg rounded-lg">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-text-muted">{t("lockedPrice", language)}</span>
-                  <span className="text-text-primary font-semibold">₹{Math.round(selectedTrip.lockedPrice)}</span>
-                </div>
-                <p className="text-xs text-success">✓ {t("priceLockedAtQuote", language)}{selectedTrip.lockedRateCardVersion}</p>
-              </div>
-            </div>
-
-            {selectedTrip.status === "COMPLETED" && (
-              <div>
-                <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">{t("billingSection", language)}</h4>
-                <div className="p-3 bg-ops-bg rounded-lg space-y-1.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-muted">{t("grossFare", language)}</span>
-                    <span className="text-text-primary">₹{Math.round(selectedTrip.lockedPrice)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-text-muted">{t("operatorFee", language)}</span>
-                    <span className="text-danger">-₹{Math.round(selectedTrip.lockedPrice * 0.15)}</span>
-                  </div>
-                  <div className="border-t border-border pt-1.5 flex justify-between text-sm font-semibold">
-                    <span className="text-text-primary">{t("netToVendor", language)}</span>
-                    <span className="text-success">₹{Math.round(selectedTrip.lockedPrice * 0.85)}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => { setShowDetailDrawer(false); setSelectedTrip(selectedTrip); setShowReceiptModal(true); }}
-                  className="mt-2 w-full px-3 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Receipt className="w-4 h-4" /> {t("viewReceipt", language)}
-                </button>
-              </div>
+            {tripDetail.reference && (
+              <p className="text-xs text-text-muted">Ref: {tripDetail.reference}</p>
             )}
 
-            {selectedTrip.vendorDeclineLog && selectedTrip.vendorDeclineLog.length > 0 && (
+            {tripDetail.stops.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">{t("dispatchHistory", language)}</h4>
-                <div className="space-y-2">
-                  {selectedTrip.vendorDeclineLog.map((entry: { vendorId: string; reason: string; declinedAt: string }, idx: number) => (
-                    <div key={idx} className="flex items-start gap-2 text-xs p-2 bg-amber-50 rounded-lg">
-                      <div className="w-1.5 h-1.5 rounded-full bg-warning mt-1.5 shrink-0" />
+                <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">{t("route", language)}</h4>
+                <div className="space-y-3">
+                  {tripDetail.stops.map((stop, idx) => (
+                    <div key={idx} className="flex items-start gap-3">
+                      <div className="flex flex-col items-center">
+                        <div className={`w-3 h-3 rounded-full mt-1 ${idx === 0 ? "bg-success" : idx === tripDetail.stops.length - 1 ? "bg-danger" : "bg-warning"}`} />
+                        {idx < tripDetail.stops.length - 1 && <div className="w-0.5 h-8 bg-border" />}
+                      </div>
                       <div>
-                        <p className="text-amber-800 font-medium">{getVendorName(entry.vendorId)} {t("declined", language)}</p>
-                        <p className="text-amber-600">{entry.reason} · {new Date(entry.declinedAt).toLocaleTimeString()}</p>
+                        <p className="text-sm text-text-primary font-medium">{stop.address}</p>
+                        <p className="text-xs text-text-muted">
+                          {stop.locationType} · {stop.type}
+                          {stop.plannedTime && ` · ${new Date(stop.plannedTime).toLocaleTimeString()}`}
+                        </p>
                       </div>
                     </div>
                   ))}
                 </div>
+                <div className="mt-4">
+                  <TripMapViewWrapper stops={tripDetail.stops.map((s) => ({
+                    address: s.address,
+                    lat: s.lat,
+                    lng: s.lng,
+                    type: s.type as "PICKUP" | "DROP" | "WAYPOINT",
+                    locationType: s.locationType as "AIRPORT" | "RAIL" | "HOTEL" | "CITY" | "ADDRESS",
+                    plannedTime: s.plannedTime,
+                  }))} />
+                </div>
               </div>
             )}
 
-            {(selectedTrip.status === "ASSIGNED" || selectedTrip.status === "PENDING") && (
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => { setShowDetailDrawer(false); handleAcceptClick(selectedTrip); }}
-                  className="flex-1 px-4 py-2.5 bg-success text-white rounded-lg font-medium text-sm hover:bg-success/90 transition-colors flex items-center justify-center gap-2"
-                >
-                  <CheckCircle className="w-4 h-4" /> {t("accept", language)}
-                </button>
-                <button
-                  onClick={() => { setShowDetailDrawer(false); handleDeclineClick(selectedTrip); }}
-                  className="flex-1 px-4 py-2.5 bg-danger/10 text-danger rounded-lg font-medium text-sm hover:bg-danger/20 transition-colors flex items-center justify-center gap-2"
-                >
-                  <XCircle className="w-4 h-4" /> {t("decline", language)}
-                </button>
+            {tripDetail.vehicles.length > 0 && (
+              <div>
+                <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Vehicles</h4>
+                <div className="space-y-3">
+                  {tripDetail.vehicles.map((tv, idx) => {
+                    const currentStatus = tv.status;
+                    const availableTargets = TRANSITION_TARGETS[currentStatus] ?? [];
+                    const canReassign = ACTIVE_STATUSES.has(currentStatus);
+                    const isTerminal = TERMINAL_STATUSES.has(currentStatus);
+
+                    return (
+                      <div key={tv.id} className="p-4 bg-ops-bg rounded-xl space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-text-muted font-mono">Vehicle {idx + 1}</span>
+                            <StatusBadge status={tv.status} />
+                          </div>
+                          {!isTerminal && canReassign && (
+                            <button
+                              onClick={() => {
+                                setReassignVehicleId(tv.vehicleId ?? "");
+                                setReassignDriverId(tv.driverId ?? "");
+                                setShowReassignModal({ tripId: tripDetail.id, vehicleId: tv.id });
+                              }}
+                              className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors font-medium"
+                            >
+                              <RefreshCw className="w-3 h-3" /> Reassign
+                            </button>
+                          )}
+                        </div>
+
+                        {tv.vehicleId && (
+                          <p className="text-xs text-text-muted">
+                            Fleet Vehicle: <span className="font-mono text-text-primary">{tv.vehicleId}</span>
+                          </p>
+                        )}
+                        {tv.driverId && (
+                          <p className="text-xs text-text-muted">
+                            Driver: <span className="font-mono text-text-primary">{tv.driverId}</span>
+                          </p>
+                        )}
+                        {tv.lockedPriceMinor != null && tv.lockedPriceCurrency && (
+                          <p className="text-sm font-semibold text-text-primary">
+                            {formatMoney(tv.lockedPriceMinor, tv.lockedPriceCurrency)}
+                          </p>
+                        )}
+
+                        {!isTerminal && availableTargets.length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {availableTargets.map((target) => {
+                              const needsOtp = !!OTP_PHASES[target];
+                              return (
+                                <button
+                                  key={target}
+                                  onClick={() => handleTransition(tripDetail.id, tv.id, target)}
+                                  disabled={transitionMutation.isPending}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
+                                    target === "DRIVER_ACCEPTED"
+                                      ? "bg-success/10 text-success border border-success/30 hover:bg-success/20"
+                                      : "bg-brand-blue/10 text-brand-blue border border-brand-blue/20 hover:bg-brand-blue/20"
+                                  }`}
+                                >
+                                  {needsOtp && <Key className="w-3 h-3" />}
+                                  {target === "DRIVER_ACCEPTED" ? <CheckCircle className="w-3 h-3" /> : null}
+                                  {target.replace(/_/g, " ")}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
+        )}
+        {selectedTripId && !tripDetail && (
+          <div className="text-center py-8 text-text-muted text-sm">Loading trip details…</div>
         )}
       </Drawer>
 
-      {/* RECEIPT MODAL */}
-      <ReceiptModal
-        open={showReceiptModal}
-        onClose={() => setShowReceiptModal(false)}
-        trip={selectedTrip}
-        vendorName={getVendorName(vendorSession.vendorId)}
-      />
+      {/* REASSIGN MODAL */}
+      {showReassignModal && (
+        <Modal
+          open={!!showReassignModal}
+          onClose={() => { setShowReassignModal(null); setReassignVehicleId(""); setReassignDriverId(""); setReassignReason(""); }}
+          title="Reassign Vehicle & Driver"
+          size="lg"
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-text-muted">
+              Select a replacement vehicle and driver from your fleet. The current assignment will be replaced.
+            </p>
+
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">Vehicle <span className="text-danger">*</span></label>
+              <select
+                value={reassignVehicleId}
+                onChange={(e) => setReassignVehicleId(e.target.value)}
+                className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+              >
+                <option value="">Select vehicle…</option>
+                {fleetVehicles.filter((v) => v.active !== false).map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.registrationNo} — {v.make} {v.model}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">Driver <span className="text-danger">*</span></label>
+              <select
+                value={reassignDriverId}
+                onChange={(e) => setReassignDriverId(e.target.value)}
+                className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+              >
+                <option value="">Select driver…</option>
+                {fleetDrivers.filter((d) => d.available !== false && d.active !== false).map((d) => (
+                  <option key={d.id} value={d.id}>{d.name} — {d.phone}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">Reason</label>
+              <input
+                type="text"
+                value={reassignReason}
+                onChange={(e) => setReassignReason(e.target.value)}
+                placeholder="e.g. Vehicle breakdown, driver unavailable…"
+                className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  if (!showReassignModal || !reassignVehicleId || !reassignDriverId) return;
+                  assignMutation.mutate({
+                    tripId: showReassignModal.tripId,
+                    vehicleId: showReassignModal.vehicleId,
+                    fleetVehicleId: reassignVehicleId,
+                    driverId: reassignDriverId,
+                  });
+                }}
+                disabled={!reassignVehicleId || !reassignDriverId || assignMutation.isPending}
+                className="flex-1 px-4 py-2.5 bg-brand-blue text-white rounded-lg font-medium text-sm hover:bg-brand-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {assignMutation.isPending ? "Reassigning…" : "Confirm Reassign"}
+              </button>
+              <button
+                onClick={() => { setShowReassignModal(null); setReassignVehicleId(""); setReassignDriverId(""); setReassignReason(""); }}
+                className="px-4 py-2.5 border border-border text-text-primary rounded-lg font-medium text-sm hover:bg-ops-bg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* OTP MODAL */}
+      {otpModal && (
+        <Modal
+          open={!!otpModal}
+          onClose={() => { setOtpModal(null); setOtpValue(""); }}
+          title={`OTP Verification — ${otpModal.phase.charAt(0).toUpperCase() + otpModal.phase.slice(1)}`}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 p-3 bg-brand-blue/5 rounded-lg">
+              <Key className="w-4 h-4 text-brand-blue" />
+              <p className="text-sm text-text-primary">Enter the OTP provided by the passenger to confirm {otpModal.phase}.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-primary mb-2">OTP Code</label>
+              <input
+                type="text"
+                value={otpValue}
+                onChange={(e) => setOtpValue(e.target.value)}
+                placeholder="Enter OTP…"
+                maxLength={6}
+                className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-brand-blue/30 text-center text-lg"
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={handleOtpSubmit}
+                disabled={!otpValue.trim() || otpMutation.isPending}
+                className="flex-1 px-4 py-2.5 bg-success text-white rounded-lg font-medium text-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {otpMutation.isPending ? "Verifying…" : "Verify OTP"}
+              </button>
+              <button
+                onClick={() => { setOtpModal(null); setOtpValue(""); }}
+                className="px-4 py-2.5 border border-border text-text-primary rounded-lg font-medium text-sm hover:bg-ops-bg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

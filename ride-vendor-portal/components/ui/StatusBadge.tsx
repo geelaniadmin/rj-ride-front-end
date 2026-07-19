@@ -79,7 +79,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = "sm" })
   const language = useLanguageStore((s) => s.language);
   const style = STATUS_STYLES[status] || "bg-gray-100 text-gray-600";
   const key = STATUS_KEYS[status];
-  const label = key ? t(key as any, language) : status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const label = key ? t(key as Parameters<typeof t>[0], language) : status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const px = size === "sm" ? "px-2 py-0.5" : "px-3 py-1";
   return (
     <span className={`inline-block ${px} rounded-full text-xs font-medium ${style}`}>

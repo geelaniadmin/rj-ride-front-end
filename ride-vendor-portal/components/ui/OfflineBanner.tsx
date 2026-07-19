@@ -10,9 +10,6 @@ export const OfflineBanner: React.FC = () => {
   const handleOffline = useCallback(() => setIsOffline(true), []);
 
   useEffect(() => {
-    // Initial state
-    setIsOffline(!navigator.onLine);
-
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 

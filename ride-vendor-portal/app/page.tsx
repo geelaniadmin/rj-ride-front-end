@@ -1,85 +1,95 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import Link from "next/link";
-import { useSessionStore, useVendorInfoStore, useDriverStore, useLanguageStore, t } from "@ride/shared";
-import { useVendorTrips } from "@/hooks/useVendorTrips";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient, keys, useSession, useLanguageStore, t } from "@ride/shared";
+import type { components } from "@ride/shared/api/schema.d";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { PiiField } from "@/components/ui/PiiField";
-import { CalendarCheck, Truck, Users, DollarSign, ArrowRight, Clock, Bell, CircleDollarSign, Percent } from "lucide-react";
+import { CalendarCheck, Truck, Users, DollarSign, ArrowRight, Clock, Bell, CircleDollarSign } from "lucide-react";
+
+type TripSummary = components["schemas"]["TripSummary"];
+type Vehicle = components["schemas"]["Vehicle"];
+type Driver = components["schemas"]["Driver"];
+
+const ACTIVE_STATUSES = new Set([
+  "EN_ROUTE_PICKUP", "AT_PICKUP", "PAX_PICKED", "IN_TRANSIT", "AT_DROP",
+]);
+
+const NEEDS_ATTENTION_STATUSES = new Set(["ASSIGNED", "DRIVER_ACCEPTED"]);
 
 export default function DashboardPage() {
-  const vendorSession = useSessionStore((s) => s.vendorSession);
-  const getVendorName = useVendorInfoStore((s) => s.getVendorName);
+  const { user } = useSession();
   const language = useLanguageStore((s) => s.language);
 
-  if (!vendorSession) return null;
+  const { data: trips = [] } = useQuery({
+    queryKey: keys.trips.list({}),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/trips", {
+        params: { query: {} },
+      });
+      if (err) throw err;
+      return (res?.result?.results ?? []) as TripSummary[];
+    },
+    staleTime: 30_000,
+  });
 
-  const vendorId = vendorSession.vendorId;
-  const drivers = useDriverStore((s) => s.drivers);
+  const { data: vehicles = [] } = useQuery({
+    queryKey: keys.fleet.vehicles.list({}),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/fleet/vehicles", {});
+      if (err) throw err;
+      return (res?.result ?? []) as Vehicle[];
+    },
+    staleTime: 60_000,
+  });
 
-  const {
-    vendorTrips,
-    tripsToday,
-    activeNow,
-    driversOnDuty,
-    earningsToday,
-    needingAttention,
-    activeTrips,
-    recentEvents,
-  } = useVendorTrips(vendorId);
+  const { data: drivers = [] } = useQuery({
+    queryKey: keys.fleet.drivers.list({}),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/fleet/drivers", {});
+      if (err) throw err;
+      return (res?.result ?? []) as Driver[];
+    },
+    staleTime: 60_000,
+  });
 
-  // Fleet status bar
-  const vendorDrivers = useMemo(
-    () => drivers.filter((d) => d.vendorId === vendorId),
-    [drivers, vendorId]
-  );
-  const totalDrivers = vendorDrivers.length;
-  const availableDrivers = vendorDrivers.filter((d) => d.available && d.active).length;
-  const onTripDrivers = vendorDrivers.filter((d) => !d.available && d.active).length;
-  const offlineDrivers = vendorDrivers.filter((d) => !d.active).length;
+  const today = new Date().toDateString();
+  const tripsToday = trips.filter((t) => new Date(t.createdAt).toDateString() === today).length;
+  const activeNow = trips.filter((t) => ACTIVE_STATUSES.has(t.status)).length;
+  const needingAttention = trips.filter((t) => NEEDS_ATTENTION_STATUSES.has(t.status));
+  const activeTrips = trips.filter((t) => ACTIVE_STATUSES.has(t.status));
+
+  const totalDrivers = drivers.length;
+  const availableDrivers = drivers.filter((d) => d.available !== false && d.active !== false).length;
+  const onTripDrivers = drivers.filter((d) => d.available === false && d.active !== false).length;
+  const offlineDrivers = drivers.filter((d) => d.active === false).length;
 
   const availablePct = totalDrivers > 0 ? Math.round((availableDrivers / totalDrivers) * 100) : 0;
   const onTripPct = totalDrivers > 0 ? Math.round((onTripDrivers / totalDrivers) * 100) : 0;
   const offlinePct = totalDrivers > 0 ? Math.round((offlineDrivers / totalDrivers) * 100) : 0;
 
-  // Acceptance rate KPI
-  const acceptedCount = vendorTrips.filter((t) =>
-    ["DRIVER_ACCEPTED", "EN_ROUTE_PICKUP", "AT_PICKUP", "PAX_PICKED", "IN_TRANSIT", "AT_DROP", "PAX_DROPPED", "COMPLETED"].includes(t.status)
-  ).length;
-  const totalResponded = acceptedCount + vendorTrips.filter((t) => t.status === "CANCELLED").length;
-  const acceptanceRate = totalResponded > 0 ? Math.round((acceptedCount / totalResponded) * 100) : 0;
-
-  const acceptanceColor =
-    acceptanceRate >= 90 ? "text-success" : acceptanceRate >= 70 ? "text-warning" : "text-danger";
+  const displayName = user?.email?.split("@")[0] ?? "Vendor";
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-text-primary">
-          {t("welcomeBack", language)}, {getVendorName(vendorId)}
+          {t("welcomeBack", language)}, {displayName}
         </h2>
         <p className="text-sm text-text-muted mt-1">
           {t("realtimeDataShared", language)}
         </p>
       </div>
 
-      {/* KPI Cards - 5 cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label={t("tripsToday", language)} value={tripsToday} icon={CalendarCheck} accentColor="text-brand-blue" />
         <KpiCard label={t("activeNow", language)} value={activeNow} icon={Truck} accentColor="text-success" />
-        <KpiCard label={t("driversOnDuty", language)} value={driversOnDuty} icon={Users} accentColor="text-warning" />
-        <KpiCard label={t("earningsToday", language)} value={`₹${earningsToday}`} icon={DollarSign} accentColor="text-brand-blue" />
-        <KpiCard
-          label={t("acceptanceRate", language)}
-          value={`${totalResponded > 0 ? acceptanceRate : "—"}${totalResponded > 0 ? "%" : ""}`}
-          icon={Percent}
-          accentColor={acceptanceColor}
-        />
+        <KpiCard label={t("driversOnDuty", language)} value={availableDrivers} icon={Users} accentColor="text-warning" />
+        <KpiCard label="Fleet Vehicles" value={vehicles.filter((v) => v.active !== false).length} icon={DollarSign} accentColor="text-brand-blue" />
       </div>
 
-      {/* Quick actions row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Link
           href="/trips?status=ASSIGNED"
@@ -134,7 +144,6 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Fleet Status Bar */}
       {totalDrivers > 0 && (
         <div className="bg-card-bg border border-card-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
@@ -147,52 +156,27 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          {/* Segmented bar */}
           <div className="h-4 w-full rounded-full overflow-hidden flex">
             {availableDrivers > 0 && (
-              <div
-                className="bg-success transition-all duration-500"
-                style={{ width: `${availablePct}%` }}
-                title={`${availableDrivers} ${t("available", language)} (${availablePct}%)`}
-              />
+              <div className="bg-success transition-all duration-500" style={{ width: `${availablePct}%` }} />
             )}
             {onTripDrivers > 0 && (
-              <div
-                className="bg-warning transition-all duration-500"
-                style={{ width: `${onTripPct}%` }}
-                title={`${onTripDrivers} ${t("onTrip", language)} (${onTripPct}%)`}
-              />
+              <div className="bg-warning transition-all duration-500" style={{ width: `${onTripPct}%` }} />
             )}
             {offlineDrivers > 0 && (
-              <div
-                className="bg-text-muted transition-all duration-500"
-                style={{ width: `${offlinePct}%` }}
-                title={`${offlineDrivers} ${t("offline", language)} (${offlinePct}%)`}
-              />
+              <div className="bg-text-muted transition-all duration-500" style={{ width: `${offlinePct}%` }} />
             )}
           </div>
 
-          {/* Legend */}
           <div className="flex items-center gap-5 mt-3 text-xs text-text-muted">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-success" />
-              <span>{t("available", language)} ({availableDrivers})</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-warning" />
-              <span>{t("onTrip", language)} ({onTripDrivers})</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-text-muted" />
-              <span>{t("offline", language)} ({offlineDrivers})</span>
-            </div>
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-success" /><span>{t("available", language)} ({availableDrivers})</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-warning" /><span>{t("onTrip", language)} ({onTripDrivers})</span></div>
+            <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-text-muted" /><span>{t("offline", language)} ({offlineDrivers})</span></div>
           </div>
         </div>
       )}
 
-      {/* Trips columns */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Trips Needing Attention */}
         <div className="bg-card-bg border border-card-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-text-primary flex items-center gap-2">
@@ -212,32 +196,23 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {needingAttention.slice(0, 5).map((trip) => (
-                <div key={trip.tripId} className="flex items-center justify-between bg-ops-bg p-3 rounded-lg text-sm">
+                <div key={trip.id} className="flex items-center justify-between bg-ops-bg p-3 rounded-lg text-sm">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-xs text-text-muted">{trip.tripId.slice(0, 8)}</span>
+                      <span className="font-mono text-xs text-text-muted">{trip.id.slice(0, 8)}</span>
                       <StatusBadge status={trip.status} />
                     </div>
-                    <p className="text-xs text-text-muted truncate">
-                      {trip.stops[0]?.address || "?"} → {trip.stops[1]?.address || "?"}
-                    </p>
+                    <p className="text-xs text-text-muted truncate">{trip.pickupAddress ?? "—"}</p>
                   </div>
-                  <div className="text-right ml-4">
-                    <p className="font-semibold">₹{Math.round(trip.lockedPrice)}</p>
-                    <Link
-                      href={`/trips`}
-                      className="text-xs text-brand-blue hover:underline"
-                    >
-                      {trip.status === "ASSIGNED" ? `${t("accept", language)} / ${t("decline", language)}` : t("view", language)}
-                    </Link>
-                  </div>
+                  <Link href="/trips" className="text-xs text-brand-blue hover:underline shrink-0 ml-4">
+                    Acknowledge
+                  </Link>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Active Trips */}
         <div className="bg-card-bg border border-card-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-text-primary flex items-center gap-2">
@@ -254,20 +229,15 @@ export default function DashboardPage() {
           ) : (
             <div className="space-y-2">
               {activeTrips.slice(0, 5).map((trip) => (
-                <div key={trip.tripId} className="flex items-center justify-between bg-ops-bg p-3 rounded-lg text-sm">
+                <div key={trip.id} className="flex items-center justify-between bg-ops-bg p-3 rounded-lg text-sm">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-xs text-text-muted">{trip.tripId.slice(0, 8)}</span>
+                      <span className="font-mono text-xs text-text-muted">{trip.id.slice(0, 8)}</span>
                       <StatusBadge status={trip.status} />
                     </div>
-                    <p className="text-xs text-text-muted truncate">
-                      {trip.stops[0]?.address || "?"} → {trip.stops[1]?.address || "?"}
-                    </p>
+                    <p className="text-xs text-text-muted truncate">{trip.pickupAddress ?? "—"}</p>
                   </div>
-                  <Link
-                    href="/trips"
-                    className="text-xs text-brand-blue hover:underline shrink-0 ml-4"
-                  >
+                  <Link href="/trips" className="text-xs text-brand-blue hover:underline shrink-0 ml-4">
                     {t("track", language)}
                   </Link>
                 </div>
@@ -275,26 +245,6 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Activity feed */}
-      <div className="bg-card-bg border border-card-border rounded-xl p-5">
-        <h3 className="font-semibold text-text-primary mb-4">{t("recentActivity", language)}</h3>
-        {recentEvents.length === 0 ? (
-          <p className="text-sm text-text-muted text-center py-3">{t("noRecentActivity", language)}</p>
-        ) : (
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {recentEvents.map((event) => (
-              <div key={event.id} className="flex items-center gap-3 text-sm text-text-secondary py-1">
-                <span className="w-2 h-2 rounded-full bg-brand-blue shrink-0" />
-                <span className="capitalize text-xs font-medium">{event.type.replace(/_/g, " ")}</span>
-                <span className="text-xs text-text-muted">
-                  {new Date(event.timestamp).toLocaleTimeString()}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

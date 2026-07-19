@@ -40,7 +40,7 @@ export const PageSkeleton: React.FC<PageSkeletonProps> = ({ title = "", kpiCount
           <div
             key={i}
             className="h-10 bg-ops-bg rounded mb-2"
-            style={{ width: `${70 + Math.random() * 30}%` }}
+            style={{ width: `${70 + ((i * 17) % 30)}%` }}
           />
         ))}
       </div>

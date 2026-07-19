@@ -49,8 +49,8 @@ export const EarningsChart: React.FC<EarningsChartProps> = ({ data }) => {
               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
               fontSize: "13px",
             }}
-            formatter={(value: any) => [`₹${(value as number).toLocaleString()}`, t('earnings', language)]}
-            labelFormatter={(label: any) => `${t('date', language)}: ${label}`}
+            formatter={(value) => [`₹${Number(value ?? 0).toLocaleString()}`, t('earnings', language)]}
+            labelFormatter={(label) => `${t('date', language)}: ${String(label ?? "")}`}
           />
           <Bar dataKey="earnings" radius={[4, 4, 0, 0]} maxBarSize={48}>
             {data.map((_, idx) => (

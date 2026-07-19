@@ -20,6 +20,7 @@ interface DataTableProps<T> {
   onRowClick?: (item: T) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function DataTable<T extends Record<string, any>>({
   columns,
   data,
@@ -102,7 +103,7 @@ export function DataTable<T extends Record<string, any>>({
           <tbody>
             {paged.map((item, idx) => (
               <tr
-                key={(item as any).id || (item as any).tripId || idx}
+                key={(item as Record<string, unknown>).id as string || (item as Record<string, unknown>).tripId as string || idx}
                 className={`border-b border-border/50 last:border-0 hover:bg-ops-bg/50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
                 onClick={() => onRowClick?.(item)}
               >

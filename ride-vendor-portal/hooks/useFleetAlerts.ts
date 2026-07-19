@@ -16,7 +16,6 @@ export function useFleetAlerts(vendorId: string) {
     const vendorDrivers = drivers.filter((d) => d.vendorId === vendorId && d.active);
 
     const now = new Date();
-    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
     // Check vehicle documents
     for (const vehicle of vendorVehicles) {
