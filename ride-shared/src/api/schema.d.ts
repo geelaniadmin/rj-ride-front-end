@@ -11,25 +11,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Obtain CSRF token (sets csrftoken cookie) */
-        get: operations["getCsrfToken"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Return authenticated user session */
-        get: operations["getMe"];
+        /**
+         * @description GET /api/v1/auth/csrf/ — set the CSRF cookie so SPAs can read it before login POST.
+         *
+         *     The browser must call this once before any state-mutating request when the SPA is
+         *     on a different origin from the server and cannot rely on an existing cookie. Returns
+         *     204 with no body; the side effect is the Set-Cookie header (CSRF_COOKIE_HTTPONLY=False
+         *     so JS can read the value).
+         */
+        get: operations["auth_csrf_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -47,8 +37,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Email + password login */
-        post: operations["login"];
+        /** @description POST /api/v1/auth/login/ — email + password, optional tenant_slug. */
+        post: operations["auth_login_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -64,8 +54,33 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Invalidate session */
-        post: operations["logout"];
+        /**
+         * @description POST /api/v1/auth/logout/. POST, not GET: a GET logout is CSRF-triggerable from an
+         *     <img> tag, and DRF exempts GET from CSRF checks.
+         */
+        post: operations["auth_logout_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description GET /api/v1/auth/me/ — the caller's own record, always with raw PII (it is theirs).
+         *
+         *     Returns {id, name, email, role, vendor_id, tenant: {id, name, currency}} plus
+         *     is_active and created_at.
+         */
+        get: operations["auth_me_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -81,406 +96,29 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Obtain a short-lived WebSocket auth ticket */
-        post: operations["getWsTicket"];
+        /**
+         * @description POST /api/v1/auth/ws-ticket/ — issue a single-use 30-second WS upgrade ticket.
+         *
+         *     The SPA calls this (session-authenticated) right before opening the WebSocket.  The
+         *     returned token is passed as ?ticket=<token> on the WS upgrade URL.  The Channels
+         *     auth middleware consumes it via Redis GETDEL — single-use, TTL-bounded.
+         */
+        post: operations["auth_ws_ticket_create"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/config/vendors": {
+    "/v1/billing/billable-trips": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List vendors */
-        get: operations["listVendors"];
-        put?: never;
-        post: operations["createVendor"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/config/vendors/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Soft-delete (deactivate) a vendor */
-        delete: operations["deactivateVendor"];
-        options?: never;
-        head?: never;
-        patch: operations["updateVendor"];
-        trace?: never;
-    };
-    "/v1/config/customers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listCustomers"];
-        put?: never;
-        post: operations["createCustomer"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/config/customers/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Soft-delete (deactivate) a customer */
-        delete: operations["deactivateCustomer"];
-        options?: never;
-        head?: never;
-        patch: operations["updateCustomer"];
-        trace?: never;
-    };
-    "/v1/config/vehicle-types": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listVehicleTypes"];
-        put?: never;
-        post: operations["createVehicleType"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/config/vehicle-types/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["deactivateVehicleType"];
-        options?: never;
-        head?: never;
-        patch: operations["updateVehicleType"];
-        trace?: never;
-    };
-    "/v1/config/pricing/rate-cards": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listConfigRateCards"];
-        put?: never;
-        post: operations["createConfigRateCard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/config/pricing/rate-cards/{id}/supersede": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create a new version superseding an existing rate card */
-        post: operations["supersedeRateCard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/config/pricing/simulate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Simulate a quote using the pricing engine */
-        post: operations["simulateQuote"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List trip requests (cursor-paginated) */
-        get: operations["listTrips"];
-        put?: never;
-        /** Book a trip (send priceIds locked from quote) */
-        post: operations["createTrip"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getTrip"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["updateTrip"];
-        trace?: never;
-    };
-    "/v1/trips/{id}/check-cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Preview cancellation penalty before confirming */
-        post: operations["checkCancelTrip"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips/{id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["cancelTrip"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips/{id}/clone": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Clone a trip with optional overrides */
-        post: operations["cloneTrip"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips/{id}/vehicles/{vehicleId}/transitions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Advance vehicle state machine — 409 if transition not allowed */
-        post: operations["transitionVehicle"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips/{id}/vehicles/{vehicleId}/verify-otp": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Verify OTP for pickup or drop */
-        post: operations["verifyOtp"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips/{id}/vehicles/{vehicleId}/assign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Assign a fleet vehicle and driver to a trip vehicle slot */
-        post: operations["assignVehicleDriver"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips/{id}/adjustments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["createTripAdjustment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips/bulk-validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Phase-1 of bulk upload — per-row verdict */
-        post: operations["bulkValidateTrips"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips/bulk-commit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Phase-2 of bulk upload — commit valid rows */
-        post: operations["bulkCommitTrips"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips/recurring-rules": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List recurring trip rules */
-        get: operations["listRecurringRules"];
-        put?: never;
-        post: operations["createRecurringRule"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/trips/recurring-rules/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["deleteRecurringRule"];
-        options?: never;
-        head?: never;
-        patch: operations["updateRecurringRule"];
-        trace?: never;
-    };
-    "/v1/pricing/quote": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Get priced offers for a set of vehicle type slots */
-        post: operations["getQuote"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/fleet/vehicles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listVehicles"];
+        /** @description Billable trips: list, detail, void line, add adjustment. AGENCY_ADMIN only. */
+        get: operations["billing_billable_trips_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -489,14 +127,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/fleet/vehicles/{id}": {
+    "/v1/billing/billable-trips/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getVehicle"];
+        /** @description Billable trips: list, detail, void line, add adjustment. AGENCY_ADMIN only. */
+        get: operations["billing_billable_trips_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -505,88 +144,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/fleet/drivers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listDrivers"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/fleet/drivers/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getDriver"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/pricing/rate-cards": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listRateCards"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/pricing/rate-cards/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getRateCard"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/dispatch/board": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Kanban board grouped by vehicle status columns */
-        get: operations["getDispatchBoard"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/dispatch/auto-assign": {
+    "/v1/billing/billable-trips/{id}/adjust": {
         parameters: {
             query?: never;
             header?: never;
@@ -595,22 +153,40 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Auto-assign all PENDING vehicles */
-        post: operations["autoAssignAll"];
+        /** @description Billable trips: list, detail, void line, add adjustment. AGENCY_ADMIN only. */
+        post: operations["billing_billable_trips_adjust_create"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/dispatch/assignments": {
+    "/v1/billing/billable-trips/{id}/lines/{line_pk}/void": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["listAssignments"];
+        get?: never;
+        put?: never;
+        /** @description Billable trips: list, detail, void line, add adjustment. AGENCY_ADMIN only. */
+        post: operations["billing_billable_trips_lines_void_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/earnings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Vendor earnings: AGENCY_ADMIN sees all; VENDOR_MANAGER sees own vendor only. */
+        get: operations["billing_earnings_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -619,32 +195,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/tracking/live": {
+    "/v1/billing/earnings/summary": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Current positions of all active tracked vehicles */
-        get: operations["getLivePositions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/tracking/{tripVehicleId}/track": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Path, milestones and ETA for a specific vehicle */
-        get: operations["trackTripVehicle"];
+        /** @description Vendor earnings: AGENCY_ADMIN sees all; VENDOR_MANAGER sees own vendor only. */
+        get: operations["billing_earnings_summary_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -660,10 +219,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List billable invoices */
-        get: operations["listInvoices"];
+        /** @description Vendor invoices: upload+reconcile, list/detail (scoped), resolve a mismatch. */
+        get: operations["billing_invoices_list"];
         put?: never;
-        post?: never;
+        /** @description POST /invoices — upload a CSV/XLSX invoice and reconcile it. */
+        post: operations["billing_invoices_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -677,7 +237,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["getInvoice"];
+        /** @description Vendor invoices: upload+reconcile, list/detail (scoped), resolve a mismatch. */
+        get: operations["billing_invoices_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -686,7 +247,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/billing/invoices/{id}/void": {
+    "/v1/billing/invoices/{id}/matches/{match_pk}/resolve": {
         parameters: {
             query?: never;
             header?: never;
@@ -695,56 +256,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["voidInvoice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/billing/invoices/{id}/adjust": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["adjustInvoice"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/billing/statements": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listStatements"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/billing/statements/{id}/download": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Returns a presigned URL for PDF download */
-        get: operations["downloadStatement"];
-        put?: never;
-        post?: never;
+        /** @description Vendor invoices: upload+reconcile, list/detail (scoped), resolve a mismatch. */
+        post: operations["billing_invoices_matches_resolve_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -758,7 +271,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["listPayouts"];
+        /** @description Payouts: list/detail (scoped), run (create), approve, mark-paid. Mutations AGENCY_ADMIN. */
+        get: operations["billing_payouts_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/payouts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Payouts: list/detail (scoped), run (create), approve, mark-paid. Mutations AGENCY_ADMIN. */
+        get: operations["billing_payouts_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -776,7 +307,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["approvePayout"];
+        /** @description Payouts: list/detail (scoped), run (create), approve, mark-paid. Mutations AGENCY_ADMIN. */
+        post: operations["billing_payouts_approve_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -792,21 +324,1899 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["markPayoutPaid"];
+        /** @description Payouts: list/detail (scoped), run (create), approve, mark-paid. Mutations AGENCY_ADMIN. */
+        post: operations["billing_payouts_mark_paid_create"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/safety/sos": {
+    "/v1/billing/payouts/run": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["listSosEvents"];
+        get?: never;
+        put?: never;
+        /** @description POST /payouts/run — roll up a period's reconciled earnings. AGENCY_ADMIN only. */
+        post: operations["billing_payouts_run_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/statements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Statements: list/detail (scoped), generate, finalize, download. */
+        get: operations["billing_statements_list"];
+        put?: never;
+        /** @description POST /statements — generate (or regenerate) a DRAFT. AGENCY_ADMIN only. */
+        post: operations["billing_statements_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/statements/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Statements: list/detail (scoped), generate, finalize, download. */
+        get: operations["billing_statements_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/statements/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Presigned URL for the finalized PDF (or CSV via ?kind=csv).
+         *
+         *     Named `kind`, not `format`: DRF reserves the `format` query param for content negotiation.
+         */
+        get: operations["billing_statements_download_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/statements/{id}/finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Statements: list/detail (scoped), generate, finalize, download. */
+        post: operations["billing_statements_finalize_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/billing/vouchers/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Voucher download by trip-vehicle id. AGENCY_ADMIN (partners use the partner surface). */
+        get: operations["billing_vouchers_download_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["config_customers_list"];
+        put?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        post: operations["config_customers_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/customers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["config_customers_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        delete: operations["config_customers_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        patch: operations["config_customers_partial_update"];
+        trace?: never;
+    };
+    "/v1/config/pricing/rate-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["config_pricing_rate_cards_list"];
+        put?: never;
+        post: operations["config_pricing_rate_cards_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/pricing/rate-cards/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["config_pricing_rate_cards_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/pricing/rate-cards/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every version of this deal, oldest first. */
+        get: operations["config_pricing_rate_cards_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/pricing/rate-cards/{id}/supersede": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description POST /api/v1/pricing/rate-cards/{id}/supersede/
+         *
+         *     Copy-on-write: a new version, the old one closed and linked. Rate cards are never
+         *     edited in place — an Offer priced from one is evidence of a quote (§1's price-lock
+         *     chain), and editing would rewrite what a customer was told.
+         */
+        post: operations["config_pricing_rate_cards_supersede_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/pricing/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description POST /api/v1/pricing/simulate/ — the fare breakdown, persisting nothing.
+         *
+         *     The §8 simulator: "what would this cost on this card". It returns no price_id and mints
+         *     no Offer, because nothing here is bookable — a what-if that left a real quote behind
+         *     would be litter that looks spendable.
+         */
+        post: operations["config_pricing_simulate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/vehicle-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["config_vehicle_types_list"];
+        put?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        post: operations["config_vehicle_types_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/vehicle-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["config_vehicle_types_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        delete: operations["config_vehicle_types_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        patch: operations["config_vehicle_types_partial_update"];
+        trace?: never;
+    };
+    "/v1/config/vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["config_vendors_list"];
+        put?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        post: operations["config_vendors_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/config/vendors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["config_vendors_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        delete: operations["config_vendors_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        patch: operations["config_vendors_partial_update"];
+        trace?: never;
+    };
+    "/v1/dispatch/auto-assign-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Bulk-assign nearest vehicle to every PENDING TripVehicle in the tenant.
+         *
+         *     A Redis NX lock keyed on tenant_id prevents concurrent double-assignment.
+         */
+        post: operations["dispatch_auto_assign_all_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dispatch/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Return all active TripVehicle cards, grouped by board column. */
+        get: operations["dispatch_board_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/fleet/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_customers_list"];
+        put?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        post: operations["fleet_customers_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/fleet/customers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_customers_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        delete: operations["fleet_customers_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        patch: operations["fleet_customers_partial_update"];
+        trace?: never;
+    };
+    "/v1/fleet/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_documents_list"];
+        put?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        post: operations["fleet_documents_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/fleet/documents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_documents_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        patch: operations["fleet_documents_partial_update"];
+        trace?: never;
+    };
+    "/v1/fleet/drivers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_drivers_list"];
+        put?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        post: operations["fleet_drivers_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/fleet/drivers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_drivers_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        delete: operations["fleet_drivers_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        patch: operations["fleet_drivers_partial_update"];
+        trace?: never;
+    };
+    "/v1/fleet/locations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Read-only. Positions are written by the Traccar poller via
+         *     services.update_vehicle_location (commit 1.5, §16), never by an API client.
+         */
+        get: operations["fleet_locations_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/fleet/vehicle-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_vehicle_types_list"];
+        put?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        post: operations["fleet_vehicle_types_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/fleet/vehicle-types/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_vehicle_types_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        delete: operations["fleet_vehicle_types_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        patch: operations["fleet_vehicle_types_partial_update"];
+        trace?: never;
+    };
+    "/v1/fleet/vehicles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_vehicles_list"];
+        put?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        post: operations["fleet_vehicles_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/fleet/vehicles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_vehicles_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        delete: operations["fleet_vehicles_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        patch: operations["fleet_vehicles_partial_update"];
+        trace?: never;
+    };
+    "/v1/fleet/vehicles/nearest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description GET /api/v1/fleet/vehicles/nearest/?lat=&lng=&vehicle_type=&limit=
+         *
+         *     The dispatch-time query (§9). AGENCY_ADMIN only: it is how the agency picks who gets
+         *     the trip, and it necessarily ranges across every vendor.
+         */
+        get: operations["fleet_vehicles_nearest_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/fleet/vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_vendors_list"];
+        put?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        post: operations["fleet_vendors_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/fleet/vendors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        get: operations["fleet_vendors_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        delete: operations["fleet_vendors_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description List/retrieve from the ORM; create/update/destroy delegated to services.
+         *
+         *     DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
+         *     view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
+         *     every mutation into apps.fleet.services instead.
+         */
+        patch: operations["fleet_vendors_partial_update"];
+        trace?: never;
+    };
+    "/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET /api/v1/notifications/ — the requesting user's own IN_APP notifications. */
+        get: operations["notifications_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The delivery audit log. AGENCY_ADMIN; filters channel / status / date. Redacted. */
+        get: operations["notifications_deliveries_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Template registry CRUD. AGENCY_ADMIN only; key + channel immutable after create. */
+        get: operations["notifications_templates_list"];
+        put?: never;
+        /** @description Template registry CRUD. AGENCY_ADMIN only; key + channel immutable after create. */
+        post: operations["notifications_templates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Template registry CRUD. AGENCY_ADMIN only; key + channel immutable after create. */
+        get: operations["notifications_templates_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description PATCH — only body / is_active. key + channel are immutable. */
+        patch: operations["notifications_templates_partial_update"];
+        trace?: never;
+    };
+    "/v1/partner-credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["partner_credentials_list"];
+        put?: never;
+        post: operations["partner_credentials_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/partner-credentials/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["partner_credentials_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/partner-credentials/{id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["partner_credentials_revoke_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/partner-credentials/{id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["partner_credentials_rotate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pricing/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Quotes.
+         *
+         *     **No Idempotency-Key here, deliberately.** The middleware exists for mutations where a
+         *     repeat does damage — booking, cancel, billing adjustments (§10). An offer is cheap,
+         *     read-only in effect, and expires in 30 minutes: a duplicate quote costs one row that
+         *     nobody cites and that ages out on its own. Requiring a key would teach clients to mint
+         *     junk keys for harmless calls, which devalues the mechanism exactly where it matters.
+         *     The single-use guarantee lives at *booking* (the partial unique on
+         *     consumed_by_trip_vehicle), which is the moment that actually needs protecting.
+         */
+        get: operations["pricing_offers_list"];
+        put?: never;
+        /**
+         * @description POST /api/v1/pricing/offers/ — one Offer per vendor who can serve this.
+         *
+         *     An empty list is a valid answer: nobody has a negotiated rate for this customer and
+         *     vehicle type. That is a business fact, not a 404.
+         */
+        post: operations["pricing_offers_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pricing/offers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Quotes.
+         *
+         *     **No Idempotency-Key here, deliberately.** The middleware exists for mutations where a
+         *     repeat does damage — booking, cancel, billing adjustments (§10). An offer is cheap,
+         *     read-only in effect, and expires in 30 minutes: a duplicate quote costs one row that
+         *     nobody cites and that ages out on its own. Requiring a key would teach clients to mint
+         *     junk keys for harmless calls, which devalues the mechanism exactly where it matters.
+         *     The single-use guarantee lives at *booking* (the partial unique on
+         *     consumed_by_trip_vehicle), which is the moment that actually needs protecting.
+         */
+        get: operations["pricing_offers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pricing/rate-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["pricing_rate_cards_list"];
+        put?: never;
+        post: operations["pricing_rate_cards_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pricing/rate-cards/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["pricing_rate_cards_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pricing/rate-cards/{id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every version of this deal, oldest first. */
+        get: operations["pricing_rate_cards_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pricing/rate-cards/{id}/supersede": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description POST /api/v1/pricing/rate-cards/{id}/supersede/
+         *
+         *     Copy-on-write: a new version, the old one closed and linked. Rate cards are never
+         *     edited in place — an Offer priced from one is evidence of a quote (§1's price-lock
+         *     chain), and editing would rewrite what a customer was told.
+         */
+        post: operations["pricing_rate_cards_supersede_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/pricing/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description POST /api/v1/pricing/simulate/ — the fare breakdown, persisting nothing.
+         *
+         *     The §8 simulator: "what would this cost on this card". It returns no price_id and mints
+         *     no Offer, because nothing here is bookable — a what-if that left a real quote behind
+         *     would be litter that looks spendable.
+         */
+        post: operations["pricing_simulate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/safety/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Open-alerts board + acknowledge / resolve / timeline. AGENCY_ADMIN only. */
+        get: operations["safety_alerts_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/safety/alerts/{id}/ack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Open-alerts board + acknowledge / resolve / timeline. AGENCY_ADMIN only. */
+        post: operations["safety_alerts_ack_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/safety/alerts/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Open-alerts board + acknowledge / resolve / timeline. AGENCY_ADMIN only. */
+        post: operations["safety_alerts_resolve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/safety/alerts/{id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Escalation ladder + the trip's outbox events, as one merged, tamper-evident story. */
+        get: operations["safety_alerts_timeline_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/safety/trips/vehicles/{trip_vehicle_id}/sos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description POST /api/v1/safety/trips/vehicles/{trip_vehicle_id}/sos — a driver raises SOS.
+         *
+         *     DRIVER role; own-assignment enforcement lives in the service (raise_sos), so this door and
+         *     the service agree on who may open it.
+         */
+        post: operations["safety_trips_vehicles_sos_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tracking/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The live map feed: active vehicles + latest position + marker colour. */
+        get: operations["tracking_live_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/... */
+        get: operations["trips_list"];
+        put?: never;
+        /** @description Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/... */
+        post: operations["trips_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/... */
+        get: operations["trips_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/check-update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/... */
+        get: operations["trips_check_update_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/clone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Clone a trip — create DRAFT with same stops but new pickup_at. */
+        post: operations["trips_clone_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/vehicles/{vehicle_pk}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/... */
+        post: operations["trips_vehicles_assign_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/vehicles/{vehicle_pk}/check-cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/... */
+        get: operations["trips_vehicles_check_cancel_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/vehicles/{vehicle_pk}/reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/... */
+        post: operations["trips_vehicles_reassign_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/vehicles/{vehicle_pk}/track": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Live track for one trip vehicle: recent path (ring buffer) + milestone snapshots + ETA.
+         *
+         *     The path and ETA are read-side only — the ring buffer is Redis, and the ETA gateway is
+         *     never touched on the transition path (CLAUDE.md rule 6). Chronological (oldest-first)
+         *     path so a client can draw the polyline directly.
+         */
+        get: operations["trips_vehicles_track_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/vehicles/{vehicle_pk}/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/... */
+        post: operations["trips_vehicles_transitions_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/{id}/vehicles/{vehicle_pk}/verify-otp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/... */
+        post: operations["trips_vehicles_verify_otp_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/bulk/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description POST /api/v1/trips/bulk/commit — book all valid rows from a preview token. */
+        post: operations["trips_bulk_commit_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/bulk/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description POST /api/v1/trips/bulk/preview — parse and validate a CSV/XLSX file. */
+        post: operations["trips_bulk_preview_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/pax-payload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description POST /api/v1/trips/pax-payload — create trip from a pax-oriented payload. */
+        post: operations["trips_pax_payload_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/recurring-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description CRUD for RecurringRule. AGENCY_ADMIN only. */
+        get: operations["trips_recurring_rules_list"];
+        put?: never;
+        /** @description CRUD for RecurringRule. AGENCY_ADMIN only. */
+        post: operations["trips_recurring_rules_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/recurring-rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description CRUD for RecurringRule. AGENCY_ADMIN only. */
+        get: operations["trips_recurring_rules_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description CRUD for RecurringRule. AGENCY_ADMIN only. */
+        patch: operations["trips_recurring_rules_partial_update"];
+        trace?: never;
+    };
+    "/v1/trips/recurring-rules/{id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description CRUD for RecurringRule. AGENCY_ADMIN only. */
+        post: operations["trips_recurring_rules_deactivate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/trips/vehicle-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description POST /api/v1/trips/vehicle-count — create N vehicle slots in a single trip. */
+        post: operations["trips_vehicle_count_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description /api/v1/users/ — AGENCY_ADMIN only (ARCHITECTURE.md §10). */
+        get: operations["users_retrieve"];
+        put?: never;
+        /** @description /api/v1/users/ — AGENCY_ADMIN only (ARCHITECTURE.md §10). */
+        post: operations["users_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description /api/v1/users/{id}/ — retrieve, or DELETE to deactivate. */
+        get: operations["users_retrieve_2"];
+        put?: never;
+        post?: never;
+        /** @description Deactivates. Users are never hard-deleted (ARCHITECTURE.md §9). */
+        delete: operations["users_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/healthz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["healthz_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Prometheus scrape endpoint (commit 16, §14).
+         *
+         *     Unauthenticated by design: it exposes only aggregate counters (no PII, no per-tenant data),
+         *     and is meant to be bound to an internal port/path allowlisted at the ALB, never routed to the
+         *     public internet (see docs §14 for the ALB split). Returns 404 when METRICS_ENABLED is off.
+         *
+         *     Under gunicorn (PROMETHEUS_MULTIPROC_DIR set) it aggregates every worker's samples via
+         *     MultiProcessCollector; single-process (runserver/worker) serves the default registry.
+         */
+        get: operations["metrics_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/partner/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description POST /partner/v1/auth/refresh — rotate the pair.
+         *
+         *     SimpleJWT's own view: it validates the refresh token, blacklists it (ROTATE +
+         *     BLACKLIST_AFTER_ROTATION), and issues a new pair. The partner claims ride along in the
+         *     token payload, so the new access token carries the same identity with no DB read.
+         *
+         *     TokenRefreshView is already AllowAny and authenticates via the refresh token in the
+         *     body, so no authentication_classes / permission_classes overrides are needed.
+         */
+        post: operations["partner_v1_auth_refresh_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/partner/v1/auth/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description POST /partner/v1/auth/token — exchange an API key for a JWT pair.
+         *
+         *     Unauthenticated (there is no token yet). The lookup is prefix-then-constant-time-hash:
+         *     the prefix finds at most one active row, and compare_digest decides it, so a wrong key
+         *     and an unknown key cost the same and reveal the same (nothing).
+         */
+        post: operations["partner_v1_auth_token_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/partner/v1/book": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description POST /partner/v1/book — Idempotency-Key required (§10).
+         *
+         *     Idempotency is enforced by the middleware via this flag, exactly like the portal booking
+         *     endpoint. A replayed key returns the original response, so a partner retrying a timed-out
+         *     booking never double-books.
+         */
+        post: operations["partner_v1_book_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/partner/v1/check-time": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET /partner/v1/check-time?price_id&pickup_at — pure pre-flight, no side effects. */
+        get: operations["partner_v1_check_time_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/partner/v1/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description POST /partner/v1/quote — offers for the credential's customer. */
+        post: operations["partner_v1_quote_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/partner/v1/trips/{reference}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET /partner/v1/trips/{reference} — status, vehicles (driver masked), stops. */
+        get: operations["partner_v1_trips_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/partner/v1/trips/{reference}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description POST /partner/v1/trips/{reference}/cancel — Idempotency-Key required. */
+        post: operations["partner_v1_trips_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/partner/v1/trips/{reference}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description POST /partner/v1/trips/{reference}/confirm — idempotent no-op (§10 contract compat).
+         *
+         *     Booking already confirms in RIDE (there is no two-phase commit), so confirm is a
+         *     read that returns current state. Kept because partner integrations expect the verb.
+         */
+        post: operations["partner_v1_trips_confirm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/partner/v1/trips/{reference}/vouchers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET /partner/v1/trips/{reference}/vouchers — presigned download URLs per vehicle voucher. */
+        get: operations["partner_v1_trips_vouchers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/partner/v1/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["partner_v1_webhooks_retrieve"];
+        put?: never;
+        post: operations["partner_v1_webhooks_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/partner/v1/webhooks/{subscription_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["partner_v1_webhooks_retrieve_2"];
+        put?: never;
+        post?: never;
+        delete: operations["partner_v1_webhooks_destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["partner_v1_webhooks_partial_update"];
+        trace?: never;
+    };
+    "/partner/v1/webhooks/{subscription_id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["partner_v1_webhooks_deliveries_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/readyz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["readyz_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -819,775 +2229,1109 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        ApiError: {
-            name: string;
-            code: string;
-            message: string;
-            status: number;
-            field?: string;
-            request_id?: string;
-        };
-        ErrorEnvelope: {
-            result: null;
-            error: components["schemas"]["ApiError"];
-        };
-        AuthUser: {
-            id: string;
-            email: string;
-            name?: string;
-            /** @enum {string} */
-            role: "SUPER_ADMIN" | "OPS_ADMIN" | "OPS_AGENT" | "VENDOR_ADMIN" | "VENDOR_AGENT" | "CUSTOMER_ADMIN";
-            tenantId?: string;
-            vendorId?: string;
-            permissions?: string[];
-        };
-        WsTicket: {
-            ticket: string;
-            /** Format: date-time */
-            expiresAt: string;
-        };
-        Trip: {
-            id: string;
-            tenantId?: string;
-            customerId?: string;
-            status: string;
-            stops?: Record<string, never>[];
-            vehicles?: Record<string, never>[];
-            schedule?: Record<string, never>;
-            /** Format: date-time */
-            createdAt?: string;
-        };
         Adjustment: {
-            id: string;
-            tripId: string;
-            amount: number;
-            reason: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** @description Signed integer minor units. Positive = surcharge; negative = credit. */
+            readonly amount_minor: number;
+            readonly reason: string;
+            /** Format: uuid */
+            readonly actor: string;
+            readonly actor_name: string;
             /** Format: date-time */
-            createdAt?: string;
+            readonly created_at: string;
         };
-        Vehicle: {
-            id: string;
-            registrationNo: string;
-            make?: string;
-            model?: string;
-            vehicleTypeId?: string;
-            active?: boolean;
+        /**
+         * @description * `PER_KM` - Per kilometre
+         *     * `FIXED_LOCATION_PAIR` - Fixed price for a location pair
+         *     * `HOURLY` - Per hour
+         *     * `PACKAGE` - Package with included km/hours
+         * @enum {string}
+         */
+        BasisEnum: "PER_KM" | "FIXED_LOCATION_PAIR" | "HOURLY" | "PACKAGE";
+        BillableTrip: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly trip: string;
+            readonly trip_reference: string;
+            readonly subtotal_minor: number;
+            readonly operator_fee_minor: number;
+            readonly total_minor: number;
+            /** @description Snapshot of tenant.operator_fee_config at billing time. */
+            readonly fee_config_snapshot: unknown;
+            readonly lines: components["schemas"]["BillingLine"][];
+            readonly adjustments: components["schemas"]["Adjustment"][];
+            /** Format: date-time */
+            readonly created_at: string;
         };
+        BillingLine: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly trip_vehicle: string;
+            /** @description Integer minor units. locked_price for completed; penalty_minor for cancelled. */
+            readonly amount_minor: number;
+            readonly currency: string;
+            readonly status: components["schemas"]["Status3c2Enum"];
+            readonly voided: boolean;
+            readonly void_reason: string;
+            /** Format: date-time */
+            readonly voided_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /** @description One card on the kanban board. */
+        BoardCard: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly trip: string;
+            readonly trip_reference: string;
+            /** Format: date-time */
+            readonly pickup_at: string;
+            readonly pickup_address: string;
+            readonly vehicle_type: string;
+            readonly vendor_name: string;
+            readonly vehicle_registration: string;
+            readonly driver_name: string;
+            readonly status: components["schemas"]["StatusC34Enum"];
+            /** @description Map granular status to board column name. */
+            readonly column: string;
+            /** @description Integer minor units. Set once at booking; DB trigger rejects changes. */
+            readonly locked_price: number | null;
+            readonly currency: string;
+        };
+        /**
+         * @description * `MATTERMOST` - Mattermost
+         *     * `WHATSAPP` - WhatsApp
+         *     * `SMS` - SMS
+         *     * `IN_APP` - In-app
+         * @enum {string}
+         */
+        ChannelEnum: "MATTERMOST" | "WHATSAPP" | "SMS" | "IN_APP";
+        /**
+         * @description * `MANUAL` - Manual
+         *     * `CLONE` - Cloned from another trip
+         *     * `BULK` - Bulk upload
+         *     * `RECURRING` - Recurring rule
+         *     * `API_PAX` - API — pax payload
+         *     * `API_VEHICLE_COUNT` - API — vehicle count
+         * @enum {string}
+         */
+        CreatedViaEnum: "MANUAL" | "CLONE" | "BULK" | "RECURRING" | "API_PAX" | "API_VEHICLE_COUNT";
+        /** @description Read serializer. The key hash is never exposed — only the prefix. */
+        Credential: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly customer: string;
+            readonly customer_name: string;
+            /** @description Human label, e.g. 'RISMA production'. */
+            readonly name: string;
+            readonly key_prefix: string;
+            readonly is_sandbox: boolean;
+            readonly throttle_rate: string;
+            readonly is_active: boolean;
+            /** Format: date-time */
+            readonly last_used_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description Vendor/Customer contact details.
+         *
+         *     A vendor's own record counts as "self" for its managers — they may see their own
+         *     company's contact details in full; an agency admin sees them masked, like any other PII.
+         */
+        Customer: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly contact_name: string;
+            readonly contact_phone: string;
+            /** Format: email */
+            readonly contact_email: string;
+            readonly address: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /** @description Redacted: recipient_masked only, no raw destination (there is none stored). */
+        Delivery: {
+            /** Format: uuid */
+            readonly id: string;
+            channel: components["schemas"]["ChannelEnum"];
+            recipient_masked: string;
+            template_key: string;
+            status?: components["schemas"]["DeliveryStatusEnum"];
+            provider_message_id?: string | null;
+            error?: string | null;
+            attempts?: number;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            sent_at?: string | null;
+        };
+        /**
+         * @description * `QUEUED` - Queued
+         *     * `SENT` - Sent
+         *     * `FAILED` - Failed
+         * @enum {string}
+         */
+        DeliveryStatusEnum: "QUEUED" | "SENT" | "FAILED";
+        /**
+         * @description * `REGISTRATION` - Registration certificate
+         *     * `PERMIT_NATIONAL` - National permit
+         *     * `PERMIT_STATE` - State permit
+         *     * `FITNESS` - Fitness certificate
+         *     * `PUC` - Pollution under control
+         *     * `INSURANCE` - Insurance
+         *     * `LICENCE` - Driving licence
+         *     * `PSV_BADGE` - PSV badge
+         *     * `POLICE_VERIFICATION` - Police verification
+         *     * `MEDICAL` - Medical certificate
+         *     * `INDUCTION` - Induction
+         * @enum {string}
+         */
+        DocTypeEnum: "REGISTRATION" | "PERMIT_NATIONAL" | "PERMIT_STATE" | "FITNESS" | "PUC" | "INSURANCE" | "LICENCE" | "PSV_BADGE" | "POLICE_VERIFICATION" | "MEDICAL" | "INDUCTION";
+        Document: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly entity_type: components["schemas"]["EntityTypeEnum"];
+            /** Format: uuid */
+            readonly entity_id: string;
+            readonly doc_type: components["schemas"]["DocTypeEnum"];
+            readonly number: string;
+            /** Format: date */
+            readonly expiry_date: string;
+            readonly file_key: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description Masks PII fields unless the viewer is entitled to the raw value.
+         *
+         *     The matrix (§11), stated as one rule: you see raw contact details for yourself, and a
+         *     VENDOR_MANAGER additionally sees them for their own vendor's people. Everyone else —
+         *     including AGENCY_ADMIN — sees masked values.
+         *
+         *     That AGENCY_ADMIN is masked is deliberate and worth not "fixing": an operator dispatches
+         *     trips, which needs a name and a role, not a driver's personal phone number. The masking
+         *     is server-side, so no client flag or query param can turn it off.
+         */
         Driver: {
-            id: string;
-            name: string;
-            phone: string;
-            available?: boolean;
-            active?: boolean;
-        };
-        RateCard: {
-            id: string;
-            name: string;
-            version?: number;
-        };
-        Invoice: {
-            id: string;
-            status: string;
-            totalMinor: number;
-            currency: string;
-        };
-        Assignment: {
-            id: string;
-            tripVehicleId: string;
-            vendorId?: string;
-            status?: string;
-        };
-        SosEvent: {
-            id: string;
-            tripVehicleId: string;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly vendor: string;
+            readonly vendor_name: string;
+            readonly name: string;
+            readonly phone: string;
+            readonly licence_number: string;
+            readonly status: components["schemas"]["DriverStatusEnum"];
+            readonly is_active: boolean;
+            /** Format: uuid */
+            readonly user: string | null;
             /** Format: date-time */
-            raisedAt: string;
+            readonly created_at: string;
+        };
+        /**
+         * @description * `AVAILABLE` - Available
+         *     * `ON_TRIP` - On trip
+         *     * `OFFLINE` - Offline
+         * @enum {string}
+         */
+        DriverStatusEnum: "AVAILABLE" | "ON_TRIP" | "OFFLINE";
+        /**
+         * @description * `VEHICLE` - Vehicle
+         *     * `DRIVER` - Driver
+         * @enum {string}
+         */
+        EntityTypeEnum: "VEHICLE" | "DRIVER";
+        /**
+         * @description * `DAILY` - Daily
+         *     * `WEEKLY` - Weekly
+         * @enum {string}
+         */
+        FreqEnum: "DAILY" | "WEEKLY";
+        InvoiceLineMatch: {
+            /** Format: uuid */
+            readonly id: string;
+            verdict: components["schemas"]["VerdictEnum"];
+            delta_minor?: number;
+            /** Format: uuid */
+            readonly matched_billing_line_id: string | null;
+            parsed_row?: unknown;
+            resolution_note?: string;
+        };
+        Location: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly vehicle: string;
+            readonly plate: string;
+            /** Format: decimal */
+            readonly lat: string;
+            /** Format: decimal */
+            readonly lng: string;
+            readonly status: components["schemas"]["LocationStatusEnum"];
             /** Format: date-time */
-            resolvedAt?: string;
+            readonly last_updated: string;
         };
-        Envelope_AuthUser: {
-            result: components["schemas"]["AuthUser"];
-            error?: null;
+        /**
+         * @description * `active` - Active
+         *     * `on_trip` - On trip
+         *     * `breakdown` - Breakdown
+         *     * `not_available` - Not available
+         * @enum {string}
+         */
+        LocationStatusEnum: "active" | "on_trip" | "breakdown" | "not_available";
+        /**
+         * @description * `AIRPORT` - Airport
+         *     * `RAIL` - Rail station
+         *     * `HOTEL` - Hotel
+         *     * `CITY` - City
+         *     * `ADDRESS` - Street address
+         * @enum {string}
+         */
+        LocationTypeEnum: "AIRPORT" | "RAIL" | "HOTEL" | "CITY" | "ADDRESS";
+        NotificationTemplate: {
+            /** Format: uuid */
+            readonly id: string;
+            key: string;
+            channel: components["schemas"]["ChannelEnum"];
+            locale?: string;
+            /** @description Message body with {placeholder} fields. */
+            body: string;
+            is_active?: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
         };
-        Envelope_WsTicket: {
-            result: components["schemas"]["WsTicket"];
-            error?: null;
+        /** @description The Offer's `id` is the price_id a booking cites (§2). */
+        Offer: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly price_id: string;
+            /** Format: uuid */
+            readonly vendor: string;
+            /** Format: uuid */
+            readonly rate_card: string;
+            readonly rate_card_version: number;
+            readonly basis: string;
+            readonly price_minor: number;
+            readonly currency: string;
+            readonly free_cancellation_hours: number;
+            readonly min_lead_time_hours: number;
+            readonly breakdown: unknown;
+            readonly input_snapshot: unknown;
+            /** Format: date-time */
+            readonly expires_at: string;
+            /** Format: uuid */
+            readonly consumed_by_trip_vehicle: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
         };
-        Envelope_Trip: {
-            result: components["schemas"]["Trip"];
-            error?: null;
-        };
-        Envelope_TripList: {
-            result: components["schemas"]["Trip"][];
-            error?: null;
-        };
-        Envelope_Adjustment: {
-            result: components["schemas"]["Adjustment"];
-            error?: null;
-        };
-        Envelope_Vehicle: {
-            result: components["schemas"]["Vehicle"];
-            error?: null;
-        };
-        Envelope_VehicleList: {
-            result: components["schemas"]["Vehicle"][];
-            error?: null;
-        };
-        Envelope_Driver: {
-            result: components["schemas"]["Driver"];
-            error?: null;
-        };
-        Envelope_DriverList: {
-            result: components["schemas"]["Driver"][];
-            error?: null;
-        };
-        Envelope_RateCard: {
-            result: components["schemas"]["RateCard"];
-            error?: null;
-        };
-        Envelope_RateCardList: {
-            result: components["schemas"]["RateCard"][];
-            error?: null;
-        };
-        Envelope_Invoice: {
-            result: components["schemas"]["Invoice"];
-            error?: null;
-        };
-        Envelope_InvoiceList: {
-            result: components["schemas"]["Invoice"][];
-            error?: null;
-        };
-        Envelope_Assignment: {
-            result: components["schemas"]["Assignment"];
-            error?: null;
-        };
-        Envelope_AssignmentList: {
-            result: components["schemas"]["Assignment"][];
-            error?: null;
-        };
-        Envelope_SosList: {
-            result: components["schemas"]["SosEvent"][];
-            error?: null;
-        };
-        CursorPage: {
-            count: number;
+        PaginatedBillableTripList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
             next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
             previous?: string | null;
+            results: components["schemas"]["BillableTrip"][];
         };
-        VendorDocument: {
-            kind: string;
-            number?: string;
-            expiry?: string;
-            fileName?: string;
+        PaginatedCredentialList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Credential"][];
         };
-        ConfigVendor: {
-            id: string;
-            tenantId?: string;
-            name: string;
-            /** @enum {string} */
-            type: "SELF" | "SUB_VENDOR";
-            gstin?: string;
-            contactName?: string;
-            phone?: string;
-            email?: string;
-            active: boolean;
+        PaginatedCustomerList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Customer"][];
         };
-        VendorInput: {
-            name: string;
-            /** @enum {string} */
-            type: "SELF" | "SUB_VENDOR";
-            gstin?: string;
-            contactName?: string;
-            phone?: string;
-            email?: string;
+        PaginatedDeliveryList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Delivery"][];
         };
-        ConfigCustomer: {
-            id: string;
-            tenantId?: string;
-            name: string;
-            code: string;
-            /** @enum {string} */
-            billingCycle?: "WEEKLY" | "FORTNIGHTLY" | "MONTHLY";
-            spocName?: string;
-            phone?: string;
-            email?: string;
-            approvedVehicleTypeIds?: string[];
-            defaultCostCenter?: string;
-            active: boolean;
+        PaginatedDocumentList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Document"][];
         };
-        CustomerInput: {
-            name: string;
-            code: string;
-            /** @enum {string} */
-            billingCycle?: "WEEKLY" | "FORTNIGHTLY" | "MONTHLY";
-            spocName?: string;
-            phone?: string;
-            email?: string;
-            approvedVehicleTypeIds?: string[];
-            defaultCostCenter?: string;
+        PaginatedDriverList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Driver"][];
         };
-        ConfigVehicleType: {
-            id: string;
-            tenantId?: string;
-            name: string;
-            seatingCapacity: number;
-            ac: boolean;
-            class?: string;
-            active: boolean;
+        PaginatedLocationList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Location"][];
         };
-        VehicleTypeInput: {
-            name: string;
-            seatingCapacity: number;
-            ac: boolean;
-            class?: string;
+        PaginatedNotificationTemplateList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["NotificationTemplate"][];
         };
-        RateModifiers: {
-            minFare?: number;
-            nightCharge?: number;
-            waitingPerHour?: number;
-            /** @enum {string} */
-            tollHandling?: "INCLUDED" | "EXTRA";
-            /** @enum {string} */
-            parkingHandling?: "INCLUDED" | "EXTRA";
-            interStateSurcharge?: number;
-            deadMileagePerKm?: number;
+        PaginatedOfferList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Offer"][];
         };
-        FixedPair: {
-            fromZone: string;
-            toZone: string;
-            price: number;
+        PaginatedPayoutList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Payout"][];
         };
-        PackageRate: {
-            hours: number;
-            km: number;
-            price: number;
-            extraPerHour?: number;
-            extraPerKm?: number;
+        PaginatedRateCardList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["RateCard"][];
         };
-        ConfigRateCard: {
-            id: string;
-            tenantId?: string;
-            vendorId: string;
-            customerId: string;
-            vehicleTypeId: string;
-            /** @enum {string} */
-            basis: "PER_KM" | "FIXED_LOCATION_PAIR" | "HOURLY" | "PACKAGE";
-            perKm?: number;
-            hourlyRate?: number;
-            fixedPairs?: components["schemas"]["FixedPair"][];
-            package?: components["schemas"]["PackageRate"];
-            modifiers?: components["schemas"]["RateModifiers"];
+        PaginatedRecurringRuleList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["RecurringRule"][];
+        };
+        PaginatedSafetyAlertList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["SafetyAlert"][];
+        };
+        PaginatedStatementList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Statement"][];
+        };
+        PaginatedTripRequestList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["TripRequest"][];
+        };
+        PaginatedVehicleList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Vehicle"][];
+        };
+        PaginatedVehicleTypeList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["VehicleType"][];
+        };
+        PaginatedVendorEarningsList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["VendorEarnings"][];
+        };
+        PaginatedVendorInvoiceList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["VendorInvoice"][];
+        };
+        PaginatedVendorList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Vendor"][];
+        };
+        /**
+         * @description Vendor/Customer contact details.
+         *
+         *     A vendor's own record counts as "self" for its managers — they may see their own
+         *     company's contact details in full; an agency admin sees them masked, like any other PII.
+         */
+        PatchedCustomer: {
+            /** Format: uuid */
+            readonly id?: string;
+            readonly name?: string;
+            readonly contact_name?: string;
+            readonly contact_phone?: string;
+            /** Format: email */
+            readonly contact_email?: string;
+            readonly address?: string;
+            /** Format: date-time */
+            readonly created_at?: string;
+        };
+        PatchedDocument: {
+            /** Format: uuid */
+            readonly id?: string;
+            readonly entity_type?: components["schemas"]["EntityTypeEnum"];
+            /** Format: uuid */
+            readonly entity_id?: string;
+            readonly doc_type?: components["schemas"]["DocTypeEnum"];
+            readonly number?: string;
             /** Format: date */
-            validFrom: string;
+            readonly expiry_date?: string;
+            readonly file_key?: string | null;
+            /** Format: date-time */
+            readonly created_at?: string;
+        };
+        /**
+         * @description Masks PII fields unless the viewer is entitled to the raw value.
+         *
+         *     The matrix (§11), stated as one rule: you see raw contact details for yourself, and a
+         *     VENDOR_MANAGER additionally sees them for their own vendor's people. Everyone else —
+         *     including AGENCY_ADMIN — sees masked values.
+         *
+         *     That AGENCY_ADMIN is masked is deliberate and worth not "fixing": an operator dispatches
+         *     trips, which needs a name and a role, not a driver's personal phone number. The masking
+         *     is server-side, so no client flag or query param can turn it off.
+         */
+        PatchedDriver: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            readonly vendor?: string;
+            readonly vendor_name?: string;
+            readonly name?: string;
+            readonly phone?: string;
+            readonly licence_number?: string;
+            readonly status?: components["schemas"]["DriverStatusEnum"];
+            readonly is_active?: boolean;
+            /** Format: uuid */
+            readonly user?: string | null;
+            /** Format: date-time */
+            readonly created_at?: string;
+        };
+        PatchedNotificationTemplate: {
+            /** Format: uuid */
+            readonly id?: string;
+            key?: string;
+            channel?: components["schemas"]["ChannelEnum"];
+            locale?: string;
+            /** @description Message body with {placeholder} fields. */
+            body?: string;
+            is_active?: boolean;
+            /** Format: date-time */
+            readonly created_at?: string;
+            /** Format: date-time */
+            readonly updated_at?: string;
+        };
+        PatchedRecurringRule: {
+            /** Format: uuid */
+            readonly id?: string;
+            freq?: components["schemas"]["FreqEnum"];
+            /** @description ISO weekday numbers: 1=Monday … 7=Sunday. Empty list means every day (used with DAILY freq). */
+            days_of_week?: unknown;
             /** Format: date */
-            validTo?: string;
-            version: number;
-        };
-        ConfigRateCardInput: {
-            vendorId: string;
-            customerId: string;
-            vehicleTypeId: string;
-            /** @enum {string} */
-            basis: "PER_KM" | "FIXED_LOCATION_PAIR" | "HOURLY" | "PACKAGE";
-            perKm?: number;
-            hourlyRate?: number;
-            fixedPairs?: components["schemas"]["FixedPair"][];
-            package?: components["schemas"]["PackageRate"];
-            modifiers?: components["schemas"]["RateModifiers"];
+            start_date?: string;
             /** Format: date */
-            validFrom: string;
-            /** Format: date */
-            validTo?: string;
-        };
-        SimulateInput: {
-            vendorId: string;
-            customerId: string;
-            vehicleTypeId: string;
-            /** Format: date */
-            quotedAt: string;
-            distanceKm?: number;
-            hours?: number;
-            currency?: string;
-        };
-        SimulateOffer: {
-            priceId: string;
-            rateCardId: string;
-            rateCardVersion: number;
-            basis: string;
-            /** @description Price in minor currency units */
-            priceMinor: number;
-            currency: string;
-            freeCancellationHours: number;
-            minLeadTimeHours: number;
+            end_date?: string | null;
+            /**
+             * Format: time
+             * @description Local wall-clock time of the generated trip.
+             */
+            time?: string;
+            template?: unknown;
+            is_active?: boolean;
             /** Format: date-time */
-            quotedAt: string;
+            readonly created_at?: string;
             /** Format: date-time */
-            expiresAt: string;
+            readonly updated_at?: string;
         };
-        SimulateResult: {
-            offers: components["schemas"]["SimulateOffer"][];
-        };
-        Envelope_Vendor: {
-            result: components["schemas"]["ConfigVendor"];
-            error?: null;
-        };
-        Envelope_VendorPage: {
-            result: components["schemas"]["CursorPage"] & {
-                results: components["schemas"]["ConfigVendor"][];
-            };
-            error?: null;
-        };
-        Envelope_Customer: {
-            result: components["schemas"]["ConfigCustomer"];
-            error?: null;
-        };
-        Envelope_CustomerPage: {
-            result: components["schemas"]["CursorPage"] & {
-                results: components["schemas"]["ConfigCustomer"][];
-            };
-            error?: null;
-        };
-        Envelope_VehicleType: {
-            result: components["schemas"]["ConfigVehicleType"];
-            error?: null;
-        };
-        Envelope_VehicleTypePage: {
-            result: components["schemas"]["CursorPage"] & {
-                results: components["schemas"]["ConfigVehicleType"][];
-            };
-            error?: null;
-        };
-        Envelope_ConfigRateCard: {
-            result: components["schemas"]["ConfigRateCard"];
-            error?: null;
-        };
-        Envelope_ConfigRateCardPage: {
-            result: components["schemas"]["CursorPage"] & {
-                results: components["schemas"]["ConfigRateCard"][];
-            };
-            error?: null;
-        };
-        Envelope_SimulateResult: {
-            result: components["schemas"]["SimulateResult"];
-            error?: null;
-        };
-        TripStop: {
-            seq: number;
-            /** @enum {string} */
-            type: "PICKUP" | "DROP" | "WAYPOINT";
-            /** @enum {string} */
-            locationType: "AIRPORT" | "RAIL" | "HOTEL" | "CITY" | "ADDRESS";
-            address: string;
-            lat: number;
-            lng: number;
+        PatchedVehicle: {
+            /** Format: uuid */
+            readonly id?: string;
+            /** Format: uuid */
+            readonly vendor?: string;
+            readonly vendor_name?: string;
+            /** Format: uuid */
+            readonly vehicle_type?: string;
+            readonly vehicle_type_name?: string;
+            readonly plate?: string;
+            readonly traccar_device_id?: string | null;
+            readonly is_active?: boolean;
             /** Format: date-time */
-            plannedTime?: string;
-            flightNumber?: string;
-            trainNumber?: string;
-            terminal?: string;
+            readonly created_at?: string;
         };
-        TripPax: {
-            id: string;
-            name?: string;
-            phone?: string;
-            email?: string;
-            employeeId?: string;
-            pnr?: string;
-        };
-        TripVehicle: {
-            id: string;
-            requestedVehicleTypeId: string;
-            priceId?: string;
-            /** @description Locked price in minor units */
-            lockedPriceMinor?: number;
-            lockedPriceCurrency?: string;
-            lockedRateCardVersion?: number;
-            vehicleId?: string;
-            driverId?: string;
-            /** @enum {string} */
-            status: "PENDING" | "ASSIGNED" | "DRIVER_ACCEPTED" | "DRIVER_REJECTED" | "EN_ROUTE_PICKUP" | "AT_PICKUP" | "PAX_PICKED" | "IN_TRANSIT" | "AT_DROP" | "PAX_DROPPED" | "COMPLETED" | "NO_SHOW" | "BREAKDOWN" | "ACCIDENT" | "VEHICLE_SWAP" | "DELAYED" | "SOS" | "CANCELLED";
-            pax?: components["schemas"]["TripPax"][];
-            addonServiceIds?: string[];
-        };
-        TripEvent: {
-            id: string;
-            type: string;
+        PatchedVehicleType: {
+            /** Format: uuid */
+            readonly id?: string;
+            readonly name?: string;
+            readonly ac?: boolean;
+            /** @description Seated passenger capacity. */
+            readonly capacity?: number;
             /** Format: date-time */
-            occurredAt: string;
-            actorId?: string;
-            actorRole?: string;
-            vehicleId?: string;
-            payload?: Record<string, never>;
+            readonly created_at?: string;
         };
-        TripDetail: {
-            id: string;
-            tenantId?: string;
-            customerId?: string;
-            /** @enum {string} */
-            status: "DRAFT" | "CONFIRMED" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED" | "BILLED" | "CANCELLED";
-            stops: components["schemas"]["TripStop"][];
-            vehicles: components["schemas"]["TripVehicle"][];
-            schedule: Record<string, never>;
+        /**
+         * @description Vendor/Customer contact details.
+         *
+         *     A vendor's own record counts as "self" for its managers — they may see their own
+         *     company's contact details in full; an agency admin sees them masked, like any other PII.
+         */
+        PatchedVendor: {
+            /** Format: uuid */
+            readonly id?: string;
+            readonly name?: string;
+            readonly contact_name?: string;
+            readonly contact_phone?: string;
+            /** Format: email */
+            readonly contact_email?: string;
+            readonly address?: string;
             /** Format: date-time */
-            createdAt: string;
-            reference?: string;
-            costCenter?: string;
-            timeline?: components["schemas"]["TripEvent"][];
-            createdVia?: string;
-        };
-        TripSummary: {
-            id: string;
-            customerId?: string;
-            status: string;
-            /** Format: date-time */
-            createdAt: string;
-            reference?: string;
-            vehicleCount?: number;
-            stopCount?: number;
-            pickupAddress?: string;
-            /** Format: date-time */
-            scheduleWhen?: string;
-        };
-        CancelPreview: {
-            allowed: boolean;
-            free: boolean;
-            penaltyPct?: number;
-            /** @description Penalty amount in minor units */
-            penaltyMinor?: number;
-            penaltyCurrency?: string;
-            /** Format: date-time */
-            deadline?: string;
-            resultingStatus?: string;
-        };
-        TransitionInput: {
-            targetStatus: string;
-            note?: string;
-        };
-        OtpVerifyInput: {
-            /** @enum {string} */
-            phase: "pickup" | "drop";
-            otp: string;
-        };
-        AssignInput: {
-            fleetVehicleId: string;
-            driverId: string;
-        };
-        QuoteSlot: {
-            vehicleTypeId: string;
-            slotRef?: string;
-        };
-        QuoteInput: {
-            customerId: string;
-            stops: components["schemas"]["TripStop"][];
-            vehicleSlots: components["schemas"]["QuoteSlot"][];
-            /** Format: date-time */
-            quotedAt: string;
-            currency?: string;
-        };
-        QuoteOffer: {
-            priceId: string;
-            slotRef: string;
-            vehicleTypeId: string;
-            priceMinor: number;
-            currency: string;
-            freeCancellationHours: number;
-            minLeadTimeHours?: number;
-            /** Format: date-time */
-            expiresAt: string;
-            rateCardId?: string;
-            rateCardVersion?: number;
-            basis?: string;
-        };
-        QuoteResult: {
-            offers: components["schemas"]["QuoteOffer"][];
-            expiredSlots?: string[];
-        };
-        TripVehicleSlotInput: {
-            vehicleTypeId: string;
-            priceId: string;
-        };
-        TripCreateInput: {
-            customerId: string;
-            stops: components["schemas"]["TripStop"][];
-            vehicleSlots: components["schemas"]["TripVehicleSlotInput"][];
-            schedule: {
-                /** @enum {string} */
-                type?: "ONE_OFF" | "RECURRING";
-                /** Format: date-time */
-                when?: string;
-            };
-            reference?: string;
-            costCenter?: string;
-            autoAssign?: boolean;
-        };
-        BulkRow: {
-            rowIndex: number;
-            customerId: string;
-            pickupAddress: string;
-            pickupLat?: number;
-            pickupLng?: number;
-            dropAddress: string;
-            dropLat?: number;
-            dropLng?: number;
-            /** Format: date */
-            scheduleDate: string;
-            vehicleTypes: string[];
-            reference?: string;
-        };
-        BulkRowVerdict: {
-            rowIndex: number;
-            valid: boolean;
-            errors?: string[];
-            offers?: components["schemas"]["QuoteOffer"][];
-        };
-        BulkValidateInput: {
-            rows: components["schemas"]["BulkRow"][];
-        };
-        BulkValidateResult: {
-            verdicts: components["schemas"]["BulkRowVerdict"][];
-            validCount?: number;
-            invalidCount?: number;
-        };
-        BulkCommitRow: {
-            rowIndex: number;
-            priceIds: string[];
-        };
-        BulkCommitInput: {
-            rows: components["schemas"]["BulkCommitRow"][];
-        };
-        BulkCommitResult: {
-            created: string[];
-            failed: Record<string, never>[];
-        };
-        RecurringRuleInput: {
-            customerId: string;
-            /** @enum {string} */
-            freq: "DAILY" | "WEEKLY";
-            daysOfWeek?: number[];
-            /** Format: date */
-            startDate?: string;
-            /** Format: date */
-            endDate?: string;
-            time: string;
-            vehicleSlots: components["schemas"]["QuoteSlot"][];
-            stops: components["schemas"]["TripStop"][];
-            reference?: string;
-        };
-        RecurringRule: {
-            id: string;
-            customerId: string;
-            freq: string;
-            daysOfWeek?: number[];
-            startDate?: string;
-            endDate?: string;
-            time: string;
-            active: boolean;
-            /** Format: date-time */
-            createdAt?: string;
-        };
-        DispatchBoardCard: {
-            tripId: string;
-            vehicleId: string;
-            fleetVehicleId?: string;
-            driverId?: string;
-            vehicleStatus: string;
-            customerName: string;
-            pickupAddress?: string;
-            /** Format: date-time */
-            scheduleWhen?: string;
-            lockedPriceMinor?: number;
-            lockedPriceCurrency?: string;
-            markerColor?: string;
-            paxCount?: number;
-            reference?: string;
-        };
-        DispatchBoardColumn: {
-            status: string;
-            label: string;
-            cards: components["schemas"]["DispatchBoardCard"][];
-        };
-        DispatchBoard: {
-            columns: components["schemas"]["DispatchBoardColumn"][];
-            totalActive: number;
-            totalAlerts: number;
-        };
-        AutoAssignSummary: {
-            assigned: number;
-            skipped: number;
-            reasons?: string[];
-            details?: Record<string, never>[];
-        };
-        LivePosition: {
-            tripVehicleId: string;
-            tripId?: string;
-            deviceId?: string;
-            lat: number;
-            lng: number;
-            speed?: number;
-            heading?: number;
-            /** Format: date-time */
-            timestamp: string;
-            vehicleStatus?: string;
-            markerColor?: string;
-            customerName?: string;
-            driverName?: string;
-        };
-        TrackMilestone: {
-            seq: number;
-            label: string;
-            /** @enum {string} */
-            status: "PENDING" | "ACTIVE" | "DONE";
-            /** Format: date-time */
-            arrivedAt?: string;
-            address?: string;
-        };
-        PathPoint: {
-            lat: number;
-            lng: number;
-            /** Format: date-time */
-            timestamp: string;
-        };
-        TrackDetail: {
-            tripVehicleId: string;
-            currentLat?: number;
-            currentLng?: number;
-            etaMinutes?: number;
-            milestones: components["schemas"]["TrackMilestone"][];
-            path?: components["schemas"]["PathPoint"][];
-        };
-        InvoiceLine: {
-            id: string;
-            tripId: string;
-            vehicleId?: string;
-            amountMinor: number;
-            currency: string;
-            description: string;
-            rateCardVersion?: number;
-            voided?: boolean;
-        };
-        InvoiceDetail: {
-            id: string;
-            /** @enum {string} */
-            status: "DRAFT" | "ISSUED" | "VOIDED" | "PAID";
-            totalMinor: number;
-            currency: string;
-            customerId: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date */
-            dueDate?: string;
-            lines?: components["schemas"]["InvoiceLine"][];
-            adjustments?: Record<string, never>[];
-            reference?: string;
-        };
-        Statement: {
-            id: string;
-            customerId: string;
-            /** Format: date */
-            periodStart: string;
-            /** Format: date */
-            periodEnd: string;
-            totalMinor: number;
-            currency: string;
-            invoiceCount?: number;
-            /** Format: date-time */
-            generatedAt?: string;
-            downloadUrl?: string;
-        };
-        DownloadUrl: {
-            url: string;
-            /** Format: date-time */
-            expiresAt: string;
+            readonly created_at?: string;
         };
         Payout: {
-            id: string;
-            vendorId: string;
-            amountMinor: number;
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly vendor_id: string;
+            period_year: number;
+            period_month: number;
+            gross_minor: number;
+            operator_fee_minor: number;
+            net_minor: number;
             currency: string;
-            /** @enum {string} */
-            status: "PENDING" | "APPROVED" | "PAID";
+            status?: components["schemas"]["PayoutStatusEnum"];
             /** Format: date-time */
-            approvedAt?: string;
+            approved_at?: string | null;
             /** Format: date-time */
-            paidAt?: string;
-            reference?: string;
-            tripIds?: string[];
+            paid_at?: string | null;
+            paid_reference?: string;
+            /** Format: date-time */
+            readonly created_at: string;
         };
-        Envelope_TripPage: {
-            result: components["schemas"]["CursorPage"] & {
-                results: components["schemas"]["TripSummary"][];
-            };
-            error?: null;
+        /**
+         * @description * `PENDING` - Pending
+         *     * `APPROVED` - Approved
+         *     * `PAID` - Paid
+         * @enum {string}
+         */
+        PayoutStatusEnum: "PENDING" | "APPROVED" | "PAID";
+        RateCard: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly vendor: string;
+            readonly vendor_name: string;
+            /** Format: uuid */
+            readonly customer: string;
+            readonly customer_name: string;
+            /** Format: uuid */
+            readonly vehicle_type: string;
+            readonly vehicle_type_name: string;
+            readonly basis: components["schemas"]["BasisEnum"];
+            readonly rate_per_km_minor: number | null;
+            readonly fixed_price_minor: number | null;
+            readonly rate_per_hour_minor: number | null;
+            readonly package_price_minor: number | null;
+            readonly package_included_km: number | null;
+            readonly package_included_hours: number | null;
+            readonly package_extra_per_km_minor: number | null;
+            readonly package_extra_per_hour_minor: number | null;
+            readonly currency: string;
+            readonly modifiers: unknown;
+            readonly free_cancellation_hours: number;
+            readonly min_lead_time_hours: number;
+            readonly version: number;
+            /** Format: date */
+            readonly valid_from: string;
+            /** Format: date */
+            readonly valid_to: string | null;
+            /** Format: uuid */
+            readonly superseded_by: string | null;
+            readonly is_active: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
         };
-        Envelope_TripVehicle: {
-            result: components["schemas"]["TripVehicle"];
-            error?: null;
+        RecurringRule: {
+            /** Format: uuid */
+            readonly id: string;
+            freq: components["schemas"]["FreqEnum"];
+            /** @description ISO weekday numbers: 1=Monday … 7=Sunday. Empty list means every day (used with DAILY freq). */
+            days_of_week?: unknown;
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date?: string | null;
+            /**
+             * Format: time
+             * @description Local wall-clock time of the generated trip.
+             */
+            time: string;
+            template: unknown;
+            is_active?: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
         };
-        Envelope_CancelPreview: {
-            result: components["schemas"]["CancelPreview"];
-            error?: null;
+        /**
+         * @description Board/detail shape. Driver identity is intentionally not exposed here — the control-room
+         *     board is about the trip, and driver PII masking is the trips/partner surface's job.
+         */
+        SafetyAlert: {
+            /** Format: uuid */
+            readonly id: string;
+            kind: components["schemas"]["SafetyAlertKindEnum"];
+            severity: components["schemas"]["SeverityEnum"];
+            status?: components["schemas"]["SafetyAlertStatusEnum"];
+            /** Format: uuid */
+            readonly trip_vehicle_id: string;
+            readonly trip_id: string;
+            readonly reference: string | null;
+            /** Format: uuid */
+            vehicle_id: string | null;
+            /** Format: uuid */
+            vendor_id: string | null;
+            /** Format: decimal */
+            lat?: string | null;
+            /** Format: decimal */
+            lng?: string | null;
+            /** Format: date-time */
+            recorded_at?: string | null;
+            /** Format: uuid */
+            readonly raised_by_id: string | null;
+            /** Format: uuid */
+            readonly acked_by_id: string | null;
+            /** Format: date-time */
+            acked_at?: string | null;
+            /** Format: uuid */
+            readonly resolved_by_id: string | null;
+            /** Format: date-time */
+            resolved_at?: string | null;
+            resolution_note?: string;
+            /** Format: date-time */
+            readonly created_at: string;
         };
-        Envelope_QuoteResult: {
-            result: components["schemas"]["QuoteResult"];
-            error?: null;
+        /**
+         * @description * `SOS` - SOS
+         *     * `ROUTE_DEVIATION` - Route deviation
+         *     * `PROLONGED_STOP` - Prolonged stop
+         *     * `NO_MOVEMENT` - No movement
+         *     * `OVERSPEED` - Overspeed
+         *     * `NO_SHOW_RISK` - No-show risk
+         * @enum {string}
+         */
+        SafetyAlertKindEnum: "SOS" | "ROUTE_DEVIATION" | "PROLONGED_STOP" | "NO_MOVEMENT" | "OVERSPEED" | "NO_SHOW_RISK";
+        /**
+         * @description * `OPEN` - Open
+         *     * `ACKNOWLEDGED` - Acknowledged
+         *     * `RESOLVED` - Resolved
+         *     * `FALSE_ALARM` - False alarm
+         * @enum {string}
+         */
+        SafetyAlertStatusEnum: "OPEN" | "ACKNOWLEDGED" | "RESOLVED" | "FALSE_ALARM";
+        /**
+         * @description * `VENDOR` - Vendor
+         *     * `CUSTOMER` - Customer
+         * @enum {string}
+         */
+        ScopeEnum: "VENDOR" | "CUSTOMER";
+        /**
+         * @description * `CRITICAL` - Critical
+         *     * `HIGH` - High
+         *     * `MEDIUM` - Medium
+         * @enum {string}
+         */
+        SeverityEnum: "CRITICAL" | "HIGH" | "MEDIUM";
+        Statement: {
+            /** Format: uuid */
+            readonly id: string;
+            scope: components["schemas"]["ScopeEnum"];
+            /** Format: uuid */
+            readonly vendor_id: string | null;
+            /** Format: uuid */
+            readonly customer_id: string | null;
+            period_year: number;
+            period_month: number;
+            version?: number;
+            status?: components["schemas"]["StatementStatusEnum"];
+            /** Format: uuid */
+            readonly superseded_by_id: string | null;
+            subtotal_minor?: number;
+            fees_minor?: number;
+            total_minor?: number;
+            currency: string;
+            /** Format: date-time */
+            finalized_at?: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly lines: components["schemas"]["StatementLine"][];
         };
-        Envelope_BulkValidateResult: {
-            result: components["schemas"]["BulkValidateResult"];
-            error?: null;
+        StatementLine: {
+            reference: string;
+            amount_minor: number;
+            operator_fee_minor?: number;
+            net_minor?: number;
+            currency: string;
         };
-        Envelope_BulkCommitResult: {
-            result: components["schemas"]["BulkCommitResult"];
-            error?: null;
+        /**
+         * @description * `DRAFT` - Draft
+         *     * `FINAL` - Final
+         * @enum {string}
+         */
+        StatementStatusEnum: "DRAFT" | "FINAL";
+        /**
+         * @description * `UNBILLED` - Unbilled
+         *     * `STATEMENTED` - Statemented
+         *     * `RECONCILED` - Reconciled
+         * @enum {string}
+         */
+        Status3c2Enum: "UNBILLED" | "STATEMENTED" | "RECONCILED";
+        /**
+         * @description * `PENDING` - Pending
+         *     * `ASSIGNED` - Assigned
+         *     * `DRIVER_ACCEPTED` - Driver accepted
+         *     * `EN_ROUTE_PICKUP` - En route to pickup
+         *     * `AT_PICKUP` - At pickup
+         *     * `PAX_PICKED` - Passenger picked up
+         *     * `IN_TRANSIT` - In transit
+         *     * `AT_DROP` - At drop
+         *     * `PAX_DROPPED` - Passenger dropped
+         *     * `COMPLETED` - Completed
+         *     * `NO_SHOW` - No show
+         *     * `BREAKDOWN` - Breakdown
+         *     * `ACCIDENT` - Accident
+         *     * `VEHICLE_SWAP` - Vehicle swap
+         *     * `DELAYED` - Delayed
+         *     * `SOS` - SOS
+         *     * `CANCELLED` - Cancelled
+         * @enum {string}
+         */
+        StatusC34Enum: "PENDING" | "ASSIGNED" | "DRIVER_ACCEPTED" | "EN_ROUTE_PICKUP" | "AT_PICKUP" | "PAX_PICKED" | "IN_TRANSIT" | "AT_DROP" | "PAX_DROPPED" | "COMPLETED" | "NO_SHOW" | "BREAKDOWN" | "ACCIDENT" | "VEHICLE_SWAP" | "DELAYED" | "SOS" | "CANCELLED";
+        Stop: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly sequence: number;
+            readonly kind: components["schemas"]["StopKindEnum"];
+            readonly address: string;
+            /** Format: decimal */
+            readonly lat: string | null;
+            /** Format: decimal */
+            readonly lng: string | null;
+            readonly location_type: components["schemas"]["LocationTypeEnum"];
+            /** @description Optional payload: flight_number for AIRPORT, train_number for RAIL. */
+            readonly extra: unknown;
         };
-        Envelope_RecurringRule: {
-            result: components["schemas"]["RecurringRule"];
-            error?: null;
+        /**
+         * @description * `PICKUP` - Pickup
+         *     * `DROP` - Drop
+         *     * `WAYPOINT` - Waypoint
+         * @enum {string}
+         */
+        StopKindEnum: "PICKUP" | "DROP" | "WAYPOINT";
+        TokenRefresh: {
+            readonly access: string;
+            refresh: string;
         };
-        Envelope_RecurringRuleList: {
-            result: components["schemas"]["RecurringRule"][];
-            error?: null;
+        TripRequest: {
+            /** Format: uuid */
+            readonly id: string;
+            /** @description Human-readable reference T-{seq}, unique per tenant. Never edit after creation. */
+            readonly reference: string;
+            /** Format: uuid */
+            readonly customer: string;
+            readonly customer_name: string;
+            /** Format: date-time */
+            readonly pickup_at: string;
+            readonly status: components["schemas"]["TripRequestStatusEnum"];
+            readonly created_via: components["schemas"]["CreatedViaEnum"];
+            /** @description Coordinator contact details snapshot: name, phone, email. */
+            readonly coordinator: unknown;
+            readonly cost_center: string;
+            readonly stops: components["schemas"]["Stop"][];
+            readonly vehicles: components["schemas"]["TripVehicle"][];
+            /** Format: date-time */
+            readonly created_at: string;
         };
-        Envelope_DispatchBoard: {
-            result: components["schemas"]["DispatchBoard"];
-            error?: null;
+        /**
+         * @description * `DRAFT` - Draft
+         *     * `CONFIRMED` - Confirmed
+         *     * `ASSIGNED` - Assigned
+         *     * `IN_PROGRESS` - In progress
+         *     * `COMPLETED` - Completed
+         *     * `BILLED` - Billed
+         *     * `CANCELLED` - Cancelled
+         * @enum {string}
+         */
+        TripRequestStatusEnum: "DRAFT" | "CONFIRMED" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED" | "BILLED" | "CANCELLED";
+        TripVehicle: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly requested_vehicle_type: string;
+            readonly vehicle_type_name: string;
+            /** Format: uuid */
+            readonly vendor: string | null;
+            readonly vendor_name: string | null;
+            /** Format: uuid */
+            readonly vehicle: string | null;
+            readonly vehicle_plate: string | null;
+            /** Format: uuid */
+            readonly driver: string | null;
+            readonly driver_name: string | null;
+            readonly status: components["schemas"]["StatusC34Enum"];
+            /** @description Integer minor units. Set once at booking; DB trigger rejects changes. */
+            readonly locked_price: number | null;
+            readonly locked_rate_card_version: number | null;
+            readonly currency: string;
+            readonly pickup_verified: boolean;
+            readonly drop_verified: boolean;
+            /** @description Passenger list: [{name, phone, email?}]. */
+            readonly pax: unknown;
+            /** @description Cancellation penalty in minor units. Set by cancel_vehicle(). */
+            readonly penalty_minor: number;
+            /** Format: date-time */
+            readonly created_at: string;
         };
-        Envelope_AutoAssignResult: {
-            result: components["schemas"]["AutoAssignSummary"];
-            error?: null;
+        Vehicle: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly vendor: string;
+            readonly vendor_name: string;
+            /** Format: uuid */
+            readonly vehicle_type: string;
+            readonly vehicle_type_name: string;
+            readonly plate: string;
+            readonly traccar_device_id: string | null;
+            readonly is_active: boolean;
+            /** Format: date-time */
+            readonly created_at: string;
         };
-        Envelope_LivePositionList: {
-            result: components["schemas"]["LivePosition"][];
-            error?: null;
+        VehicleType: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly ac: boolean;
+            /** @description Seated passenger capacity. */
+            readonly capacity: number;
+            /** Format: date-time */
+            readonly created_at: string;
         };
-        Envelope_TrackDetail: {
-            result: components["schemas"]["TrackDetail"];
-            error?: null;
+        /**
+         * @description Vendor/Customer contact details.
+         *
+         *     A vendor's own record counts as "self" for its managers — they may see their own
+         *     company's contact details in full; an agency admin sees them masked, like any other PII.
+         */
+        Vendor: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly contact_name: string;
+            readonly contact_phone: string;
+            /** Format: email */
+            readonly contact_email: string;
+            readonly address: string;
+            /** Format: date-time */
+            readonly created_at: string;
         };
-        Envelope_InvoicePage: {
-            result: components["schemas"]["CursorPage"] & {
-                results: components["schemas"]["InvoiceDetail"][];
-            };
-            error?: null;
+        VendorEarnings: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly trip: string;
+            readonly trip_reference: string;
+            /** Format: uuid */
+            readonly vendor: string;
+            readonly vendor_name: string;
+            readonly fare_minor: number;
+            readonly operator_fee_minor: number;
+            readonly net_to_vendor_minor: number;
+            readonly currency: string;
+            readonly status: components["schemas"]["Status3c2Enum"];
+            /** Format: date-time */
+            readonly completed_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
         };
-        Envelope_StatementPage: {
-            result: components["schemas"]["CursorPage"] & {
-                results: components["schemas"]["Statement"][];
-            };
-            error?: null;
+        VendorInvoice: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly vendor_id: string;
+            period_year: number;
+            period_month: number;
+            status?: components["schemas"]["VendorInvoiceStatusEnum"];
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly matches: components["schemas"]["InvoiceLineMatch"][];
         };
-        Envelope_PayoutPage: {
-            result: components["schemas"]["CursorPage"] & {
-                results: components["schemas"]["Payout"][];
-            };
-            error?: null;
+        /**
+         * @description * `UPLOADED` - Uploaded
+         *     * `RECONCILING` - Reconciling
+         *     * `RECONCILED` - Reconciled
+         *     * `DISPUTED` - Disputed
+         * @enum {string}
+         */
+        VendorInvoiceStatusEnum: "UPLOADED" | "RECONCILING" | "RECONCILED" | "DISPUTED";
+        /**
+         * @description * `MATCH` - Match
+         *     * `AMOUNT_MISMATCH` - Amount mismatch
+         *     * `MISSING_IN_INVOICE` - Missing in invoice
+         *     * `MISSING_IN_SYSTEM` - Missing in system
+         * @enum {string}
+         */
+        VerdictEnum: "MATCH" | "AMOUNT_MISMATCH" | "MISSING_IN_INVOICE" | "MISSING_IN_SYSTEM";
+        WsTicket: {
+            ticket: string;
+            expires_in: number;
         };
-        Envelope_Payout: {
-            result: components["schemas"]["Payout"];
-            error?: null;
-        };
-        Envelope_DownloadUrl: {
-            result: components["schemas"]["DownloadUrl"];
-            error?: null;
+        WsTicketResponse: {
+            result: components["schemas"]["WsTicket"];
         };
     };
     responses: never;
@@ -1598,7 +3342,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    getCsrfToken: {
+    auth_csrf_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -1607,7 +3351,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Cookie set */
+            /** @description No response body */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -1616,7 +3360,7 @@ export interface operations {
             };
         };
     };
-    getMe: {
+    auth_login_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -1625,27 +3369,241 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Authenticated user */
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_logout_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_me_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_ws_ticket_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_AuthUser"];
-                };
-            };
-            /** @description Unauthenticated */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["WsTicketResponse"];
                 };
             };
         };
     };
-    login: {
+    billing_billable_trips_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedBillableTripList"];
+                };
+            };
+        };
+    };
+    billing_billable_trips_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this billable trip. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillableTrip"];
+                };
+            };
+        };
+    };
+    billing_billable_trips_adjust_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this billable trip. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BillableTrip"];
+                "application/x-www-form-urlencoded": components["schemas"]["BillableTrip"];
+                "multipart/form-data": components["schemas"]["BillableTrip"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillableTrip"];
+                };
+            };
+        };
+    };
+    billing_billable_trips_lines_void_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this billable trip. */
+                id: string;
+                line_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BillableTrip"];
+                "application/x-www-form-urlencoded": components["schemas"]["BillableTrip"];
+                "multipart/form-data": components["schemas"]["BillableTrip"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillableTrip"];
+                };
+            };
+        };
+    };
+    billing_earnings_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedVendorEarningsList"];
+                };
+            };
+        };
+    };
+    billing_earnings_summary_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorEarnings"];
+                };
+            };
+        };
+    };
+    billing_invoices_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedVendorInvoiceList"];
+                };
+            };
+        };
+    };
+    billing_invoices_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -1654,44 +3612,424 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    /** Format: email */
-                    email: string;
-                    password: string;
-                };
+                "multipart/form-data": components["schemas"]["VendorInvoice"];
+                "application/x-www-form-urlencoded": components["schemas"]["VendorInvoice"];
             };
         };
         responses: {
-            /** @description Login successful */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorInvoice"];
+                };
+            };
+        };
+    };
+    billing_invoices_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vendor invoice. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_AuthUser"];
-                };
-            };
-            /** @description Invalid credentials */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
+                    "application/json": components["schemas"]["VendorInvoice"];
                 };
             };
         };
     };
-    logout: {
+    billing_invoices_matches_resolve_create: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vendor invoice. */
+                id: string;
+                match_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["VendorInvoice"];
+                "application/x-www-form-urlencoded": components["schemas"]["VendorInvoice"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorInvoice"];
+                };
+            };
+        };
+    };
+    billing_payouts_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Logged out */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPayoutList"];
+                };
+            };
+        };
+    };
+    billing_payouts_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this payout. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payout"];
+                };
+            };
+        };
+    };
+    billing_payouts_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this payout. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Payout"];
+                "application/x-www-form-urlencoded": components["schemas"]["Payout"];
+                "multipart/form-data": components["schemas"]["Payout"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payout"];
+                };
+            };
+        };
+    };
+    billing_payouts_mark_paid_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this payout. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Payout"];
+                "application/x-www-form-urlencoded": components["schemas"]["Payout"];
+                "multipart/form-data": components["schemas"]["Payout"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payout"];
+                };
+            };
+        };
+    };
+    billing_payouts_run_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Payout"];
+                "application/x-www-form-urlencoded": components["schemas"]["Payout"];
+                "multipart/form-data": components["schemas"]["Payout"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Payout"];
+                };
+            };
+        };
+    };
+    billing_statements_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedStatementList"];
+                };
+            };
+        };
+    };
+    billing_statements_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Statement"];
+                "application/x-www-form-urlencoded": components["schemas"]["Statement"];
+                "multipart/form-data": components["schemas"]["Statement"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Statement"];
+                };
+            };
+        };
+    };
+    billing_statements_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this statement. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Statement"];
+                };
+            };
+        };
+    };
+    billing_statements_download_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this statement. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Statement"];
+                };
+            };
+        };
+    };
+    billing_statements_finalize_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this statement. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Statement"];
+                "application/x-www-form-urlencoded": components["schemas"]["Statement"];
+                "multipart/form-data": components["schemas"]["Statement"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Statement"];
+                };
+            };
+        };
+    };
+    billing_vouchers_download_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    config_customers_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                name?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCustomerList"];
+                };
+            };
+        };
+    };
+    config_customers_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Customer"];
+                "application/x-www-form-urlencoded": components["schemas"]["Customer"];
+                "multipart/form-data": components["schemas"]["Customer"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Customer"];
+                };
+            };
+        };
+    };
+    config_customers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this customer. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Customer"];
+                };
+            };
+        };
+    };
+    config_customers_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this customer. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -1700,222 +4038,40 @@ export interface operations {
             };
         };
     };
-    getWsTicket: {
+    config_customers_partial_update: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description A UUID string identifying this customer. */
+                id: string;
+            };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCustomer"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedCustomer"];
+                "multipart/form-data": components["schemas"]["PatchedCustomer"];
+            };
+        };
         responses: {
-            /** @description WS ticket */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_WsTicket"];
+                    "application/json": components["schemas"]["Customer"];
                 };
             };
         };
     };
-    listVendors: {
+    config_pricing_rate_cards_list: {
         parameters: {
             query?: {
+                /** @description The pagination cursor value. */
                 cursor?: string;
-                page_size?: number;
-                search?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Vendor cursor page */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_VendorPage"];
-                };
-            };
-        };
-    };
-    createVendor: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VendorInput"];
-            };
-        };
-        responses: {
-            /** @description Created vendor */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Vendor"];
-                };
-            };
-        };
-    };
-    deactivateVendor: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deactivated vendor */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Vendor"];
-                };
-            };
-        };
-    };
-    updateVendor: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VendorInput"];
-            };
-        };
-        responses: {
-            /** @description Updated vendor */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Vendor"];
-                };
-            };
-        };
-    };
-    listCustomers: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                page_size?: number;
-                search?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Customer cursor page */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_CustomerPage"];
-                };
-            };
-        };
-    };
-    createCustomer: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomerInput"];
-            };
-        };
-        responses: {
-            /** @description Created customer */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Customer"];
-                };
-            };
-        };
-    };
-    deactivateCustomer: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deactivated customer */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Customer"];
-                };
-            };
-        };
-    };
-    updateCustomer: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CustomerInput"];
-            };
-        };
-        responses: {
-            /** @description Updated customer */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Customer"];
-                };
-            };
-        };
-    };
-    listVehicleTypes: {
-        parameters: {
-            query?: {
-                cursor?: string;
+                /** @description Number of results to return per page. */
                 page_size?: number;
             };
             header?: never;
@@ -1924,42 +4080,42 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description VehicleType cursor page */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_VehicleTypePage"];
+                    "application/json": components["schemas"]["PaginatedRateCardList"];
                 };
             };
         };
     };
-    createVehicleType: {
+    config_pricing_rate_cards_create: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["VehicleTypeInput"];
+                "application/json": components["schemas"]["RateCard"];
+                "application/x-www-form-urlencoded": components["schemas"]["RateCard"];
+                "multipart/form-data": components["schemas"]["RateCard"];
             };
         };
         responses: {
-            /** @description Created vehicle type */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_VehicleType"];
+                    "application/json": components["schemas"]["RateCard"];
                 };
             };
         };
     };
-    deactivateVehicleType: {
+    config_pricing_rate_cards_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -1970,195 +4126,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deactivated vehicle type */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_VehicleType"];
+                    "application/json": components["schemas"]["RateCard"];
                 };
             };
         };
     };
-    updateVehicleType: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VehicleTypeInput"];
-            };
-        };
-        responses: {
-            /** @description Updated vehicle type */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_VehicleType"];
-                };
-            };
-        };
-    };
-    listConfigRateCards: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                page_size?: number;
-                vendor_id?: string;
-                customer_id?: string;
-                vehicle_type_id?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description RateCard cursor page */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_ConfigRateCardPage"];
-                };
-            };
-        };
-    };
-    createConfigRateCard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConfigRateCardInput"];
-            };
-        };
-        responses: {
-            /** @description Created rate card */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_ConfigRateCard"];
-                };
-            };
-        };
-    };
-    supersedeRateCard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ConfigRateCardInput"];
-            };
-        };
-        responses: {
-            /** @description New version created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_ConfigRateCard"];
-                };
-            };
-        };
-    };
-    simulateQuote: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SimulateInput"];
-            };
-        };
-        responses: {
-            /** @description Simulation result */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_SimulateResult"];
-                };
-            };
-        };
-    };
-    listTrips: {
-        parameters: {
-            query?: {
-                status?: string;
-                customerId?: string;
-                dateFrom?: string;
-                dateTo?: string;
-                cursor?: string;
-                page_size?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Trip cursor page */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_TripPage"];
-                };
-            };
-        };
-    };
-    createTrip: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TripCreateInput"];
-            };
-        };
-        responses: {
-            /** @description Created trip */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Trip"];
-                };
-            };
-        };
-    };
-    getTrip: {
+    config_pricing_rate_cards_history_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -2169,66 +4147,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Trip detail with vehicles and timeline */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_Trip"];
+                    "application/json": components["schemas"]["RateCard"];
                 };
             };
         };
     };
-    updateTrip: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
-        responses: {
-            /** @description Updated trip */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Trip"];
-                };
-            };
-        };
-    };
-    checkCancelTrip: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Cancellation preview */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_CancelPreview"];
-                };
-            };
-        };
-    };
-    cancelTrip: {
+    config_pricing_rate_cards_supersede_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -2239,286 +4168,128 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": {
-                    reason?: string;
-                };
+                "application/json": components["schemas"]["RateCard"];
+                "application/x-www-form-urlencoded": components["schemas"]["RateCard"];
+                "multipart/form-data": components["schemas"]["RateCard"];
             };
         };
         responses: {
-            /** @description Cancelled */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_Trip"];
+                    "application/json": components["schemas"]["RateCard"];
                 };
             };
         };
     };
-    cloneTrip: {
+    config_pricing_simulate_create: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                id: string;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
+        };
+    };
+    config_vehicle_types_list: {
+        parameters: {
+            query?: {
+                ac?: boolean;
+                capacity?: number;
+                capacity_min?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                name?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedVehicleTypeList"];
+                };
+            };
+        };
+    };
+    config_vehicle_types_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: {
             content: {
-                "application/json": {
-                    /** Format: date-time */
-                    scheduleWhen?: string;
-                };
+                "application/json": components["schemas"]["VehicleType"];
+                "application/x-www-form-urlencoded": components["schemas"]["VehicleType"];
+                "multipart/form-data": components["schemas"]["VehicleType"];
             };
         };
         responses: {
-            /** @description Cloned trip */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_Trip"];
+                    "application/json": components["schemas"]["VehicleType"];
                 };
             };
         };
     };
-    transitionVehicle: {
+    config_vehicle_types_retrieve: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: string;
-                vehicleId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TransitionInput"];
-            };
-        };
-        responses: {
-            /** @description Vehicle updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_TripVehicle"];
-                };
-            };
-            /** @description Transition not allowed by state machine */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    verifyOtp: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                vehicleId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OtpVerifyInput"];
-            };
-        };
-        responses: {
-            /** @description OTP verified */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_TripVehicle"];
-                };
-            };
-            /** @description Wrong OTP */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-        };
-    };
-    assignVehicleDriver: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                vehicleId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AssignInput"];
-            };
-        };
-        responses: {
-            /** @description Assigned */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_TripVehicle"];
-                };
-            };
-        };
-    };
-    createTripAdjustment: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description Signed minor units (negative = credit) */
-                    amountMinor: number;
-                    currency: string;
-                    reason: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Adjustment created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Adjustment"];
-                };
-            };
-        };
-    };
-    bulkValidateTrips: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BulkValidateInput"];
-            };
-        };
-        responses: {
-            /** @description Per-row validation result */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_BulkValidateResult"];
-                };
-            };
-        };
-    };
-    bulkCommitTrips: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BulkCommitInput"];
-            };
-        };
-        responses: {
-            /** @description Committed trips */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_BulkCommitResult"];
-                };
-            };
-        };
-    };
-    listRecurringRules: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Rules list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_RecurringRuleList"];
-                };
-            };
-        };
-    };
-    createRecurringRule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RecurringRuleInput"];
-            };
-        };
-        responses: {
-            /** @description Created rule */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_RecurringRule"];
-                };
-            };
-        };
-    };
-    deleteRecurringRule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
+                /** @description A UUID string identifying this vehicle type. */
                 id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleType"];
+                };
+            };
+        };
+    };
+    config_vehicle_types_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vehicle type. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -2527,298 +4298,41 @@ export interface operations {
             };
         };
     };
-    updateRecurringRule: {
+    config_vehicle_types_partial_update: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description A UUID string identifying this vehicle type. */
                 id: string;
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["RecurringRuleInput"];
+                "application/json": components["schemas"]["PatchedVehicleType"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedVehicleType"];
+                "multipart/form-data": components["schemas"]["PatchedVehicleType"];
             };
         };
         responses: {
-            /** @description Updated rule */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_RecurringRule"];
+                    "application/json": components["schemas"]["VehicleType"];
                 };
             };
         };
     };
-    getQuote: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["QuoteInput"];
-            };
-        };
-        responses: {
-            /** @description Offers with priceId + expiry */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_QuoteResult"];
-                };
-            };
-        };
-    };
-    listVehicles: {
+    config_vendors_list: {
         parameters: {
             query?: {
+                /** @description The pagination cursor value. */
                 cursor?: string;
-                page_size?: number;
-                available?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Vehicle list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_VehicleList"];
-                };
-            };
-        };
-    };
-    getVehicle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Vehicle detail */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Vehicle"];
-                };
-            };
-        };
-    };
-    listDrivers: {
-        parameters: {
-            query?: {
-                cursor?: string;
-                page_size?: number;
-                available?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Driver list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_DriverList"];
-                };
-            };
-        };
-    };
-    getDriver: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Driver detail */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Driver"];
-                };
-            };
-        };
-    };
-    listRateCards: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Rate card list */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_RateCardList"];
-                };
-            };
-        };
-    };
-    getRateCard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Rate card */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_RateCard"];
-                };
-            };
-        };
-    };
-    getDispatchBoard: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Board columns */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_DispatchBoard"];
-                };
-            };
-        };
-    };
-    autoAssignAll: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Assignment summary */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_AutoAssignResult"];
-                };
-            };
-        };
-    };
-    listAssignments: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Assignments */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_AssignmentList"];
-                };
-            };
-        };
-    };
-    getLivePositions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Live positions */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_LivePositionList"];
-                };
-            };
-        };
-    };
-    trackTripVehicle: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                tripVehicleId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Track detail */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_TrackDetail"];
-                };
-            };
-        };
-    };
-    listInvoices: {
-        parameters: {
-            query?: {
-                status?: string;
-                customerId?: string;
-                cursor?: string;
+                name?: string;
+                /** @description Number of results to return per page. */
                 page_size?: number;
             };
             header?: never;
@@ -2827,103 +4341,163 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Invoice cursor page */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_InvoicePage"];
+                    "application/json": components["schemas"]["PaginatedVendorList"];
                 };
             };
         };
     };
-    getInvoice: {
+    config_vendors_create: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                id: string;
-            };
+            path?: never;
             cookie?: never;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Invoice with lines */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Invoice"];
-                };
-            };
-        };
-    };
-    voidInvoice: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": {
-                    reason: string;
-                };
+                "application/json": components["schemas"]["Vendor"];
+                "application/x-www-form-urlencoded": components["schemas"]["Vendor"];
+                "multipart/form-data": components["schemas"]["Vendor"];
             };
         };
         responses: {
-            /** @description Voided */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Envelope_Invoice"];
-                };
-            };
-        };
-    };
-    adjustInvoice: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description Signed minor units */
-                    amountMinor: number;
-                    currency: string;
-                    reason: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Adjustment applied */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_Invoice"];
+                    "application/json": components["schemas"]["Vendor"];
                 };
             };
         };
     };
-    listStatements: {
+    config_vendors_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vendor. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+        };
+    };
+    config_vendors_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vendor. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    config_vendors_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vendor. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedVendor"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedVendor"];
+                "multipart/form-data": components["schemas"]["PatchedVendor"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+        };
+    };
+    dispatch_auto_assign_all_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["BoardCard"];
+                "application/x-www-form-urlencoded": components["schemas"]["BoardCard"];
+                "multipart/form-data": components["schemas"]["BoardCard"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardCard"];
+                };
+            };
+        };
+    };
+    dispatch_board_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardCard"];
+                };
+            };
+        };
+    };
+    fleet_customers_list: {
         parameters: {
             query?: {
-                customerId?: string;
+                /** @description The pagination cursor value. */
                 cursor?: string;
+                name?: string;
+                /** @description Number of results to return per page. */
                 page_size?: number;
             };
             header?: never;
@@ -2932,44 +4506,346 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Statement list */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_StatementPage"];
+                    "application/json": components["schemas"]["PaginatedCustomerList"];
                 };
             };
         };
     };
-    downloadStatement: {
+    fleet_customers_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Customer"];
+                "application/x-www-form-urlencoded": components["schemas"]["Customer"];
+                "multipart/form-data": components["schemas"]["Customer"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Customer"];
+                };
+            };
+        };
+    };
+    fleet_customers_retrieve: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description A UUID string identifying this customer. */
                 id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Presigned download URL */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_DownloadUrl"];
+                    "application/json": components["schemas"]["Customer"];
                 };
             };
         };
     };
-    listPayouts: {
+    fleet_customers_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this customer. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    fleet_customers_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this customer. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCustomer"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedCustomer"];
+                "multipart/form-data": components["schemas"]["PatchedCustomer"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Customer"];
+                };
+            };
+        };
+    };
+    fleet_documents_list: {
         parameters: {
             query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                doc_type?: string;
+                entity_id?: string;
+                entity_type?: string;
+                expires_after?: string;
+                expires_before?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDocumentList"];
+                };
+            };
+        };
+    };
+    fleet_documents_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Document"];
+                "application/x-www-form-urlencoded": components["schemas"]["Document"];
+                "multipart/form-data": components["schemas"]["Document"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+        };
+    };
+    fleet_documents_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this document. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+        };
+    };
+    fleet_documents_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this document. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedDocument"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedDocument"];
+                "multipart/form-data": components["schemas"]["PatchedDocument"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+        };
+    };
+    fleet_drivers_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                is_active?: boolean;
+                name?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
                 status?: string;
+                vendor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDriverList"];
+                };
+            };
+        };
+    };
+    fleet_drivers_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Driver"];
+                "application/x-www-form-urlencoded": components["schemas"]["Driver"];
+                "multipart/form-data": components["schemas"]["Driver"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Driver"];
+                };
+            };
+        };
+    };
+    fleet_drivers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this driver. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Driver"];
+                };
+            };
+        };
+    };
+    fleet_drivers_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this driver. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    fleet_drivers_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this driver. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedDriver"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedDriver"];
+                "multipart/form-data": components["schemas"]["PatchedDriver"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Driver"];
+                };
+            };
+        };
+    };
+    fleet_locations_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
                 cursor?: string;
+                /** @description Number of results to return per page. */
                 page_size?: number;
             };
             header?: never;
@@ -2978,18 +4854,496 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Payout list */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_PayoutPage"];
+                    "application/json": components["schemas"]["PaginatedLocationList"];
                 };
             };
         };
     };
-    approvePayout: {
+    fleet_vehicle_types_list: {
+        parameters: {
+            query?: {
+                ac?: boolean;
+                capacity?: number;
+                capacity_min?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                name?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedVehicleTypeList"];
+                };
+            };
+        };
+    };
+    fleet_vehicle_types_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VehicleType"];
+                "application/x-www-form-urlencoded": components["schemas"]["VehicleType"];
+                "multipart/form-data": components["schemas"]["VehicleType"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleType"];
+                };
+            };
+        };
+    };
+    fleet_vehicle_types_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vehicle type. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleType"];
+                };
+            };
+        };
+    };
+    fleet_vehicle_types_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vehicle type. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    fleet_vehicle_types_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vehicle type. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedVehicleType"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedVehicleType"];
+                "multipart/form-data": components["schemas"]["PatchedVehicleType"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VehicleType"];
+                };
+            };
+        };
+    };
+    fleet_vehicles_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                is_active?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                plate?: string;
+                vehicle_type?: string;
+                vendor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedVehicleList"];
+                };
+            };
+        };
+    };
+    fleet_vehicles_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Vehicle"];
+                "application/x-www-form-urlencoded": components["schemas"]["Vehicle"];
+                "multipart/form-data": components["schemas"]["Vehicle"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vehicle"];
+                };
+            };
+        };
+    };
+    fleet_vehicles_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vehicle. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vehicle"];
+                };
+            };
+        };
+    };
+    fleet_vehicles_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vehicle. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    fleet_vehicles_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vehicle. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedVehicle"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedVehicle"];
+                "multipart/form-data": components["schemas"]["PatchedVehicle"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vehicle"];
+                };
+            };
+        };
+    };
+    fleet_vehicles_nearest_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vehicle"];
+                };
+            };
+        };
+    };
+    fleet_vendors_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                name?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedVendorList"];
+                };
+            };
+        };
+    };
+    fleet_vendors_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Vendor"];
+                "application/x-www-form-urlencoded": components["schemas"]["Vendor"];
+                "multipart/form-data": components["schemas"]["Vendor"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+        };
+    };
+    fleet_vendors_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vendor. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+        };
+    };
+    fleet_vendors_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vendor. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    fleet_vendors_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A UUID string identifying this vendor. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedVendor"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedVendor"];
+                "multipart/form-data": components["schemas"]["PatchedVendor"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+        };
+    };
+    notifications_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    notifications_deliveries_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDeliveryList"];
+                };
+            };
+        };
+    };
+    notifications_templates_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedNotificationTemplateList"];
+                };
+            };
+        };
+    };
+    notifications_templates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationTemplate"];
+                "application/x-www-form-urlencoded": components["schemas"]["NotificationTemplate"];
+                "multipart/form-data": components["schemas"]["NotificationTemplate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationTemplate"];
+                };
+            };
+        };
+    };
+    notifications_templates_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -3000,18 +5354,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Payout approved */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_Payout"];
+                    "application/json": components["schemas"]["NotificationTemplate"];
                 };
             };
         };
     };
-    markPayoutPaid: {
+    notifications_templates_partial_update: {
         parameters: {
             query?: never;
             header?: never;
@@ -3022,24 +5375,335 @@ export interface operations {
         };
         requestBody?: {
             content: {
-                "application/json": {
-                    reference?: string;
-                };
+                "application/json": components["schemas"]["PatchedNotificationTemplate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedNotificationTemplate"];
+                "multipart/form-data": components["schemas"]["PatchedNotificationTemplate"];
             };
         };
         responses: {
-            /** @description Payout marked paid */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_Payout"];
+                    "application/json": components["schemas"]["NotificationTemplate"];
                 };
             };
         };
     };
-    listSosEvents: {
+    partner_credentials_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCredentialList"];
+                };
+            };
+        };
+    };
+    partner_credentials_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Credential"];
+                "application/x-www-form-urlencoded": components["schemas"]["Credential"];
+                "multipart/form-data": components["schemas"]["Credential"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credential"];
+                };
+            };
+        };
+    };
+    partner_credentials_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credential"];
+                };
+            };
+        };
+    };
+    partner_credentials_revoke_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Credential"];
+                "application/x-www-form-urlencoded": components["schemas"]["Credential"];
+                "multipart/form-data": components["schemas"]["Credential"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credential"];
+                };
+            };
+        };
+    };
+    partner_credentials_rotate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Credential"];
+                "application/x-www-form-urlencoded": components["schemas"]["Credential"];
+                "multipart/form-data": components["schemas"]["Credential"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Credential"];
+                };
+            };
+        };
+    };
+    pricing_offers_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOfferList"];
+                };
+            };
+        };
+    };
+    pricing_offers_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["Offer"];
+                "application/x-www-form-urlencoded": components["schemas"]["Offer"];
+                "multipart/form-data": components["schemas"]["Offer"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+        };
+    };
+    pricing_offers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+        };
+    };
+    pricing_rate_cards_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedRateCardList"];
+                };
+            };
+        };
+    };
+    pricing_rate_cards_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RateCard"];
+                "application/x-www-form-urlencoded": components["schemas"]["RateCard"];
+                "multipart/form-data": components["schemas"]["RateCard"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateCard"];
+                };
+            };
+        };
+    };
+    pricing_rate_cards_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateCard"];
+                };
+            };
+        };
+    };
+    pricing_rate_cards_history_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateCard"];
+                };
+            };
+        };
+    };
+    pricing_rate_cards_supersede_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RateCard"];
+                "application/x-www-form-urlencoded": components["schemas"]["RateCard"];
+                "multipart/form-data": components["schemas"]["RateCard"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RateCard"];
+                };
+            };
+        };
+    };
+    pricing_simulate_create: {
         parameters: {
             query?: never;
             header?: never;
@@ -3048,14 +5712,1042 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description SOS events */
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    safety_alerts_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Envelope_SosList"];
+                    "application/json": components["schemas"]["PaginatedSafetyAlertList"];
                 };
+            };
+        };
+    };
+    safety_alerts_ack_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SafetyAlert"];
+                "application/x-www-form-urlencoded": components["schemas"]["SafetyAlert"];
+                "multipart/form-data": components["schemas"]["SafetyAlert"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SafetyAlert"];
+                };
+            };
+        };
+    };
+    safety_alerts_resolve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SafetyAlert"];
+                "application/x-www-form-urlencoded": components["schemas"]["SafetyAlert"];
+                "multipart/form-data": components["schemas"]["SafetyAlert"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SafetyAlert"];
+                };
+            };
+        };
+    };
+    safety_alerts_timeline_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SafetyAlert"];
+                };
+            };
+        };
+    };
+    safety_trips_vehicles_sos_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                trip_vehicle_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    tracking_live_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    trips_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedTripRequestList"];
+                };
+            };
+        };
+    };
+    trips_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TripRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TripRequest"];
+                "multipart/form-data": components["schemas"]["TripRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripRequest"];
+                };
+            };
+        };
+    };
+    trips_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripRequest"];
+                };
+            };
+        };
+    };
+    trips_check_update_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripRequest"];
+                };
+            };
+        };
+    };
+    trips_clone_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TripRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TripRequest"];
+                "multipart/form-data": components["schemas"]["TripRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripRequest"];
+                };
+            };
+        };
+    };
+    trips_vehicles_assign_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vehicle_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TripRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TripRequest"];
+                "multipart/form-data": components["schemas"]["TripRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripRequest"];
+                };
+            };
+        };
+    };
+    trips_vehicles_check_cancel_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vehicle_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripRequest"];
+                };
+            };
+        };
+    };
+    trips_vehicles_reassign_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vehicle_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TripRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TripRequest"];
+                "multipart/form-data": components["schemas"]["TripRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripRequest"];
+                };
+            };
+        };
+    };
+    trips_vehicles_track_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vehicle_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripRequest"];
+                };
+            };
+        };
+    };
+    trips_vehicles_transitions_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vehicle_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TripRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TripRequest"];
+                "multipart/form-data": components["schemas"]["TripRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripRequest"];
+                };
+            };
+        };
+    };
+    trips_vehicles_verify_otp_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                vehicle_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TripRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TripRequest"];
+                "multipart/form-data": components["schemas"]["TripRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripRequest"];
+                };
+            };
+        };
+    };
+    trips_bulk_commit_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    trips_bulk_preview_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    trips_pax_payload_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    trips_recurring_rules_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedRecurringRuleList"];
+                };
+            };
+        };
+    };
+    trips_recurring_rules_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringRule"];
+                "application/x-www-form-urlencoded": components["schemas"]["RecurringRule"];
+                "multipart/form-data": components["schemas"]["RecurringRule"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringRule"];
+                };
+            };
+        };
+    };
+    trips_recurring_rules_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringRule"];
+                };
+            };
+        };
+    };
+    trips_recurring_rules_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedRecurringRule"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedRecurringRule"];
+                "multipart/form-data": components["schemas"]["PatchedRecurringRule"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringRule"];
+                };
+            };
+        };
+    };
+    trips_recurring_rules_deactivate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurringRule"];
+                "application/x-www-form-urlencoded": components["schemas"]["RecurringRule"];
+                "multipart/form-data": components["schemas"]["RecurringRule"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurringRule"];
+                };
+            };
+        };
+    };
+    trips_vehicle_count_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    users_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    users_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    users_retrieve_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    users_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    healthz_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    metrics_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_auth_refresh_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenRefresh"];
+                "application/x-www-form-urlencoded": components["schemas"]["TokenRefresh"];
+                "multipart/form-data": components["schemas"]["TokenRefresh"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenRefresh"];
+                };
+            };
+        };
+    };
+    partner_v1_auth_token_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_book_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_check_time_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_quote_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_trips_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_trips_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_trips_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_trips_vouchers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reference: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_webhooks_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_webhooks_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_webhooks_retrieve_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_webhooks_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_webhooks_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    partner_v1_webhooks_deliveries_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    readyz_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

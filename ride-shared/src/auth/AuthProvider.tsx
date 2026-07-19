@@ -9,11 +9,21 @@ import React, {
   type ReactNode,
 } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, isApiError } from "../api/client";
+import { isApiError } from "../api/client";
 import { keys } from "../api/query";
-import type { components } from "../api/schema.d";
 
-type AuthUser = components["schemas"]["AuthUser"];
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  role: "AGENCY_ADMIN" | "VENDOR_MANAGER" | "DRIVER";
+  vendor_id: string | null;
+  phone: string;
+  is_active: boolean;
+  created_at: string;
+  tenant: { id: string; name: string; currency: string };
+}
+
 type UserRole = AuthUser["role"];
 
 interface SessionState {
@@ -37,9 +47,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: user, isLoading } = useQuery({
     queryKey: keys.me(),
     queryFn: async () => {
-      const { data, error } = await apiClient.GET("/v1/auth/me");
-      if (error) throw error;
-      return data?.result ?? null;
+      const res = await fetch("/api/v1/auth/me/", { credentials: "include" });
+      if (!res.ok) {
+        if (res.status === 401) return null;
+        throw new Error(`/v1/auth/me ${res.status}`);
+      }
+      const body = (await res.json()) as { result: AuthUser };
+      return body.result ?? null;
     },
     retry: (failureCount, error) => {
       if (isApiError(error) && error.status === 401) return false;
@@ -51,22 +65,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(
     async (email: string, password: string) => {
       setLoginError(null);
-      const { data, error } = await apiClient.POST("/v1/auth/login", {
-        body: { email, password },
+      const csrfRes = await fetch("/api/v1/auth/csrf/", { credentials: "include" });
+      const csrfCookie = csrfRes.headers.get("X-CSRFToken") ?? (document.cookie.match(/csrftoken=([^;]+)/) ?? [])[1] ?? "";
+      const res = await fetch("/api/v1/auth/login/", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfCookie },
+        body: JSON.stringify({ email, password }),
       });
-      if (error) {
-        setLoginError(error instanceof Error ? error : new Error(String(error)));
-        throw error;
+      if (!res.ok) {
+        const err = new Error(`Login failed: ${res.status}`);
+        setLoginError(err);
+        throw err;
       }
-      if (data?.result) {
-        queryClient.setQueryData(keys.me(), data.result);
+      const body = (await res.json()) as { result?: AuthUser };
+      if (body.result) {
+        queryClient.setQueryData(keys.me(), body.result);
       }
     },
     [queryClient]
   );
 
   const logout = useCallback(async () => {
-    await apiClient.POST("/v1/auth/logout", {});
+    const csrfCookie = (document.cookie.match(/csrftoken=([^;]+)/) ?? [])[1] ?? "";
+    await fetch("/api/v1/auth/logout/", {
+      method: "POST",
+      credentials: "include",
+      headers: { "X-CSRFToken": csrfCookie },
+    });
     queryClient.setQueryData(keys.me(), null);
     queryClient.clear();
   }, [queryClient]);

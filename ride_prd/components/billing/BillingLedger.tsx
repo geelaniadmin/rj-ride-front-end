@@ -3,8 +3,8 @@
 import React, { useMemo, useState } from "react";
 import { useLanguageStore, t } from "@ride/shared";
 import { useBillingStore } from "@/stores/billingStore";
-import { useTenantStore } from "@ride/shared";
-import { useCustomerStore } from "@ride/shared";
+import { useTenantStore } from "@/stores/tenantStore";
+import { useCustomerStore } from "@/stores/customerStore";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";

@@ -15,9 +15,21 @@ import { Badge } from "@/components/ui/Badge";
 import { useToastStore } from "@/stores/toastStore";
 import { useConfigFiltersStore } from "@/stores/configFiltersStore";
 
-type ConfigRateCard = components["schemas"]["ConfigRateCard"];
-type ConfigRateCardInput = components["schemas"]["ConfigRateCardInput"];
-type RateBasis = ConfigRateCard["basis"];
+type RateCard = components["schemas"]["RateCard"];
+type BasisEnum = components["schemas"]["BasisEnum"];
+
+type RateCardInput = {
+  vendor_id: string;
+  customer_id: string;
+  vehicle_type_id: string;
+  basis: BasisEnum;
+  rate_per_km_minor?: number | null;
+  rate_per_hour_minor?: number | null;
+  currency?: string;
+  modifiers?: Record<string, unknown>;
+  valid_from: string;
+  valid_to?: string | null;
+};
 
 interface RateCardsTabProps {
   searchQuery?: string;
@@ -29,20 +41,12 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
   const queryClient = useQueryClient();
   const { rateCardVendorId, rateCardCustomerId, rateCardVehicleTypeId, setRateCardVendorId, setRateCardCustomerId, setRateCardVehicleTypeId } = useConfigFiltersStore();
 
-  const filters = {
-    vendor_id: rateCardVendorId || undefined,
-    customer_id: rateCardCustomerId || undefined,
-    vehicle_type_id: rateCardVehicleTypeId || undefined,
-  };
-
   const { data, isLoading, error } = useQuery({
-    queryKey: keys.config.rateCards.list(filters),
+    queryKey: keys.config.rateCards.list(),
     queryFn: async () => {
-      const { data: res, error: err } = await apiClient.GET("/v1/config/pricing/rate-cards", {
-        params: { query: filters },
-      });
+      const { data: res, error: err } = await apiClient.GET("/v1/config/pricing/rate-cards", {});
       if (err) throw err;
-      return res?.result;
+      return res;
     },
   });
 
@@ -51,7 +55,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/config/vendors", {});
       if (err) throw err;
-      return res?.result?.results ?? [];
+      return res;
     },
   });
 
@@ -60,7 +64,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/config/customers", {});
       if (err) throw err;
-      return res?.result?.results ?? [];
+      return res;
     },
   });
 
@@ -69,24 +73,28 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/config/vehicle-types", {});
       if (err) throw err;
-      return res?.result?.results ?? [];
+      return res;
     },
   });
 
-  const rateCards = data?.results ?? [];
-  const vendors = vendorsData ?? [];
-  const customers = customersData ?? [];
-  const vts = vehicleTypesData ?? [];
+  const rateCards = (data?.results ?? []) as RateCard[];
+  const vendors = (vendorsData?.results ?? []) as components["schemas"]["Vendor"][];
+  const customers = (customersData?.results ?? []) as components["schemas"]["Customer"][];
+  const vts = (vehicleTypesData?.results ?? []) as components["schemas"]["VehicleType"][];
 
-  const filteredRateCards = searchQuery.trim()
-    ? rateCards.filter((r) => r.basis.toLowerCase().includes(searchQuery.toLowerCase()) || r.validFrom.includes(searchQuery))
-    : rateCards;
+  const filteredRateCards = rateCards.filter((r) => {
+    if (rateCardVendorId && r.vendor !== rateCardVendorId) return false;
+    if (rateCardCustomerId && r.customer !== rateCardCustomerId) return false;
+    if (rateCardVehicleTypeId && r.vehicle_type !== rateCardVehicleTypeId) return false;
+    if (searchQuery.trim() && !r.basis.toLowerCase().includes(searchQuery.toLowerCase()) && !r.valid_from.includes(searchQuery)) return false;
+    return true;
+  });
 
   const createMutation = useMutation({
-    mutationFn: async (input: ConfigRateCardInput) => {
-      const { data: res, error: err } = await apiClient.POST("/v1/config/pricing/rate-cards", { body: input });
+    mutationFn: async (input: RateCardInput) => {
+      const { data: res, error: err } = await apiClient.POST("/v1/config/pricing/rate-cards", { body: input as unknown as RateCard });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.rateCards.list() });
@@ -99,13 +107,13 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
   });
 
   const supersedeMutation = useMutation({
-    mutationFn: async ({ id, input }: { id: string; input: ConfigRateCardInput }) => {
+    mutationFn: async ({ id, input }: { id: string; input: RateCardInput }) => {
       const { data: res, error: err } = await apiClient.POST("/v1/config/pricing/rate-cards/{id}/supersede", {
         params: { path: { id } },
-        body: input,
+        body: input as unknown as RateCard,
       });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.rateCards.list() });
@@ -118,44 +126,46 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
   });
 
   const today = new Date().toISOString().split("T")[0] ?? "";
-  const emptyForm: ConfigRateCardInput = {
-    vendorId: vendors[0]?.id ?? "",
-    customerId: customers[0]?.id ?? "",
-    vehicleTypeId: vts[0]?.id ?? "",
+  const emptyForm: RateCardInput = {
+    vendor_id: vendors[0]?.id ?? "",
+    customer_id: customers[0]?.id ?? "",
+    vehicle_type_id: vts[0]?.id ?? "",
     basis: "PER_KM",
-    perKm: 20,
-    modifiers: { minFare: 200 },
-    validFrom: today,
+    rate_per_km_minor: 2000,
+    modifiers: { min_fare_minor: 20000 },
+    valid_from: today,
+    currency: "INR",
   };
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [supersedingId, setSupersedingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<ConfigRateCardInput>(emptyForm);
+  const [formData, setFormData] = useState<RateCardInput>(emptyForm);
 
   const openCreate = () => {
     setSupersedingId(null);
-    setFormData({ ...emptyForm, vendorId: vendors[0]?.id ?? "", customerId: customers[0]?.id ?? "", vehicleTypeId: vts[0]?.id ?? "" });
+    setFormData({ ...emptyForm, vendor_id: vendors[0]?.id ?? "", customer_id: customers[0]?.id ?? "", vehicle_type_id: vts[0]?.id ?? "" });
     setDrawerOpen(true);
   };
 
-  const openSupersede = (rc: ConfigRateCard) => {
+  const openSupersede = (rc: RateCard) => {
     setSupersedingId(rc.id);
     setFormData({
-      vendorId: rc.vendorId,
-      customerId: rc.customerId,
-      vehicleTypeId: rc.vehicleTypeId,
+      vendor_id: rc.vendor,
+      customer_id: rc.customer,
+      vehicle_type_id: rc.vehicle_type,
       basis: rc.basis,
-      perKm: rc.perKm,
-      hourlyRate: rc.hourlyRate,
-      modifiers: rc.modifiers,
-      validFrom: today,
-      validTo: rc.validTo,
+      rate_per_km_minor: rc.rate_per_km_minor,
+      rate_per_hour_minor: rc.rate_per_hour_minor,
+      modifiers: rc.modifiers as Record<string, unknown> | undefined,
+      valid_from: today,
+      valid_to: rc.valid_to,
+      currency: rc.currency,
     });
     setDrawerOpen(true);
   };
 
   const handleSave = () => {
-    if (!formData.vendorId || !formData.customerId || !formData.vehicleTypeId) {
+    if (!formData.vendor_id || !formData.customer_id || !formData.vehicle_type_id) {
       addToast(t("vendorCustomerVehicleRequired", language), "error");
       return;
     }
@@ -174,16 +184,16 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
       render: (val): React.ReactNode => <Badge variant="blue">{val as string}</Badge>,
     },
     {
-      key: "perKm",
+      key: "rate_per_km_minor",
       header: t("perKm", language),
-      render: (val): React.ReactNode => (val ? formatMoney((val as number) * 100, "INR") : t("dash", language)),
+      render: (val): React.ReactNode => (val ? formatMoney(val as number, "INR") : t("dash", language)),
     },
     {
-      key: "hourlyRate",
+      key: "rate_per_hour_minor",
       header: t("hourly", language),
-      render: (val): React.ReactNode => (val ? formatMoney((val as number) * 100, "INR") : t("dash", language)),
+      render: (val): React.ReactNode => (val ? formatMoney(val as number, "INR") : t("dash", language)),
     },
-    { key: "validFrom", header: t("validFrom", language), sortable: true },
+    { key: "valid_from", header: t("validFrom", language), sortable: true },
     {
       key: "version",
       header: t("version", language),
@@ -248,24 +258,24 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
         <div className="space-y-4">
           <FormField label={t("vendor", language)} required>
             <Select
-              value={formData.vendorId}
-              onChange={(e) => setFormData({ ...formData, vendorId: e.target.value })}
+              value={formData.vendor_id}
+              onChange={(e) => setFormData({ ...formData, vendor_id: e.target.value })}
               options={vendors.map((v) => ({ value: v.id, label: v.name }))}
             />
           </FormField>
 
           <FormField label={t("customer", language)} required>
             <Select
-              value={formData.customerId}
-              onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+              value={formData.customer_id}
+              onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
               options={customers.map((c) => ({ value: c.id, label: c.name }))}
             />
           </FormField>
 
           <FormField label={t("vehicleType", language)} required>
             <Select
-              value={formData.vehicleTypeId}
-              onChange={(e) => setFormData({ ...formData, vehicleTypeId: e.target.value })}
+              value={formData.vehicle_type_id}
+              onChange={(e) => setFormData({ ...formData, vehicle_type_id: e.target.value })}
               options={vts.map((v) => ({ value: v.id, label: v.name }))}
             />
           </FormField>
@@ -273,7 +283,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
           <FormField label={t("basis", language)}>
             <Select
               value={formData.basis}
-              onChange={(e) => setFormData({ ...formData, basis: e.target.value as RateBasis })}
+              onChange={(e) => setFormData({ ...formData, basis: e.target.value as BasisEnum })}
               options={[
                 { value: "PER_KM", label: t("perKm", language) },
                 { value: "HOURLY", label: t("hourly", language) },
@@ -287,8 +297,8 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
             <FormField label={t("ratePerKm", language)}>
               <Input
                 type="number"
-                value={formData.perKm ?? 0}
-                onChange={(e) => setFormData({ ...formData, perKm: parseFloat(e.target.value) || 0 })}
+                value={formData.rate_per_km_minor ?? 0}
+                onChange={(e) => setFormData({ ...formData, rate_per_km_minor: parseFloat(e.target.value) || 0 })}
               />
             </FormField>
           )}
@@ -297,38 +307,25 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
             <FormField label={t("hourlyRate", language)}>
               <Input
                 type="number"
-                value={formData.hourlyRate ?? 0}
-                onChange={(e) => setFormData({ ...formData, hourlyRate: parseFloat(e.target.value) || 0 })}
+                value={formData.rate_per_hour_minor ?? 0}
+                onChange={(e) => setFormData({ ...formData, rate_per_hour_minor: parseFloat(e.target.value) || 0 })}
               />
             </FormField>
           )}
 
-          <FormField label={t("minFare", language)}>
-            <Input
-              type="number"
-              value={formData.modifiers?.minFare ?? 0}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  modifiers: { ...formData.modifiers, minFare: parseFloat(e.target.value) || 0 },
-                })
-              }
-            />
-          </FormField>
-
           <FormField label={t("validFrom", language)}>
             <Input
               type="date"
-              value={formData.validFrom}
-              onChange={(e) => setFormData({ ...formData, validFrom: e.target.value })}
+              value={formData.valid_from}
+              onChange={(e) => setFormData({ ...formData, valid_from: e.target.value })}
             />
           </FormField>
 
           <FormField label={t("validTo", language)}>
             <Input
               type="date"
-              value={formData.validTo ?? ""}
-              onChange={(e) => setFormData({ ...formData, validTo: e.target.value || undefined })}
+              value={formData.valid_to ?? ""}
+              onChange={(e) => setFormData({ ...formData, valid_to: e.target.value || undefined })}
             />
           </FormField>
 
@@ -354,16 +351,15 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
             <div className="flex justify-between items-start">
               <div>
                 <p className="text-ops-sidebar font-medium">
-                  {vendors.find((v) => v.id === rc.vendorId)?.name} ×{" "}
-                  {customers.find((c) => c.id === rc.customerId)?.name}
+                  {rc.vendor_name} × {rc.customer_name}
                 </p>
                 <p className="text-text-secondary">
-                  {rc.basis} v{rc.version}
+                  {rc.basis} v{rc.version} · {rc.vehicle_type_name}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-ops-sidebar">
-                  {rc.validFrom} → {rc.validTo ?? "∞"}
+                  {rc.valid_from} → {rc.valid_to ?? "∞"}
                 </p>
                 <Button
                   size="sm"

@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, formatMoney, isApiError } from "@ride/shared";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiClient, keys, isApiError } from "@ride/shared";
 import type { components } from "@ride/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
@@ -11,11 +11,10 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { TripDetailView } from "@/components/trips/TripDetailView";
-import { ChevronRight, ChevronLeft, X, AlertTriangle } from "lucide-react";
+import { ChevronRight, ChevronLeft, X } from "lucide-react";
 import type { TripStatus } from "@/lib/types";
 
-type TripSummary = components["schemas"]["TripSummary"];
-type CancelPreview = components["schemas"]["CancelPreview"];
+type TripRequest = components["schemas"]["TripRequest"];
 
 const STATUS_FILTERS = ["", "DRAFT", "CONFIRMED", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "BILLED", "CANCELLED"];
 
@@ -31,15 +30,14 @@ export const TripsListTab: React.FC = () => {
   const [pageIdx, setPageIdx] = useState(0);
 
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
-  const [cancelTripId, setCancelTripId] = useState<string | null>(null);
+  const [cancelTrip, setCancelTrip] = useState<TripRequest | null>(null);
   const [cancelReason, setCancelReason] = useState("");
-  const [cancelPreview, setCancelPreview] = useState<CancelPreview | null>(null);
-  const [checkingCancel, setCheckingCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const filters = {
     status: statusFilter || undefined,
-    dateFrom: dateFrom || undefined,
-    dateTo: dateTo || undefined,
+    date_from: dateFrom || undefined,
+    date_to: dateTo || undefined,
     cursor: cursor ?? undefined,
   };
 
@@ -50,11 +48,11 @@ export const TripsListTab: React.FC = () => {
         params: { query: filters },
       });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
   });
 
-  const trips: TripSummary[] = data?.results ?? [];
+  const trips: TripRequest[] = (data?.results ?? []) as TripRequest[];
   const nextCursor = data?.next ?? null;
   const hasPrev = pageIdx > 0;
   const hasNext = !!nextCursor;
@@ -80,52 +78,41 @@ export const TripsListTab: React.FC = () => {
     setPageIdx(0);
   };
 
-  const checkCancelMutation = useMutation({
-    mutationFn: async (id: string) => {
-      setCheckingCancel(true);
-      const { data: res, error: err } = await apiClient.POST("/v1/trips/{id}/check-cancel", {
-        params: { path: { id } },
-      });
-      setCheckingCancel(false);
-      if (err) throw err;
-      return res?.result ?? null;
-    },
-    onSuccess: (preview) => {
-      setCancelPreview(preview);
-    },
-    onError: (err) => {
-      setCheckingCancel(false);
-      addToast(err instanceof Error ? err.message : "Failed to check cancellation", "error");
-    },
-  });
+  const openCancel = (trip: TripRequest) => {
+    setCancelTrip(trip);
+    setCancelReason("");
+  };
 
-  const cancelMutation = useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      const { data: res, error: err } = await apiClient.POST("/v1/trips/{id}/cancel", {
-        params: { path: { id } },
-        body: { reason },
-      });
-      if (err) throw err;
-      return res?.result;
-    },
-    onSuccess: () => {
+  const handleCancel = async () => {
+    if (!cancelTrip) return;
+    setCancelling(true);
+    try {
+      const vehicles = cancelTrip.vehicles ?? [];
+      if (vehicles.length === 0) {
+        addToast("No vehicles to cancel", "error");
+        return;
+      }
+      for (const v of vehicles) {
+        const resp = await fetch(`/api/v1/trips/${cancelTrip.id}/vehicles/${v.id}/transitions`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: "CANCELLED", reason: cancelReason || undefined }),
+        });
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({})) as { error?: { message?: string } };
+          throw new Error(body?.error?.message ?? `Cancel failed (${resp.status})`);
+        }
+      }
       addToast("Trip cancelled", "success");
       void qc.invalidateQueries({ queryKey: keys.trips.all() });
-      setCancelTripId(null);
-      setCancelPreview(null);
+      setCancelTrip(null);
       setCancelReason("");
-    },
-    onError: (err) => {
-      const msg = isApiError(err) ? err.message : "Failed to cancel trip";
-      addToast(msg, "error");
-    },
-  });
-
-  const openCancel = (tripId: string) => {
-    setCancelTripId(tripId);
-    setCancelPreview(null);
-    setCancelReason("");
-    void checkCancelMutation.mutateAsync(tripId);
+    } catch (err) {
+      addToast(isApiError(err) ? err.message : err instanceof Error ? err.message : "Failed to cancel", "error");
+    } finally {
+      setCancelling(false);
+    }
   };
 
   if (selectedTripId) {
@@ -189,15 +176,14 @@ export const TripsListTab: React.FC = () => {
                   <StatusBadge status={trip.status as TripStatus} />
                   <div>
                     <p className="text-sm font-medium text-text-primary font-mono">
-                      {trip.id.substring(0, 8)}…
-                      {trip.reference && (
-                        <span className="ml-2 text-text-secondary font-sans">ref: {trip.reference}</span>
+                      {trip.reference}
+                      {trip.customer_name && (
+                        <span className="ml-2 text-text-secondary font-sans">{trip.customer_name}</span>
                       )}
                     </p>
                     <p className="text-xs text-text-secondary mt-0.5">
-                      {trip.pickupAddress ?? "—"}
-                      {trip.vehicleCount != null && ` · ${trip.vehicleCount} vehicle(s)`}
-                      {trip.scheduleWhen && ` · ${new Date(trip.scheduleWhen).toLocaleString()}`}
+                      {trip.pickup_at ? new Date(trip.pickup_at).toLocaleString() : "—"}
+                      {trip.vehicles.length > 0 && ` · ${trip.vehicles.length} vehicle(s)`}
                     </p>
                   </div>
                 </div>
@@ -206,7 +192,7 @@ export const TripsListTab: React.FC = () => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={(e) => { e.stopPropagation(); openCancel(trip.id); }}
+                      onClick={(e) => { e.stopPropagation(); openCancel(trip); }}
                       className="text-danger hover:bg-danger/10"
                     >
                       <X className="w-3 h-3 mr-1" /> Cancel
@@ -224,40 +210,23 @@ export const TripsListTab: React.FC = () => {
         <Button onClick={goPrev} disabled={!hasPrev} variant="secondary" size="sm">
           <ChevronLeft className="w-4 h-4 mr-1" /> Prev
         </Button>
-        <span className="text-xs text-text-secondary">Page {pageIdx + 1} · {data?.count ?? 0} total</span>
+        <span className="text-xs text-text-secondary">Page {pageIdx + 1}</span>
         <Button onClick={goNext} disabled={!hasNext} variant="secondary" size="sm">
           Next <ChevronRight className="w-4 h-4 ml-1" />
         </Button>
       </div>
 
-      {cancelTripId && (
+      {cancelTrip && (
         <Modal
           open={true}
-          onClose={() => { setCancelTripId(null); setCancelPreview(null); }}
+          onClose={() => { setCancelTrip(null); }}
           title="Cancel Trip"
         >
           <div className="space-y-4">
-            {checkingCancel && (
-              <p className="text-sm text-text-secondary">Checking cancellation terms…</p>
-            )}
-
-            {cancelPreview && !checkingCancel && (
-              <div className={`p-3 rounded border text-xs ${cancelPreview.free ? "bg-green-900/20 border-green-700/40 text-green-200" : "bg-danger/10 border-danger/30 text-danger"}`}>
-                {cancelPreview.free ? (
-                  <p>Free cancellation — no penalty.</p>
-                ) : (
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold">Cancellation penalty: {cancelPreview.penaltyPct}%</p>
-                      {cancelPreview.penaltyMinor != null && cancelPreview.penaltyCurrency && (
-                        <p>{formatMoney(cancelPreview.penaltyMinor, cancelPreview.penaltyCurrency)} will be charged.</p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            <p className="text-sm text-text-secondary">
+              Cancel trip <span className="font-mono font-medium">{cancelTrip.reference}</span>?
+              This will cancel all {cancelTrip.vehicles.length} vehicle(s).
+            </p>
 
             <div>
               <label className="block text-xs text-text-secondary mb-1">Reason (optional)</label>
@@ -270,15 +239,15 @@ export const TripsListTab: React.FC = () => {
 
             <div className="flex gap-2 pt-2">
               <Button
-                onClick={() => cancelMutation.mutate({ id: cancelTripId, reason: cancelReason })}
+                onClick={() => { void handleCancel(); }}
                 variant="primary"
                 className="flex-1 bg-danger hover:bg-danger/90"
-                disabled={cancelMutation.isPending || checkingCancel}
+                disabled={cancelling}
               >
-                {cancelMutation.isPending ? "Cancelling…" : "Confirm Cancel"}
+                {cancelling ? "Cancelling…" : "Confirm Cancel"}
               </Button>
               <Button
-                onClick={() => { setCancelTripId(null); setCancelPreview(null); }}
+                onClick={() => { setCancelTrip(null); }}
                 variant="secondary"
                 className="flex-1"
               >

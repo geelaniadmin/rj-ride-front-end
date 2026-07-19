@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiClient, keys, isApiError } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { keys } from "@ride/shared";
 import { useRideEvents } from "@ride/shared/realtime/ws";
 import type { TrackingEvent } from "@ride/shared/realtime/ws";
 import { useToastStore } from "@/stores/toastStore";
@@ -14,9 +13,42 @@ import { Badge } from "@/components/ui/Badge";
 import { Navigation, AlertCircle, MapPin, MapIcon, ChevronRight } from "lucide-react";
 import dynamic from "next/dynamic";
 
-type LivePosition = components["schemas"]["LivePosition"];
-type TrackDetail = components["schemas"]["TrackDetail"];
-type TrackMilestone = components["schemas"]["TrackMilestone"];
+type LivePosition = {
+  trip_vehicle_id: string;
+  trip_id?: string;
+  reference?: string;
+  vehicle_id?: string | null;
+  plate?: string | null;
+  vendor_id?: string | null;
+  status?: string;
+  marker_color?: string;
+  driver_name?: string | null;
+  driver_phone?: string | null;
+  device_id?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  speed?: number | null;
+  heading?: number | null;
+  timestamp?: string;
+  position?: {
+    lat: number;
+    lng: number;
+    speed_kmh?: number;
+    heading?: number;
+    at?: string;
+  } | null;
+};
+
+type TrackMilestone = {
+  label: string;
+  status: "DONE" | "ACTIVE" | "PENDING";
+  arrivedAt?: string | null;
+};
+
+type TrackDetail = {
+  etaMinutes?: number | null;
+  milestones?: TrackMilestone[];
+};
 
 const LiveMapComponent = dynamic(() => import("@/components/tracking/LiveMapComponent"), {
   ssr: false,
@@ -38,9 +70,10 @@ export default function TrackingPage() {
   const { data: initialPositions, isLoading } = useQuery<LivePosition[]>({
     queryKey: keys.tracking.live(),
     queryFn: async () => {
-      const { data: res, error: err } = await apiClient.GET("/v1/tracking/live", {});
-      if (err) throw err;
-      return (res?.result ?? []) as LivePosition[];
+      const resp = await fetch("/api/v1/tracking/live/", { credentials: "include" });
+      if (!resp.ok) throw new Error(`tracking/live failed: ${resp.status}`);
+      const envelope = await resp.json() as { result?: { vehicles?: LivePosition[] } };
+      return (envelope.result?.vehicles ?? []) as LivePosition[];
     },
     refetchInterval: 60_000,
   });
@@ -49,7 +82,7 @@ export default function TrackingPage() {
     if (!initialPositions) return;
     const map = new Map<string, LivePosition>();
     for (const pos of initialPositions) {
-      if (pos.tripVehicleId) map.set(pos.tripVehicleId, pos);
+      if (pos.trip_vehicle_id) map.set(pos.trip_vehicle_id, pos);
     }
     livePositionsRef.current = map;
     setPositionsTick((t) => t + 1);
@@ -59,9 +92,9 @@ export default function TrackingPage() {
     (event: TrackingEvent) => {
       const { deviceId, lat, lng, speed, heading, timestamp } = event;
       const map = livePositionsRef.current;
-      const existing = Array.from(map.values()).find((p) => p.deviceId === deviceId);
-      if (existing?.tripVehicleId) {
-        map.set(existing.tripVehicleId, { ...existing, lat, lng, speed, heading, timestamp });
+      const existing = Array.from(map.values()).find((p) => p.device_id === deviceId);
+      if (existing?.trip_vehicle_id) {
+        map.set(existing.trip_vehicle_id, { ...existing, lat, lng, speed, heading, timestamp });
         setPositionsTick((t) => t + 1);
       }
     },
@@ -80,21 +113,20 @@ export default function TrackingPage() {
     queryKey: keys.tracking.track(selectedTripVehicleId ?? ""),
     queryFn: async () => {
       if (!selectedTripVehicleId) return null;
-      const { data: res, error: err } = await apiClient.GET("/v1/tracking/{tripVehicleId}/track", {
-        params: { path: { tripVehicleId: selectedTripVehicleId } },
-      });
-      if (err) {
-        addToast(isApiError(err) ? (err as { message: string }).message : "Track fetch failed", "error");
+      const resp = await fetch(`/api/v1/tracking/${selectedTripVehicleId}/track/`, { credentials: "include" });
+      if (!resp.ok) {
+        addToast("Track fetch failed", "error");
         return null;
       }
-      return (res?.result ?? null) as TrackDetail | null;
+      const envelope = await resp.json() as { result?: TrackDetail };
+      return (envelope.result ?? null) as TrackDetail | null;
     },
     enabled: !!selectedTripVehicleId,
   });
 
   const positions = Array.from(livePositionsRef.current.values());
-  const activeCount = positions.filter((p) => p.vehicleStatus && !["COMPLETED", "CANCELLED"].includes(p.vehicleStatus)).length;
-  const sosCount = positions.filter((p) => p.vehicleStatus === "SOS").length;
+  const activeCount = positions.filter((p) => p.status && !["COMPLETED", "CANCELLED"].includes(p.status)).length;
+  const sosCount = positions.filter((p) => p.status === "SOS").length;
 
   return (
     <div className="p-6 space-y-6">
@@ -184,12 +216,12 @@ export default function TrackingPage() {
           ) : (
             positions.map((pos) => (
               <button
-                key={pos.tripVehicleId}
+                key={pos.trip_vehicle_id}
                 onClick={() => setSelectedTripVehicleId(
-                  selectedTripVehicleId === pos.tripVehicleId ? null : (pos.tripVehicleId ?? null)
+                  selectedTripVehicleId === pos.trip_vehicle_id ? null : (pos.trip_vehicle_id ?? null)
                 )}
                 className={`w-full text-left p-3 rounded-xl border transition-colors ${
-                  selectedTripVehicleId === pos.tripVehicleId
+                  selectedTripVehicleId === pos.trip_vehicle_id
                     ? "border-brand-blue bg-brand-blue/5"
                     : "border-border hover:border-brand-blue/40"
                 }`}
@@ -197,14 +229,14 @@ export default function TrackingPage() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      {pos.markerColor && (
+                      {pos.marker_color && (
                         <div
                           className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: `#${pos.markerColor}` }}
+                          style={{ backgroundColor: `#${pos.marker_color}` }}
                         />
                       )}
-                      {pos.vehicleStatus && <StatusBadge status={pos.vehicleStatus as VehicleStatus} />}
-                      {pos.vehicleStatus === "SOS" && <AlertCircle className="w-3 h-3 text-danger" />}
+                      {pos.status && <StatusBadge status={pos.status as VehicleStatus} />}
+                      {pos.status === "SOS" && <AlertCircle className="w-3 h-3 text-danger" />}
                     </div>
                     {pos.lat != null && pos.lng != null && (
                       <p className="text-xs text-text-secondary flex items-center gap-1">
@@ -216,7 +248,7 @@ export default function TrackingPage() {
                       <p className="text-xs text-text-secondary">{pos.speed} km/h</p>
                     )}
                   </div>
-                  <ChevronRight className={`w-4 h-4 ${selectedTripVehicleId === pos.tripVehicleId ? "text-brand-blue" : "text-text-tertiary"}`} />
+                  <ChevronRight className={`w-4 h-4 ${selectedTripVehicleId === pos.trip_vehicle_id ? "text-brand-blue" : "text-text-tertiary"}`} />
                 </div>
               </button>
             ))

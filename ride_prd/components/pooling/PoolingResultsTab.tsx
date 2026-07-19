@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { useTenantStore } from "@ride/shared";
+import { useTenantStore } from "@/stores/tenantStore";
 import { useRosterStore } from "@/stores/rosterStore";
 import { usePoolingStore } from "@/stores/poolingStore";
 import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";

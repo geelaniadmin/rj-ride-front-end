@@ -1,6 +1,6 @@
 import { useWebhookStore } from "@/stores/webhookStore";
 import { useTripStore } from "@/stores/tripStore";
-import { useCustomerStore } from "@ride/shared";
+import { useCustomerStore } from "@/stores/customerStore";
 import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
 import { getOffers } from "@/lib/quote";
 import { createTripVehicle } from "@/lib/tripHelpers";

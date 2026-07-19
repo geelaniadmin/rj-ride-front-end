@@ -53,9 +53,9 @@ export const TopBar: React.FC = () => {
 
         <LanguageToggle />
 
-        {user?.tenantId && (
+        {user?.tenant?.id && (
           <div className="ml-4 px-2.5 py-1 bg-white/10 border border-white/20 rounded-lg text-xs text-white/70 font-mono">
-            {user.tenantId}
+            {user.tenant.id}
           </div>
         )}
       </div>

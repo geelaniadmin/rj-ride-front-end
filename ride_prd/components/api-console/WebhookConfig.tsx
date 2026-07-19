@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useWebhookStore } from "@/stores/webhookStore";
-import { useTenantStore } from "@ride/shared";
+import { useTenantStore } from "@/stores/tenantStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";

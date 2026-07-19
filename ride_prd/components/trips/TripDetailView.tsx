@@ -11,10 +11,9 @@ import { PII } from "@/components/ui/PII";
 import { StateTransitionManager } from "@/components/trips/StateTransitionManager";
 import { MapPin, Clock, Users, CreditCard, Activity } from "lucide-react";
 
-type TripDetail = components["schemas"]["TripDetail"];
-type TripStop = components["schemas"]["TripStop"];
+type TripRequest = components["schemas"]["TripRequest"];
 type TripVehicle = components["schemas"]["TripVehicle"];
-type TripEvent = components["schemas"]["TripEvent"];
+type Stop = components["schemas"]["Stop"];
 
 interface TripDetailViewProps {
   tripId: string;
@@ -35,14 +34,14 @@ const LOCATION_TYPE_BADGE: Record<string, string> = {
 };
 
 export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId }) => {
-  const { data: trip, isLoading, error } = useQuery<TripDetail>({
+  const { data: trip, isLoading, error } = useQuery<TripRequest>({
     queryKey: keys.trips.detail(tripId),
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/trips/{id}", {
         params: { path: { id: tripId } },
       });
       if (err) throw err;
-      return res!.result as unknown as TripDetail;
+      return res as unknown as TripRequest;
     },
   });
 
@@ -63,6 +62,11 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId }) => {
     );
   }
 
+  const stopExtra = (stop: Stop) => {
+    const extra = stop.extra as Record<string, unknown> | null | undefined;
+    return extra ?? {};
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -73,8 +77,8 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId }) => {
             {trip.reference && <span className="text-xs text-text-secondary">ref: {trip.reference}</span>}
           </div>
           <p className="text-xs text-text-secondary mt-1">
-            Created {new Date(trip.createdAt).toLocaleString()}
-            {trip.createdVia && ` via ${trip.createdVia}`}
+            Created {new Date(trip.created_at).toLocaleString()}
+            {trip.created_via && ` via ${trip.created_via}`}
           </p>
         </div>
       </div>
@@ -85,26 +89,24 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId }) => {
         </h3>
       }>
         <ol className="space-y-2">
-          {(trip.stops as TripStop[]).map((stop) => (
-            <li key={stop.seq} className="flex items-start gap-3">
-              <span className="text-lg leading-none pt-0.5">{STOP_TYPE_ICON[stop.type] ?? "•"}</span>
+          {(trip.stops as Stop[]).map((stop) => (
+            <li key={stop.sequence} className="flex items-start gap-3">
+              <span className="text-lg leading-none pt-0.5">{STOP_TYPE_ICON[stop.kind] ?? "•"}</span>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium text-text-primary">{stop.address}</p>
-                  <span className="text-xs">{LOCATION_TYPE_BADGE[stop.locationType]}</span>
+                  <span className="text-xs">{LOCATION_TYPE_BADGE[stop.location_type]}</span>
                 </div>
                 <div className="text-xs text-text-secondary flex flex-wrap gap-2 mt-0.5">
-                  {stop.plannedTime && (
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {new Date(stop.plannedTime).toLocaleString()}
-                    </span>
+                  {(stopExtra(stop).flight_number as string | undefined) && (
+                    <span>✈ {stopExtra(stop).flight_number as string}</span>
                   )}
-                  {stop.flightNumber && <span>✈ {stop.flightNumber}</span>}
-                  {stop.trainNumber && <span>🚂 {stop.trainNumber}</span>}
-                  {stop.terminal && <span>Terminal: {stop.terminal}</span>}
+                  {(stopExtra(stop).train_number as string | undefined) && (
+                    <span>🚂 {stopExtra(stop).train_number as string}</span>
+                  )}
                 </div>
               </div>
-              <Badge variant="default" className="text-xs shrink-0">{stop.type}</Badge>
+              <Badge variant="default" className="text-xs shrink-0">{stop.kind}</Badge>
             </li>
           ))}
         </ol>
@@ -121,24 +123,24 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId }) => {
               <div className="flex items-center justify-between">
                 <div className="text-sm">
                   <span className="font-mono text-xs text-text-secondary">{v.id.substring(0, 8)}…</span>
-                  <span className="ml-2 text-text-secondary">vtid: {v.requestedVehicleTypeId.substring(0, 8)}</span>
+                  <span className="ml-2 text-text-secondary">vt: {v.vehicle_type_name}</span>
                 </div>
                 <StatusBadge status={v.status} />
               </div>
 
-              {v.lockedPriceMinor != null && v.lockedPriceCurrency && (
+              {v.locked_price != null && v.currency && (
                 <p className="text-sm font-semibold text-brand-blue">
-                  {formatMoney(v.lockedPriceMinor, v.lockedPriceCurrency)}
-                  {v.lockedRateCardVersion != null && (
-                    <span className="ml-1 text-xs font-normal text-text-secondary">v{v.lockedRateCardVersion}</span>
+                  {formatMoney(v.locked_price, v.currency)}
+                  {v.locked_rate_card_version != null && (
+                    <span className="ml-1 text-xs font-normal text-text-secondary">v{v.locked_rate_card_version}</span>
                   )}
                 </p>
               )}
 
-              {v.pax && v.pax.length > 0 && (
-                <div className="text-xs text-text-secondary flex items-center gap-1">
-                  <Users className="w-3 h-3" /> {v.pax.length} pax
-                </div>
+              {v.driver_name && (
+                <p className="text-xs text-text-secondary">
+                  <PII value={v.driver_name} type="name" />
+                </p>
               )}
 
               <StateTransitionManager tripId={trip.id} vehicleId={v.id} currentStatus={v.status} />
@@ -146,33 +148,6 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId }) => {
           ))}
         </div>
       </Card>
-
-      {trip.timeline && trip.timeline.length > 0 && (
-        <Card padding="md" header={
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Activity className="w-4 h-4" /> Event Timeline
-          </h3>
-        }>
-          <ol className="relative border-l border-border pl-4 space-y-3">
-            {(trip.timeline as TripEvent[]).map((ev) => (
-              <li key={ev.id} className="relative">
-                <span className="absolute -left-[1.125rem] top-0.5 w-3 h-3 rounded-full bg-ops-sidebar border-2 border-border" />
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-xs font-medium text-text-primary">{ev.type}</p>
-                    {ev.actorRole && (
-                      <p className="text-xs text-text-secondary">{ev.actorRole}</p>
-                    )}
-                  </div>
-                  <p className="text-xs text-text-secondary shrink-0">
-                    {new Date(ev.occurredAt).toLocaleTimeString()}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </Card>
-      )}
     </div>
   );
 };

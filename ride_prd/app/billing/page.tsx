@@ -13,13 +13,13 @@ import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { BarChart3, FileText, Receipt, CreditCard, ExternalLink, CheckCircle, DollarSign, XCircle } from "lucide-react";
 
-type InvoiceDetail = components["schemas"]["InvoiceDetail"];
-type InvoiceLine = components["schemas"]["InvoiceLine"];
+type BillableTrip = components["schemas"]["BillableTrip"];
+type BillingLine = components["schemas"]["BillingLine"];
 type Statement = components["schemas"]["Statement"];
 type Payout = components["schemas"]["Payout"];
 
 const BILLING_TABS = [
-  { id: "invoices", label: "Invoices", icon: BarChart3 },
+  { id: "invoices", label: "Billable Trips", icon: BarChart3 },
   { id: "statements", label: "Statements", icon: Receipt },
   { id: "payouts", label: "Payouts", icon: CreditCard },
 ] as const;
@@ -40,7 +40,7 @@ export default function BillingPage() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-text-primary">Billing</h1>
-        <p className="text-sm text-text-secondary mt-1">Invoices, statements, and payouts from the live API.</p>
+        <p className="text-sm text-text-secondary mt-1">Billable trips, statements, and payouts from the live API.</p>
       </div>
 
       <div className="flex gap-1 border-b border-border pb-px">
@@ -63,19 +63,19 @@ export default function BillingPage() {
         })}
       </div>
 
-      {activeTab === "invoices" && <InvoicesTab />}
+      {activeTab === "invoices" && <BillableTripsTab />}
       {activeTab === "statements" && <StatementsTab />}
       {activeTab === "payouts" && <PayoutsTab />}
     </div>
   );
 }
 
-function InvoicesTab() {
+function BillableTripsTab() {
   const addToast = useToastStore((s) => s.addToast);
   const qc = useQueryClient();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [voidModal, setVoidModal] = useState<{ id: string } | null>(null);
+  const [voidModal, setVoidModal] = useState<{ tripId: string; lineId: string } | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [adjustModal, setAdjustModal] = useState<{ id: string; currency: string } | null>(null);
   const [adjustAmount, setAdjustAmount] = useState("");
@@ -84,37 +84,37 @@ function InvoicesTab() {
   const { data, isLoading } = useQuery({
     queryKey: keys.billing.invoices.list({}),
     queryFn: async () => {
-      const { data: res, error: err } = await apiClient.GET("/v1/billing/invoices", {
+      const { data: res, error: err } = await apiClient.GET("/v1/billing/billable-trips", {
         params: { query: {} },
       });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
   });
 
-  const { data: detail } = useQuery<InvoiceDetail | null>({
+  const { data: detail } = useQuery<BillableTrip | null>({
     queryKey: keys.billing.invoices.detail(selectedId ?? ""),
     queryFn: async () => {
       if (!selectedId) return null;
-      const { data: res, error: err } = await apiClient.GET("/v1/billing/invoices/{id}", {
+      const { data: res, error: err } = await apiClient.GET("/v1/billing/billable-trips/{id}", {
         params: { path: { id: selectedId } },
       });
       if (err) throw err;
-      return (res?.result ?? null) as InvoiceDetail | null;
+      return (res ?? null) as BillableTrip | null;
     },
     enabled: !!selectedId,
   });
 
   const voidMutation = useMutation({
-    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      const { error: err } = await apiClient.POST("/v1/billing/invoices/{id}/void", {
-        params: { path: { id } },
-        body: { reason },
+    mutationFn: async ({ tripId, lineId, reason }: { tripId: string; lineId: string; reason: string }) => {
+      const { error: err } = await apiClient.POST("/v1/billing/billable-trips/{id}/lines/{line_pk}/void", {
+        params: { path: { id: tripId, line_pk: lineId } },
+        body: { reason } as unknown as BillableTrip,
       });
       if (err) throw err;
     },
     onSuccess: () => {
-      addToast("Invoice voided", "success");
+      addToast("Line voided", "success");
       void qc.invalidateQueries({ queryKey: keys.billing.all() });
       setVoidModal(null);
       setVoidReason("");
@@ -125,10 +125,10 @@ function InvoicesTab() {
   });
 
   const adjustMutation = useMutation({
-    mutationFn: async ({ id, amountMinor, currency, reason }: { id: string; amountMinor: number; currency: string; reason: string }) => {
-      const { error: err } = await apiClient.POST("/v1/billing/invoices/{id}/adjust", {
+    mutationFn: async ({ id, amount_minor, currency, reason }: { id: string; amount_minor: number; currency: string; reason: string }) => {
+      const { error: err } = await apiClient.POST("/v1/billing/billable-trips/{id}/adjust", {
         params: { path: { id } },
-        body: { amountMinor, currency, reason },
+        body: { amount_minor, currency, reason } as unknown as BillableTrip,
       });
       if (err) throw err;
     },
@@ -144,73 +144,76 @@ function InvoicesTab() {
     },
   });
 
-  const invoices = (data?.results ?? []) as InvoiceDetail[];
+  const trips = ((data as { results?: BillableTrip[] } | undefined)?.results ?? (data as BillableTrip[] | undefined) ?? []);
 
   return (
     <div className="space-y-4">
       {isLoading ? (
-        <p className="text-sm text-text-secondary text-center py-8">Loading invoices…</p>
-      ) : invoices.length === 0 ? (
-        <Card padding="lg" className="text-center py-8 text-text-secondary">No invoices yet.</Card>
+        <p className="text-sm text-text-secondary text-center py-8">Loading billable trips…</p>
+      ) : trips.length === 0 ? (
+        <Card padding="lg" className="text-center py-8 text-text-secondary">No billable trips yet.</Card>
       ) : (
         <div className="space-y-2">
-          {invoices.map((inv) => (
-            <Card key={inv.id} padding="md">
+          {trips.map((trip) => (
+            <Card key={trip.id} padding="md">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-primary font-mono">{inv.id.substring(0, 12)}…</p>
+                  <p className="text-sm font-medium text-text-primary font-mono">{trip.trip_reference}</p>
                   <p className="text-xs text-text-secondary mt-0.5">
-                    {inv.status && <span className="mr-2">{inv.status}</span>}
-                    {inv.totalMinor != null && inv.currency && (
-                      <span className="font-medium text-text-primary">{formatMoney(inv.totalMinor, inv.currency)}</span>
+                    {trip.lines?.[0]?.currency && trip.total_minor != null && (
+                      <span className="font-medium text-text-primary mr-2">{formatMoney(trip.total_minor, trip.lines[0].currency)}</span>
                     )}
-                    {inv.createdAt && <span className="ml-2">{new Date(inv.createdAt).toLocaleDateString()}</span>}
+                    <span>{new Date(trip.created_at).toLocaleDateString()}</span>
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedId(inv.id === selectedId ? null : inv.id)}>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedId(trip.id === selectedId ? null : trip.id)}>
                     <FileText className="w-3 h-3 mr-1" /> Details
                   </Button>
-                  {inv.status !== "VOIDED" && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-danger"
-                        onClick={() => setVoidModal({ id: inv.id })}
-                      >
-                        <XCircle className="w-3 h-3 mr-1" /> Void
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setAdjustModal({ id: inv.id, currency: inv.currency })}
-                      >
-                        <DollarSign className="w-3 h-3 mr-1" /> Adjust
-                      </Button>
-                    </>
-                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setAdjustModal({ id: trip.id, currency: trip.lines?.[0]?.currency ?? "INR" })}
+                  >
+                    <DollarSign className="w-3 h-3 mr-1" /> Adjust
+                  </Button>
                 </div>
               </div>
 
-              {selectedId === inv.id && detail && (
+              {selectedId === trip.id && detail && (
                 <div className="mt-3 pt-3 border-t border-border space-y-2">
-                  {(detail.lines as InvoiceLine[] | undefined)?.map((line, i) => (
-                    <div key={i} className="flex justify-between text-xs">
-                      <span className="text-text-secondary">{line.description ?? `Line ${i + 1}`}</span>
-                      <span className="font-medium text-text-primary">
-                        {line.amountMinor != null && detail.currency
-                          ? formatMoney(line.amountMinor, detail.currency)
-                          : "—"}
-                      </span>
+                  {(detail.lines as BillingLine[] | undefined)?.map((line, i) => (
+                    <div key={line.id ?? i} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        {line.voided && <Badge variant="red">Voided</Badge>}
+                        <span className="text-text-secondary font-mono">{line.trip_vehicle.substring(0, 8)}…</span>
+                        <span className="text-text-secondary">{line.status}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-text-primary">
+                          {formatMoney(line.amount_minor, line.currency)}
+                        </span>
+                        {!line.voided && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-danger h-auto py-0.5 px-1 text-xs"
+                            onClick={() => setVoidModal({ tripId: trip.id, lineId: line.id })}
+                          >
+                            <XCircle className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
-                  {detail.totalMinor != null && detail.currency && (
-                    <div className="flex justify-between text-sm font-semibold pt-1 border-t border-border">
-                      <span>Total</span>
-                      <span>{formatMoney(detail.totalMinor, detail.currency)}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between text-sm font-semibold pt-1 border-t border-border">
+                    <span>Total</span>
+                    <span>
+                      {detail.lines?.[0]?.currency && detail.total_minor != null
+                        ? formatMoney(detail.total_minor, detail.lines[0].currency)
+                        : "—"}
+                    </span>
+                  </div>
                 </div>
               )}
             </Card>
@@ -219,18 +222,18 @@ function InvoicesTab() {
       )}
 
       {voidModal && (
-        <Modal open title="Void Invoice" onClose={() => { setVoidModal(null); setVoidReason(""); }}>
+        <Modal open title="Void Line" onClose={() => { setVoidModal(null); setVoidReason(""); }}>
           <div className="space-y-4">
-            <p className="text-sm text-text-secondary">Provide a reason for voiding this invoice.</p>
+            <p className="text-sm text-text-secondary">Provide a reason for voiding this billing line.</p>
             <FormField label="Reason">
-              <Input value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. Duplicate invoice" />
+              <Input value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="e.g. Duplicate charge" />
             </FormField>
             <div className="flex gap-2">
               <Button
                 variant="primary"
                 className="flex-1 text-danger"
                 disabled={!voidReason.trim() || voidMutation.isPending}
-                onClick={() => voidMutation.mutate({ id: voidModal.id, reason: voidReason.trim() })}
+                onClick={() => voidMutation.mutate({ tripId: voidModal.tripId, lineId: voidModal.lineId, reason: voidReason.trim() })}
               >
                 {voidMutation.isPending ? "Voiding…" : "Confirm Void"}
               </Button>
@@ -243,7 +246,7 @@ function InvoicesTab() {
       )}
 
       {adjustModal && (
-        <Modal open title="Adjust Invoice" onClose={() => { setAdjustModal(null); setAdjustAmount(""); setAdjustReason(""); }}>
+        <Modal open title="Add Adjustment" onClose={() => { setAdjustModal(null); setAdjustAmount(""); setAdjustReason(""); }}>
           <div className="space-y-4">
             <p className="text-sm text-text-secondary">Enter a signed amount (negative for credit, positive for debit) and reason.</p>
             <FormField label={`Amount (${adjustModal.currency})`}>
@@ -265,7 +268,7 @@ function InvoicesTab() {
                 onClick={() =>
                   adjustMutation.mutate({
                     id: adjustModal.id,
-                    amountMinor: toMinor(adjustAmount, adjustModal.currency),
+                    amount_minor: toMinor(adjustAmount, adjustModal.currency),
                     currency: adjustModal.currency,
                     reason: adjustReason.trim(),
                   })
@@ -294,7 +297,7 @@ function StatementsTab() {
         params: { query: {} },
       });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
   });
 
@@ -304,7 +307,7 @@ function StatementsTab() {
         params: { path: { id } },
       });
       if (err) throw err;
-      return res?.result?.url;
+      return (res as unknown as { url?: string } | undefined)?.url;
     },
     onSuccess: (url) => {
       if (url) window.open(url, "_blank");
@@ -314,7 +317,7 @@ function StatementsTab() {
     },
   });
 
-  const statements = (data?.results ?? []) as Statement[];
+  const statements = ((data as { results?: Statement[] } | undefined)?.results ?? (data as Statement[] | undefined) ?? []);
 
   return (
     <div className="space-y-2">
@@ -328,12 +331,18 @@ function StatementsTab() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-primary">
-                  {stmt.periodStart && stmt.periodEnd
-                    ? `${new Date(stmt.periodStart).toLocaleDateString()} – ${new Date(stmt.periodEnd).toLocaleDateString()}`
-                    : stmt.id}
+                  {stmt.period_year}/{String(stmt.period_month).padStart(2, "0")}
+                  {stmt.status && (
+                    <Badge
+                      variant={stmt.status === "FINAL" ? "green" : "amber"}
+                      className="ml-2"
+                    >
+                      {stmt.status}
+                    </Badge>
+                  )}
                 </p>
                 <p className="text-xs text-text-secondary mt-0.5">
-                  {stmt.totalMinor != null && stmt.currency && formatMoney(stmt.totalMinor, stmt.currency)}
+                  {stmt.total_minor != null && stmt.currency && formatMoney(stmt.total_minor, stmt.currency)}
                 </p>
               </div>
               <Button
@@ -363,7 +372,7 @@ function PayoutsTab() {
         params: { query: {} },
       });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
   });
 
@@ -371,6 +380,7 @@ function PayoutsTab() {
     mutationFn: async (id: string) => {
       const { error: err } = await apiClient.POST("/v1/billing/payouts/{id}/approve", {
         params: { path: { id } },
+        body: {} as unknown as Payout,
       });
       if (err) throw err;
     },
@@ -387,6 +397,7 @@ function PayoutsTab() {
     mutationFn: async (id: string) => {
       const { error: err } = await apiClient.POST("/v1/billing/payouts/{id}/mark-paid", {
         params: { path: { id } },
+        body: {} as unknown as Payout,
       });
       if (err) throw err;
     },
@@ -399,7 +410,7 @@ function PayoutsTab() {
     },
   });
 
-  const payouts = (data?.results ?? []) as Payout[];
+  const payouts = ((data as { results?: Payout[] } | undefined)?.results ?? (data as Payout[] | undefined) ?? []);
 
   return (
     <div className="space-y-2">
@@ -413,8 +424,8 @@ function PayoutsTab() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-text-primary">
-                  {payout.amountMinor != null && payout.currency
-                    ? formatMoney(payout.amountMinor, payout.currency)
+                  {payout.net_minor != null && payout.currency
+                    ? formatMoney(payout.net_minor, payout.currency)
                     : payout.id}
                 </p>
                 <p className="text-xs text-text-secondary mt-0.5">
@@ -426,8 +437,9 @@ function PayoutsTab() {
                       {payout.status}
                     </Badge>
                   )}
-                  {payout.reference && <span>{payout.reference}</span>}
-                  {payout.paidAt && <span className="ml-2">Paid {new Date(payout.paidAt).toLocaleDateString()}</span>}
+                  {payout.paid_reference && <span>{payout.paid_reference}</span>}
+                  {payout.paid_at && <span className="ml-2">Paid {new Date(payout.paid_at).toLocaleDateString()}</span>}
+                  <span className="ml-2">{payout.period_year}/{String(payout.period_month).padStart(2, "0")}</span>
                 </p>
               </div>
               <div className="flex gap-2">

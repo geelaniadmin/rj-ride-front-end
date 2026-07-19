@@ -12,7 +12,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { TripStatus } from "@/lib/types";
 import { Copy, ChevronRight } from "lucide-react";
 
-type TripSummary = components["schemas"]["TripSummary"];
+type TripRequest = components["schemas"]["TripRequest"];
 
 export const CloneCreation: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
   const addToast = useToastStore((s) => s.addToast);
@@ -29,21 +29,24 @@ export const CloneCreation: React.FC<{ onDone?: () => void }> = ({ onDone }) => 
         params: { query: {} },
       });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
   });
 
-  const trips: TripSummary[] = data?.results ?? [];
+  const trips: TripRequest[] = (data?.results ?? []) as TripRequest[];
 
   const cloneMutation = useMutation({
     mutationFn: async () => {
       if (!selectedId) throw new Error("No trip selected");
-      const { data: res, error: err } = await apiClient.POST("/v1/trips/{id}/clone", {
-        params: { path: { id: selectedId } },
-        body: { scheduleWhen: scheduleWhen || undefined },
+      const resp = await fetch(`/api/v1/trips/${selectedId}/clone`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schedule_when: scheduleWhen || undefined }),
       });
-      if (err) throw err;
-      return res?.result;
+      const envelope = await resp.json() as { result?: TripRequest; error?: { message?: string } };
+      if (!resp.ok) throw new Error(envelope?.error?.message ?? `Clone failed (${resp.status})`);
+      return envelope.result ?? null;
     },
     onSuccess: (trip) => {
       addToast("Trip cloned!", "success");
@@ -93,7 +96,7 @@ export const CloneCreation: React.FC<{ onDone?: () => void }> = ({ onDone }) => 
                     <StatusBadge status={trip.status as TripStatus} />
                     <span className="text-xs font-mono text-text-secondary">{trip.id.substring(0, 8)}…</span>
                   </div>
-                  <p className="text-xs text-text-secondary mt-0.5">{trip.pickupAddress ?? "—"}</p>
+                  <p className="text-xs text-text-secondary mt-0.5">{trip.reference ?? "—"}</p>
                 </div>
                 <ChevronRight className={`w-4 h-4 ${selectedId === trip.id ? "text-brand-blue" : "text-text-tertiary"}`} />
               </div>

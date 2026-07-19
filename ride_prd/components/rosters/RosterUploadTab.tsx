@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useTenantStore } from "@ride/shared";
+import { useTenantStore } from "@/stores/tenantStore";
 import { useRosterStore } from "@/stores/rosterStore";
 import { useToastStore } from "@/stores/toastStore";
 import { parseRosterCSV, generateRosterTemplate, ParsedRosterRow } from "@/lib/rosterParser";

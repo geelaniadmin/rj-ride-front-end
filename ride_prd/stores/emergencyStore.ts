@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { EscalationTree, EscalationStep, EmergencyEvent, EmergencyTimelineEntry, EscalationLevel } from "@/lib/types";
 import { id } from "@/lib/mock";
-import { useAlertStore } from "@ride/shared";
+import { useAlertStore } from "@/stores/alertStore";
 
 const DEFAULT_ESCALATION_TREE: EscalationTree = {
   id: "esc-default",

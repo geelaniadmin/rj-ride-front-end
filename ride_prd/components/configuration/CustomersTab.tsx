@@ -8,14 +8,20 @@ import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
-import { Badge } from "@/components/ui/Badge";
 import { PII } from "@/components/ui/PII";
 import { useToastStore } from "@/stores/toastStore";
 
-type ConfigCustomer = components["schemas"]["ConfigCustomer"];
-type CustomerInput = components["schemas"]["CustomerInput"];
+type Customer = components["schemas"]["Customer"];
+type PatchedCustomer = components["schemas"]["PatchedCustomer"];
+
+interface CustomerWriteInput {
+  name: string;
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  address?: string;
+}
 
 interface CustomersTabProps {
   searchQuery?: string;
@@ -26,23 +32,23 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ searchQuery = "" }) 
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: keys.config.customers.list({ search: searchQuery }),
+    queryKey: keys.config.customers.list({ name: searchQuery }),
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/config/customers", {
-        params: { query: { search: searchQuery || undefined } },
+        params: { query: { name: searchQuery || undefined } },
       });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
   });
 
-  const customers = data?.results ?? [];
+  const customers = (data?.results ?? []) as Customer[];
 
   const createMutation = useMutation({
-    mutationFn: async (input: CustomerInput) => {
-      const { data: res, error: err } = await apiClient.POST("/v1/config/customers", { body: input });
+    mutationFn: async (input: CustomerWriteInput) => {
+      const { data: res, error: err } = await apiClient.POST("/v1/config/customers", { body: input as unknown as Customer });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.customers.list() });
@@ -55,13 +61,13 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ searchQuery = "" }) 
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, input }: { id: string; input: CustomerInput }) => {
+    mutationFn: async ({ id, input }: { id: string; input: CustomerWriteInput }) => {
       const { data: res, error: err } = await apiClient.PATCH("/v1/config/customers/{id}", {
         params: { path: { id } },
-        body: input,
+        body: input as unknown as PatchedCustomer,
       });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.customers.list() });
@@ -73,39 +79,24 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ searchQuery = "" }) 
     },
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { data: res, error: err } = active
-        ? await apiClient.DELETE("/v1/config/customers/{id}", { params: { path: { id } } })
-        : await apiClient.PATCH("/v1/config/customers/{id}", {
-            params: { path: { id } },
-            body: { name: "", code: "" },
-          });
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: err } = await apiClient.DELETE("/v1/config/customers/{id}", { params: { path: { id } } });
       if (err) throw err;
-      return res?.result;
     },
-    onSuccess: (_data, { active }) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.customers.list() });
-      addToast(active ? "Customer deactivated" : "Customer activated", "success");
+      addToast("Customer deactivated", "success");
     },
     onError: (err: unknown) => {
-      addToast(err instanceof Error ? err.message : "Failed to toggle customer", "error");
+      addToast(err instanceof Error ? err.message : "Failed to delete customer", "error");
     },
   });
 
-  const emptyForm: CustomerInput = {
-    name: "",
-    code: "",
-    billingCycle: "MONTHLY",
-    spocName: "",
-    phone: "",
-    email: "",
-    approvedVehicleTypeIds: [],
-    defaultCostCenter: "",
-  };
+  const emptyForm: CustomerWriteInput = { name: "", contact_name: "", contact_phone: "", contact_email: "", address: "" };
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<CustomerInput>(emptyForm);
+  const [formData, setFormData] = useState<CustomerWriteInput>(emptyForm);
 
   const openCreate = () => {
     setEditingId(null);
@@ -113,35 +104,29 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ searchQuery = "" }) 
     setDrawerOpen(true);
   };
 
-  const openEdit = (customer: ConfigCustomer) => {
+  const openEdit = (customer: Customer) => {
     setEditingId(customer.id);
     setFormData({
       name: customer.name,
-      code: customer.code,
-      billingCycle: customer.billingCycle,
-      spocName: customer.spocName ?? "",
-      phone: customer.phone ?? "",
-      email: customer.email ?? "",
-      approvedVehicleTypeIds: customer.approvedVehicleTypeIds ?? [],
-      defaultCostCenter: customer.defaultCostCenter ?? "",
+      contact_name: customer.contact_name ?? "",
+      contact_phone: customer.contact_phone ?? "",
+      contact_email: customer.contact_email ?? "",
+      address: customer.address ?? "",
     });
     setDrawerOpen(true);
   };
 
   const handleSave = () => {
-    if (!formData.name || !formData.code) {
-      addToast("Name and code are required", "error");
+    if (!formData.name) {
+      addToast("Name is required", "error");
       return;
     }
-    const input: CustomerInput = {
+    const input: CustomerWriteInput = {
       name: formData.name,
-      code: formData.code,
-      billingCycle: formData.billingCycle,
-      spocName: formData.spocName || undefined,
-      phone: formData.phone || undefined,
-      email: formData.email || undefined,
-      approvedVehicleTypeIds: formData.approvedVehicleTypeIds,
-      defaultCostCenter: formData.defaultCostCenter || undefined,
+      contact_name: formData.contact_name || undefined,
+      contact_phone: formData.contact_phone || undefined,
+      contact_email: formData.contact_email || undefined,
+      address: formData.address || undefined,
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, input });
@@ -150,47 +135,47 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ searchQuery = "" }) 
     }
   };
 
+  const filtered = searchQuery.trim()
+    ? customers.filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : customers;
+
   const columns: Column[] = [
     { key: "name", header: "Customer Name", sortable: true },
-    { key: "code", header: "Code", sortable: true },
     {
-      key: "billingCycle",
-      header: "Billing",
-      sortable: true,
-      render: (val): React.ReactNode => <Badge variant="blue">{(val as string) || "-"}</Badge>,
-    },
-    {
-      key: "spocName",
+      key: "contact_name",
       header: "SPOC",
       render: (val): React.ReactNode => (val ? <PII value={val as string} type="name" /> : "-"),
     },
     {
-      key: "phone",
+      key: "contact_phone",
       header: "Phone",
       render: (val): React.ReactNode => (val ? <PII value={val as string} type="phone" /> : "-"),
     },
     {
-      key: "active",
-      header: "Status",
-      render: (val): React.ReactNode => (
-        <Badge variant={val ? "green" : "red"}>{val ? "Active" : "Inactive"}</Badge>
-      ),
+      key: "contact_email",
+      header: "Email",
+      render: (val): React.ReactNode => (val ? <PII value={val as string} type="email" /> : "-"),
+    },
+    {
+      key: "address",
+      header: "Address",
+      render: (val): React.ReactNode => (val ? <span className="text-text-secondary">{val as string}</span> : "-"),
     },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-ops-sidebar">Customers ({customers.length})</h3>
+        <h3 className="font-semibold text-ops-sidebar">Customers ({filtered.length})</h3>
         <Button onClick={openCreate} variant="primary" size="sm">
           New Customer
         </Button>
       </div>
 
-      <QueryBoundary isLoading={isLoading} error={error} isEmpty={customers.length === 0} emptyFallback={<p className="text-sm text-text-secondary py-4">No customers</p>}>
+      <QueryBoundary isLoading={isLoading} error={error} isEmpty={filtered.length === 0} emptyFallback={<p className="text-sm text-text-secondary py-4">No customers</p>}>
         <DataTable
           columns={columns}
-          data={customers as unknown as Record<string, unknown>[]}
+          data={filtered as unknown as Record<string, unknown>[]}
           pageSize={10}
           emptyMessage="No customers"
         />
@@ -211,43 +196,18 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ searchQuery = "" }) 
             />
           </FormField>
 
-          <FormField label="Code" required>
-            <Input
-              value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-              placeholder="CUST-001"
-            />
-          </FormField>
-
-          <FormField label="Billing Cycle">
-            <Select
-              value={formData.billingCycle ?? "MONTHLY"}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  billingCycle: e.target.value as "WEEKLY" | "FORTNIGHTLY" | "MONTHLY",
-                })
-              }
-              options={[
-                { value: "WEEKLY", label: "Weekly" },
-                { value: "FORTNIGHTLY", label: "Fortnightly" },
-                { value: "MONTHLY", label: "Monthly" },
-              ]}
-            />
-          </FormField>
-
           <FormField label="SPOC Name">
             <Input
-              value={formData.spocName ?? ""}
-              onChange={(e) => setFormData({ ...formData, spocName: e.target.value || undefined })}
+              value={formData.contact_name ?? ""}
+              onChange={(e) => setFormData({ ...formData, contact_name: e.target.value || undefined })}
               placeholder="Single Point of Contact"
             />
           </FormField>
 
           <FormField label="Phone">
             <Input
-              value={formData.phone ?? ""}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value || undefined })}
+              value={formData.contact_phone ?? ""}
+              onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value || undefined })}
               placeholder="+91 98765 43210"
             />
           </FormField>
@@ -255,17 +215,17 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ searchQuery = "" }) 
           <FormField label="Email">
             <Input
               type="email"
-              value={formData.email ?? ""}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value || undefined })}
+              value={formData.contact_email ?? ""}
+              onChange={(e) => setFormData({ ...formData, contact_email: e.target.value || undefined })}
               placeholder="spoc@customer.local"
             />
           </FormField>
 
-          <FormField label="Default Cost Center">
+          <FormField label="Address">
             <Input
-              value={formData.defaultCostCenter ?? ""}
-              onChange={(e) => setFormData({ ...formData, defaultCostCenter: e.target.value || undefined })}
-              placeholder="CC-001"
+              value={formData.address ?? ""}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value || undefined })}
+              placeholder="123 Main St, City"
             />
           </FormField>
 
@@ -285,11 +245,13 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ searchQuery = "" }) 
       </Drawer>
 
       <div className="flex flex-wrap gap-2 pt-4">
-        {customers.map((customer) => (
+        {filtered.map((customer) => (
           <div key={customer.id} className="p-3 bg-ops-bg rounded border border-border text-sm flex items-center gap-3">
             <div>
               <p className="font-medium text-ops-sidebar">{customer.name}</p>
-              <p className="text-xs text-text-secondary">{customer.code}</p>
+              {customer.contact_name && (
+                <p className="text-xs text-text-secondary">{customer.contact_name}</p>
+              )}
             </div>
             <Button size="sm" variant="ghost" onClick={() => openEdit(customer)}>
               Edit
@@ -297,10 +259,10 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ searchQuery = "" }) 
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => toggleMutation.mutate({ id: customer.id, active: customer.active })}
-              disabled={toggleMutation.isPending}
+              onClick={() => deleteMutation.mutate(customer.id)}
+              disabled={deleteMutation.isPending}
             >
-              {customer.active ? "Deactivate" : "Activate"}
+              Deactivate
             </Button>
           </div>
         ))}

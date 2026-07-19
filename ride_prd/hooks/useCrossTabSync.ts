@@ -7,7 +7,8 @@ import { useVehicleStore } from "@/stores/vehicleStore";
 import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
 import { useVendorStore } from "@/stores/vendorStore";
 import { useRateCardStore } from "@/stores/rateCardStore";
-import { useCustomerStore, useTenantStore } from "@ride/shared";
+import { useCustomerStore } from "@/stores/customerStore";
+import { useTenantStore } from "@/stores/tenantStore";
 
 interface PersistStore {
   persist: { rehydrate: () => void };

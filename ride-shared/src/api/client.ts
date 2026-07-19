@@ -60,11 +60,12 @@ let csrfFetchPromise: Promise<void> | null = null;
 async function ensureCsrfCookie(): Promise<void> {
   if (getCookie("csrftoken")) return;
   if (!csrfFetchPromise) {
-    csrfFetchPromise = fetch("/api/v1/auth/csrf", {
+    csrfFetchPromise = fetch("/api/v1/auth/csrf/", {
       credentials: "include",
-    }).then(() => {
-      csrfFetchPromise = null;
-    });
+    }).then(
+      () => { csrfFetchPromise = null; },
+      () => { csrfFetchPromise = null; },
+    );
   }
   await csrfFetchPromise;
 }
@@ -96,25 +97,54 @@ const idempotencyMiddleware: Middleware = {
   },
 };
 
+const trailingSlashMiddleware: Middleware = {
+  onRequest({ request }) {
+    const url = new URL(request.url);
+    if (!url.pathname.endsWith("/") && !url.pathname.includes(".")) {
+      url.pathname += "/";
+      return new Request(url.toString(), request);
+    }
+    return request;
+  },
+};
+
 const errorNormalizationMiddleware: Middleware = {
   async onResponse({ response }) {
-    if (response.ok) return response;
-    let envelope: { result: null; error: ApiErrorData } | null = null;
+    let text: string;
     try {
-      envelope = await response.clone().json();
+      text = await response.text();
+    } catch {
+      return response;
+    }
+
+    let envelope: { result: unknown; error: ApiErrorData | null } | null = null;
+    try {
+      envelope = JSON.parse(text);
     } catch {
     }
-    if (envelope?.error) {
+
+    if (!response.ok) {
+      if (envelope?.error) {
+        throw new ApiError({
+          ...envelope.error,
+          status: envelope.error.status ?? response.status,
+        });
+      }
       throw new ApiError({
-        ...envelope.error,
-        status: envelope.error.status ?? response.status,
+        name: "HttpError",
+        code: "HTTP_ERROR",
+        message: response.statusText || `HTTP ${response.status}`,
+        status: response.status,
       });
     }
-    throw new ApiError({
-      name: "HttpError",
-      code: "HTTP_ERROR",
-      message: response.statusText || `HTTP ${response.status}`,
+
+    const body = (envelope && "result" in envelope)
+      ? JSON.stringify(envelope.result)
+      : text;
+
+    return new Response(body, {
       status: response.status,
+      headers: { "Content-Type": "application/json" },
     });
   },
 };
@@ -124,6 +154,7 @@ export const apiClient = createClient<paths>({
   credentials: "include",
 });
 
+apiClient.use(trailingSlashMiddleware);
 apiClient.use(csrfMiddleware);
 apiClient.use(idempotencyMiddleware);
 apiClient.use(errorNormalizationMiddleware);

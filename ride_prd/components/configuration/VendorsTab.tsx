@@ -9,14 +9,21 @@ import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
 import { PII } from "@/components/ui/PII";
 import { useToastStore } from "@/stores/toastStore";
 
-type ConfigVendor = components["schemas"]["ConfigVendor"];
-type VendorInput = components["schemas"]["VendorInput"];
+type Vendor = components["schemas"]["Vendor"];
+type PatchedVendor = components["schemas"]["PatchedVendor"];
+
+interface VendorWriteInput {
+  name: string;
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  address?: string;
+}
 
 interface VendorsTabProps {
   searchQuery?: string;
@@ -28,23 +35,23 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: keys.config.vendors.list({ search: searchQuery }),
+    queryKey: keys.config.vendors.list({ name: searchQuery }),
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/config/vendors", {
-        params: { query: { search: searchQuery || undefined } },
+        params: { query: { name: searchQuery || undefined } },
       });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
   });
 
-  const vendors = data?.results ?? [];
+  const vendors = (data?.results ?? []) as Vendor[];
 
   const createMutation = useMutation({
-    mutationFn: async (input: VendorInput) => {
-      const { data: res, error: err } = await apiClient.POST("/v1/config/vendors", { body: input });
+    mutationFn: async (input: VendorWriteInput) => {
+      const { data: res, error: err } = await apiClient.POST("/v1/config/vendors", { body: input as unknown as Vendor });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.vendors.list() });
@@ -58,13 +65,13 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, input }: { id: string; input: VendorInput }) => {
+    mutationFn: async ({ id, input }: { id: string; input: VendorWriteInput }) => {
       const { data: res, error: err } = await apiClient.PATCH("/v1/config/vendors/{id}", {
         params: { path: { id } },
-        body: input,
+        body: input as unknown as PatchedVendor,
       });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.vendors.list() });
@@ -77,31 +84,25 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
     },
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { data: res, error: err } = active
-        ? await apiClient.DELETE("/v1/config/vendors/{id}", { params: { path: { id } } })
-        : await apiClient.PATCH("/v1/config/vendors/{id}", {
-            params: { path: { id } },
-            body: { name: "", type: "SELF" },
-          });
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: err } = await apiClient.DELETE("/v1/config/vendors/{id}", { params: { path: { id } } });
       if (err) throw err;
-      return res?.result;
     },
-    onSuccess: (_data, { active }) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.vendors.list() });
-      addToast(t(active ? "vendorDeactivated" : "vendorActivated", language), "success");
+      addToast(t("vendorDeactivated", language), "success");
     },
     onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : "Failed to toggle vendor";
+      const msg = err instanceof Error ? err.message : "Failed to delete vendor";
       addToast(msg, "error");
     },
   });
 
-  const emptyForm: VendorInput = { name: "", type: "SELF", gstin: "", contactName: "", phone: "", email: "" };
+  const emptyForm: VendorWriteInput = { name: "", contact_name: "", contact_phone: "", contact_email: "", address: "" };
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<VendorInput>(emptyForm);
+  const [formData, setFormData] = useState<VendorWriteInput>(emptyForm);
 
   const openCreate = () => {
     setEditingId(null);
@@ -109,15 +110,14 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
     setDrawerOpen(true);
   };
 
-  const openEdit = (vendor: ConfigVendor) => {
+  const openEdit = (vendor: Vendor) => {
     setEditingId(vendor.id);
     setFormData({
       name: vendor.name,
-      type: vendor.type,
-      gstin: vendor.gstin ?? "",
-      contactName: vendor.contactName ?? "",
-      phone: vendor.phone ?? "",
-      email: vendor.email ?? "",
+      contact_name: vendor.contact_name ?? "",
+      contact_phone: vendor.contact_phone ?? "",
+      contact_email: vendor.contact_email ?? "",
+      address: vendor.address ?? "",
     });
     setDrawerOpen(true);
   };
@@ -127,13 +127,12 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
       addToast(t("vendorNameRequired", language), "error");
       return;
     }
-    const input: VendorInput = {
+    const input: VendorWriteInput = {
       name: formData.name,
-      type: formData.type,
-      gstin: formData.gstin || undefined,
-      contactName: formData.contactName || undefined,
-      phone: formData.phone || undefined,
-      email: formData.email || undefined,
+      contact_name: formData.contact_name || undefined,
+      contact_phone: formData.contact_phone || undefined,
+      contact_email: formData.contact_email || undefined,
+      address: formData.address || undefined,
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, input });
@@ -142,33 +141,32 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
     }
   };
 
+  const filtered = searchQuery.trim()
+    ? vendors.filter((v) => v.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : vendors;
+
   const columns: Column[] = [
     { key: "name", header: t("vendorName", language), sortable: true },
     {
-      key: "type",
-      header: t("vendorType", language),
-      sortable: true,
-      render: (val): React.ReactNode => (
-        <Badge variant={val === "SELF" ? "blue" : "purple"}>{val as string}</Badge>
-      ),
-    },
-    {
-      key: "contactName",
+      key: "contact_name",
       header: t("contact", language),
       sortable: true,
       render: (val): React.ReactNode => (val ? <PII value={val as string} type="name" /> : t("dash", language)),
     },
     {
-      key: "phone",
+      key: "contact_phone",
       header: t("phone", language),
       render: (val): React.ReactNode => (val ? <PII value={val as string} type="phone" /> : t("dash", language)),
     },
     {
-      key: "active",
-      header: t("status", language),
-      render: (val): React.ReactNode => (
-        <Badge variant={val ? "green" : "red"}>{val ? t("active", language) : t("inactive", language)}</Badge>
-      ),
+      key: "contact_email",
+      header: t("email", language),
+      render: (val): React.ReactNode => (val ? <PII value={val as string} type="email" /> : t("dash", language)),
+    },
+    {
+      key: "address",
+      header: "Address",
+      render: (val): React.ReactNode => (val ? <span className="text-text-secondary">{val as string}</span> : t("dash", language)),
     },
   ];
 
@@ -176,17 +174,17 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-ops-sidebar">
-          {t("vendors", language)} ({vendors.length})
+          {t("vendors", language)} ({filtered.length})
         </h3>
         <Button onClick={openCreate} variant="primary" size="sm">
           {t("newVendor", language)}
         </Button>
       </div>
 
-      <QueryBoundary isLoading={isLoading} error={error} isEmpty={vendors.length === 0} emptyFallback={<p className="text-sm text-text-secondary py-4">{t("noVendors", language)}</p>}>
+      <QueryBoundary isLoading={isLoading} error={error} isEmpty={filtered.length === 0} emptyFallback={<p className="text-sm text-text-secondary py-4">{t("noVendors", language)}</p>}>
         <DataTable
           columns={columns}
-          data={vendors as unknown as Record<string, unknown>[]}
+          data={filtered as unknown as Record<string, unknown>[]}
           pageSize={10}
           emptyMessage={t("noVendors", language)}
         />
@@ -207,37 +205,18 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
             />
           </FormField>
 
-          <FormField label={t("vendorType", language)}>
-            <Select
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as "SELF" | "SUB_VENDOR" })}
-              options={[
-                { value: "SELF", label: t("selfOperator", language) },
-                { value: "SUB_VENDOR", label: t("subVendor", language) },
-              ]}
-            />
-          </FormField>
-
-          <FormField label="GSTIN">
-            <Input
-              value={formData.gstin ?? ""}
-              onChange={(e) => setFormData({ ...formData, gstin: e.target.value || undefined })}
-              placeholder="29ABCDE1234F1Z5"
-            />
-          </FormField>
-
           <FormField label={t("contactName", language)}>
             <Input
-              value={formData.contactName ?? ""}
-              onChange={(e) => setFormData({ ...formData, contactName: e.target.value || undefined })}
+              value={formData.contact_name ?? ""}
+              onChange={(e) => setFormData({ ...formData, contact_name: e.target.value || undefined })}
               placeholder={t("contactPerson", language)}
             />
           </FormField>
 
           <FormField label={t("phone", language)}>
             <Input
-              value={formData.phone ?? ""}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value || undefined })}
+              value={formData.contact_phone ?? ""}
+              onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value || undefined })}
               placeholder="+91 98765 43210"
             />
           </FormField>
@@ -245,9 +224,17 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
           <FormField label={t("email", language)}>
             <Input
               type="email"
-              value={formData.email ?? ""}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value || undefined })}
+              value={formData.contact_email ?? ""}
+              onChange={(e) => setFormData({ ...formData, contact_email: e.target.value || undefined })}
               placeholder="contact@vendor.local"
+            />
+          </FormField>
+
+          <FormField label="Address">
+            <Input
+              value={formData.address ?? ""}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value || undefined })}
+              placeholder="123 Main St, City"
             />
           </FormField>
 
@@ -263,7 +250,7 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
       </Drawer>
 
       <div className="flex flex-wrap gap-2 pt-4">
-        {vendors.map((vendor) => (
+        {filtered.map((vendor) => (
           <Card key={vendor.id} padding="sm" className="flex items-center justify-between min-w-fit">
             <div className="flex items-center gap-3">
               <div className="flex flex-col gap-1">
@@ -275,10 +262,10 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => toggleMutation.mutate({ id: vendor.id, active: vendor.active })}
-                    disabled={toggleMutation.isPending}
+                    onClick={() => deleteMutation.mutate(vendor.id)}
+                    disabled={deleteMutation.isPending}
                   >
-                    {vendor.active ? t("deactivate", language) : t("activate", language)}
+                    {t("deactivate", language)}
                   </Button>
                 </div>
               </div>

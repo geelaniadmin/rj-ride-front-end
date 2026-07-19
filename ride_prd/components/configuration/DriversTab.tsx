@@ -23,11 +23,11 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/fleet/drivers");
       if (err) throw err;
-      return res?.result ?? [];
+      return res;
     },
   });
 
-  const allDrivers: ApiDriver[] = data ?? [];
+  const allDrivers: ApiDriver[] = (data as { results?: ApiDriver[] } | undefined)?.results ?? (data as ApiDriver[] | undefined) ?? [];
   const drivers = searchQuery.trim()
     ? allDrivers.filter(
         (d) =>
@@ -49,11 +49,20 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
       render: (val): React.ReactNode => <PII value={val as string} type="phone" />,
     },
     {
-      key: "available",
+      key: "status",
       header: t("status", language),
       render: (val): React.ReactNode => (
+        <Badge variant={val === "AVAILABLE" ? "green" : val === "ON_TRIP" ? "blue" : "red"}>
+          {val as string}
+        </Badge>
+      ),
+    },
+    {
+      key: "is_active",
+      header: "Active",
+      render: (val): React.ReactNode => (
         <Badge variant={val ? "green" : "red"}>
-          {val ? t("available", language) : t("unavailable", language)}
+          {val ? t("active", language) : t("inactive", language)}
         </Badge>
       ),
     },

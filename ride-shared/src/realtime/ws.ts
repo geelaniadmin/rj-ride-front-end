@@ -57,10 +57,10 @@ interface ConnectionHandle {
 
 async function fetchWsTicket(): Promise<string> {
   const { data, error } = await apiClient.POST("/v1/auth/ws-ticket", {});
-  if (error || !data?.result?.ticket) {
+  if (error || !(data as unknown as { ticket?: string } | undefined)?.ticket) {
     throw new Error("Failed to obtain WS ticket");
   }
-  return data.result.ticket;
+  return (data as unknown as { ticket: string }).ticket;
 }
 
 const BASE_BACKOFF_MS = 1_000;

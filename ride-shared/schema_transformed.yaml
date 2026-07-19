@@ -4,16 +4,22 @@ info:
   version: 1.0.0
   description: Rezolv Integrated Dispatch Engine — multi-tenant B2B transport dispatch.
 paths:
-  /api/v1/auth/csrf/:
+  /v1/auth/csrf:
     get:
       operationId: auth_csrf_retrieve
-      description: |-
-        GET /api/v1/auth/csrf/ — set the CSRF cookie so SPAs can read it before login POST.
+      description: 'GET /api/v1/auth/csrf/ — set the CSRF cookie so SPAs can read
+        it before login POST.
 
-        The browser must call this once before any state-mutating request when the SPA is
-        on a different origin from the server and cannot rely on an existing cookie. Returns
+
+        The browser must call this once before any state-mutating request when the
+        SPA is
+
+        on a different origin from the server and cannot rely on an existing cookie.
+        Returns
+
         204 with no body; the side effect is the Set-Cookie header (CSRF_COOKIE_HTTPONLY=False
-        so JS can read the value).
+
+        so JS can read the value).'
       tags:
       - auth
       security:
@@ -22,7 +28,7 @@ paths:
       responses:
         '204':
           description: No response body
-  /api/v1/auth/login/:
+  /v1/auth/login:
     post:
       operationId: auth_login_create
       description: POST /api/v1/auth/login/ — email + password, optional tenant_slug.
@@ -34,12 +40,13 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/auth/logout/:
+  /v1/auth/logout:
     post:
       operationId: auth_logout_create
-      description: |-
-        POST /api/v1/auth/logout/. POST, not GET: a GET logout is CSRF-triggerable from an
-        <img> tag, and DRF exempts GET from CSRF checks.
+      description: 'POST /api/v1/auth/logout/. POST, not GET: a GET logout is CSRF-triggerable
+        from an
+
+        <img> tag, and DRF exempts GET from CSRF checks.'
       tags:
       - auth
       security:
@@ -47,14 +54,16 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/auth/me/:
+  /v1/auth/me:
     get:
       operationId: auth_me_retrieve
-      description: |-
-        GET /api/v1/auth/me/ — the caller's own record, always with raw PII (it is theirs).
+      description: 'GET /api/v1/auth/me/ — the caller''s own record, always with raw
+        PII (it is theirs).
+
 
         Returns {id, name, email, role, vendor_id, tenant: {id, name, currency}} plus
-        is_active and created_at.
+
+        is_active and created_at.'
       tags:
       - auth
       security:
@@ -62,15 +71,18 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/auth/ws-ticket/:
+  /v1/auth/ws-ticket:
     post:
       operationId: auth_ws_ticket_create
-      description: |-
-        POST /api/v1/auth/ws-ticket/ — issue a single-use 30-second WS upgrade ticket.
+      description: 'POST /api/v1/auth/ws-ticket/ — issue a single-use 30-second WS
+        upgrade ticket.
+
 
         The SPA calls this (session-authenticated) right before opening the WebSocket.  The
+
         returned token is passed as ?ticket=<token> on the WS upgrade URL.  The Channels
-        auth middleware consumes it via Redis GETDEL — single-use, TTL-bounded.
+
+        auth middleware consumes it via Redis GETDEL — single-use, TTL-bounded.'
       tags:
       - auth
       security:
@@ -82,7 +94,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/WsTicketResponse'
           description: ''
-  /api/v1/billing/billable-trips/:
+  /v1/billing/billable-trips:
     get:
       operationId: billing_billable_trips_list
       description: 'Billable trips: list, detail, void line, add adjustment. AGENCY_ADMIN
@@ -111,7 +123,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedBillableTripList'
           description: ''
-  /api/v1/billing/billable-trips/{id}/:
+  /v1/billing/billable-trips/{id}:
     get:
       operationId: billing_billable_trips_retrieve
       description: 'Billable trips: list, detail, void line, add adjustment. AGENCY_ADMIN
@@ -135,7 +147,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/BillableTrip'
           description: ''
-  /api/v1/billing/billable-trips/{id}/adjust/:
+  /v1/billing/billable-trips/{id}/adjust:
     post:
       operationId: billing_billable_trips_adjust_create
       description: 'Billable trips: list, detail, void line, add adjustment. AGENCY_ADMIN
@@ -170,7 +182,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/BillableTrip'
           description: ''
-  /api/v1/billing/billable-trips/{id}/lines/{line_pk}/void/:
+  /v1/billing/billable-trips/{id}/lines/{line_pk}/void:
     post:
       operationId: billing_billable_trips_lines_void_create
       description: 'Billable trips: list, detail, void line, add adjustment. AGENCY_ADMIN
@@ -210,7 +222,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/BillableTrip'
           description: ''
-  /api/v1/billing/earnings/:
+  /v1/billing/earnings:
     get:
       operationId: billing_earnings_list
       description: 'Vendor earnings: AGENCY_ADMIN sees all; VENDOR_MANAGER sees own
@@ -239,7 +251,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedVendorEarningsList'
           description: ''
-  /api/v1/billing/earnings/summary/:
+  /v1/billing/earnings/summary:
     get:
       operationId: billing_earnings_summary_retrieve
       description: 'Vendor earnings: AGENCY_ADMIN sees all; VENDOR_MANAGER sees own
@@ -255,7 +267,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/VendorEarnings'
           description: ''
-  /api/v1/billing/invoices/:
+  /v1/billing/invoices:
     get:
       operationId: billing_invoices_list
       description: 'Vendor invoices: upload+reconcile, list/detail (scoped), resolve
@@ -307,7 +319,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/VendorInvoice'
           description: ''
-  /api/v1/billing/invoices/{id}/:
+  /v1/billing/invoices/{id}:
     get:
       operationId: billing_invoices_retrieve
       description: 'Vendor invoices: upload+reconcile, list/detail (scoped), resolve
@@ -331,7 +343,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/VendorInvoice'
           description: ''
-  /api/v1/billing/invoices/{id}/matches/{match_pk}/resolve/:
+  /v1/billing/invoices/{id}/matches/{match_pk}/resolve:
     post:
       operationId: billing_invoices_matches_resolve_create
       description: 'Vendor invoices: upload+reconcile, list/detail (scoped), resolve
@@ -369,7 +381,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/VendorInvoice'
           description: ''
-  /api/v1/billing/payouts/:
+  /v1/billing/payouts:
     get:
       operationId: billing_payouts_list
       description: 'Payouts: list/detail (scoped), run (create), approve, mark-paid.
@@ -398,7 +410,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedPayoutList'
           description: ''
-  /api/v1/billing/payouts/{id}/:
+  /v1/billing/payouts/{id}:
     get:
       operationId: billing_payouts_retrieve
       description: 'Payouts: list/detail (scoped), run (create), approve, mark-paid.
@@ -422,7 +434,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Payout'
           description: ''
-  /api/v1/billing/payouts/{id}/approve/:
+  /v1/billing/payouts/{id}/approve:
     post:
       operationId: billing_payouts_approve_create
       description: 'Payouts: list/detail (scoped), run (create), approve, mark-paid.
@@ -458,7 +470,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Payout'
           description: ''
-  /api/v1/billing/payouts/{id}/mark-paid/:
+  /v1/billing/payouts/{id}/mark-paid:
     post:
       operationId: billing_payouts_mark_paid_create
       description: 'Payouts: list/detail (scoped), run (create), approve, mark-paid.
@@ -494,7 +506,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Payout'
           description: ''
-  /api/v1/billing/payouts/run/:
+  /v1/billing/payouts/run:
     post:
       operationId: billing_payouts_run_create
       description: POST /payouts/run — roll up a period's reconciled earnings. AGENCY_ADMIN
@@ -522,7 +534,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Payout'
           description: ''
-  /api/v1/billing/statements/:
+  /v1/billing/statements:
     get:
       operationId: billing_statements_list
       description: 'Statements: list/detail (scoped), generate, finalize, download.'
@@ -577,7 +589,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Statement'
           description: ''
-  /api/v1/billing/statements/{id}/:
+  /v1/billing/statements/{id}:
     get:
       operationId: billing_statements_retrieve
       description: 'Statements: list/detail (scoped), generate, finalize, download.'
@@ -600,13 +612,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/Statement'
           description: ''
-  /api/v1/billing/statements/{id}/download/:
+  /v1/billing/statements/{id}/download:
     get:
       operationId: billing_statements_download_retrieve
-      description: |-
-        Presigned URL for the finalized PDF (or CSV via ?kind=csv).
+      description: 'Presigned URL for the finalized PDF (or CSV via ?kind=csv).
 
-        Named `kind`, not `format`: DRF reserves the `format` query param for content negotiation.
+
+        Named `kind`, not `format`: DRF reserves the `format` query param for content
+        negotiation.'
       parameters:
       - in: path
         name: id
@@ -626,7 +639,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Statement'
           description: ''
-  /api/v1/billing/statements/{id}/finalize/:
+  /v1/billing/statements/{id}/finalize:
     post:
       operationId: billing_statements_finalize_create
       description: 'Statements: list/detail (scoped), generate, finalize, download.'
@@ -661,7 +674,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Statement'
           description: ''
-  /api/v1/billing/vouchers/{id}/download/:
+  /v1/billing/vouchers/{id}/download:
     get:
       operationId: billing_vouchers_download_retrieve
       description: Voucher download by trip-vehicle id. AGENCY_ADMIN (partners use
@@ -679,15 +692,20 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/config/customers/:
+  /v1/config/customers:
     get:
       operationId: config_customers_list
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - name: cursor
         required: false
@@ -718,12 +736,17 @@ paths:
           description: ''
     post:
       operationId: config_customers_create
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       tags:
       - config
       requestBody:
@@ -746,15 +769,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Customer'
           description: ''
-  /api/v1/config/customers/{id}/:
+  /v1/config/customers/{id}:
     get:
       operationId: config_customers_retrieve
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -776,12 +804,17 @@ paths:
           description: ''
     patch:
       operationId: config_customers_partial_update
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -814,12 +847,17 @@ paths:
           description: ''
     delete:
       operationId: config_customers_destroy
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -835,7 +873,7 @@ paths:
       responses:
         '204':
           description: No response body
-  /api/v1/config/pricing/rate-cards/:
+  /v1/config/pricing/rate-cards:
     get:
       operationId: config_pricing_rate_cards_list
       parameters:
@@ -886,7 +924,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RateCard'
           description: ''
-  /api/v1/config/pricing/rate-cards/{id}/:
+  /v1/config/pricing/rate-cards/{id}:
     get:
       operationId: config_pricing_rate_cards_retrieve
       parameters:
@@ -906,7 +944,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RateCard'
           description: ''
-  /api/v1/config/pricing/rate-cards/{id}/history/:
+  /v1/config/pricing/rate-cards/{id}/history:
     get:
       operationId: config_pricing_rate_cards_history_retrieve
       description: Every version of this deal, oldest first.
@@ -927,15 +965,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/RateCard'
           description: ''
-  /api/v1/config/pricing/rate-cards/{id}/supersede/:
+  /v1/config/pricing/rate-cards/{id}/supersede:
     post:
       operationId: config_pricing_rate_cards_supersede_create
-      description: |-
-        POST /api/v1/pricing/rate-cards/{id}/supersede/
+      description: 'POST /api/v1/pricing/rate-cards/{id}/supersede/
 
-        Copy-on-write: a new version, the old one closed and linked. Rate cards are never
-        edited in place — an Offer priced from one is evidence of a quote (§1's price-lock
-        chain), and editing would rewrite what a customer was told.
+
+        Copy-on-write: a new version, the old one closed and linked. Rate cards are
+        never
+
+        edited in place — an Offer priced from one is evidence of a quote (§1''s price-lock
+
+        chain), and editing would rewrite what a customer was told.'
       parameters:
       - in: path
         name: id
@@ -964,15 +1005,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/RateCard'
           description: ''
-  /api/v1/config/pricing/simulate/:
+  /v1/config/pricing/simulate:
     post:
       operationId: config_pricing_simulate_create
-      description: |-
-        POST /api/v1/pricing/simulate/ — the fare breakdown, persisting nothing.
+      description: 'POST /api/v1/pricing/simulate/ — the fare breakdown, persisting
+        nothing.
 
-        The §8 simulator: "what would this cost on this card". It returns no price_id and mints
-        no Offer, because nothing here is bookable — a what-if that left a real quote behind
-        would be litter that looks spendable.
+
+        The §8 simulator: "what would this cost on this card". It returns no price_id
+        and mints
+
+        no Offer, because nothing here is bookable — a what-if that left a real quote
+        behind
+
+        would be litter that looks spendable.'
       tags:
       - config
       security:
@@ -980,15 +1026,20 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/config/vehicle-types/:
+  /v1/config/vehicle-types:
     get:
       operationId: config_vehicle_types_list
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: query
         name: ac
@@ -1031,12 +1082,17 @@ paths:
           description: ''
     post:
       operationId: config_vehicle_types_create
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       tags:
       - config
       requestBody:
@@ -1059,15 +1115,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/VehicleType'
           description: ''
-  /api/v1/config/vehicle-types/{id}/:
+  /v1/config/vehicle-types/{id}:
     get:
       operationId: config_vehicle_types_retrieve
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1089,12 +1150,17 @@ paths:
           description: ''
     patch:
       operationId: config_vehicle_types_partial_update
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1127,12 +1193,17 @@ paths:
           description: ''
     delete:
       operationId: config_vehicle_types_destroy
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1148,15 +1219,20 @@ paths:
       responses:
         '204':
           description: No response body
-  /api/v1/config/vendors/:
+  /v1/config/vendors:
     get:
       operationId: config_vendors_list
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - name: cursor
         required: false
@@ -1187,12 +1263,17 @@ paths:
           description: ''
     post:
       operationId: config_vendors_create
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       tags:
       - config
       requestBody:
@@ -1215,15 +1296,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Vendor'
           description: ''
-  /api/v1/config/vendors/{id}/:
+  /v1/config/vendors/{id}:
     get:
       operationId: config_vendors_retrieve
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1245,12 +1331,17 @@ paths:
           description: ''
     patch:
       operationId: config_vendors_partial_update
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1283,12 +1374,17 @@ paths:
           description: ''
     delete:
       operationId: config_vendors_destroy
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1304,13 +1400,14 @@ paths:
       responses:
         '204':
           description: No response body
-  /api/v1/dispatch/auto-assign-all:
+  /v1/dispatch/auto-assign-all:
     post:
       operationId: dispatch_auto_assign_all_create
-      description: |-
-        Bulk-assign nearest vehicle to every PENDING TripVehicle in the tenant.
+      description: 'Bulk-assign nearest vehicle to every PENDING TripVehicle in the
+        tenant.
 
-        A Redis NX lock keyed on tenant_id prevents concurrent double-assignment.
+
+        A Redis NX lock keyed on tenant_id prevents concurrent double-assignment.'
       tags:
       - dispatch
       requestBody:
@@ -1333,7 +1430,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/BoardCard'
           description: ''
-  /api/v1/dispatch/board:
+  /v1/dispatch/board:
     get:
       operationId: dispatch_board_retrieve
       description: Return all active TripVehicle cards, grouped by board column.
@@ -1348,15 +1445,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/BoardCard'
           description: ''
-  /api/v1/fleet/customers/:
+  /v1/fleet/customers:
     get:
       operationId: fleet_customers_list
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - name: cursor
         required: false
@@ -1387,12 +1489,17 @@ paths:
           description: ''
     post:
       operationId: fleet_customers_create
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       tags:
       - fleet
       requestBody:
@@ -1415,15 +1522,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Customer'
           description: ''
-  /api/v1/fleet/customers/{id}/:
+  /v1/fleet/customers/{id}:
     get:
       operationId: fleet_customers_retrieve
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1445,12 +1557,17 @@ paths:
           description: ''
     patch:
       operationId: fleet_customers_partial_update
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1483,12 +1600,17 @@ paths:
           description: ''
     delete:
       operationId: fleet_customers_destroy
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1504,15 +1626,20 @@ paths:
       responses:
         '204':
           description: No response body
-  /api/v1/fleet/documents/:
+  /v1/fleet/documents:
     get:
       operationId: fleet_documents_list
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - name: cursor
         required: false
@@ -1562,12 +1689,17 @@ paths:
           description: ''
     post:
       operationId: fleet_documents_create
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       tags:
       - fleet
       requestBody:
@@ -1590,15 +1722,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Document'
           description: ''
-  /api/v1/fleet/documents/{id}/:
+  /v1/fleet/documents/{id}:
     get:
       operationId: fleet_documents_retrieve
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1620,12 +1757,17 @@ paths:
           description: ''
     patch:
       operationId: fleet_documents_partial_update
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1656,15 +1798,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Document'
           description: ''
-  /api/v1/fleet/drivers/:
+  /v1/fleet/drivers:
     get:
       operationId: fleet_drivers_list
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - name: cursor
         required: false
@@ -1708,12 +1855,17 @@ paths:
           description: ''
     post:
       operationId: fleet_drivers_create
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       tags:
       - fleet
       requestBody:
@@ -1736,15 +1888,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Driver'
           description: ''
-  /api/v1/fleet/drivers/{id}/:
+  /v1/fleet/drivers/{id}:
     get:
       operationId: fleet_drivers_retrieve
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1766,12 +1923,17 @@ paths:
           description: ''
     patch:
       operationId: fleet_drivers_partial_update
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1804,12 +1966,17 @@ paths:
           description: ''
     delete:
       operationId: fleet_drivers_destroy
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1825,12 +1992,12 @@ paths:
       responses:
         '204':
           description: No response body
-  /api/v1/fleet/locations/:
+  /v1/fleet/locations:
     get:
       operationId: fleet_locations_list
-      description: |-
-        Read-only. Positions are written by the Traccar poller via
-        services.update_vehicle_location (commit 1.5, §16), never by an API client.
+      description: 'Read-only. Positions are written by the Traccar poller via
+
+        services.update_vehicle_location (commit 1.5, §16), never by an API client.'
       parameters:
       - name: cursor
         required: false
@@ -1855,15 +2022,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedLocationList'
           description: ''
-  /api/v1/fleet/vehicle-types/:
+  /v1/fleet/vehicle-types:
     get:
       operationId: fleet_vehicle_types_list
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: query
         name: ac
@@ -1906,12 +2078,17 @@ paths:
           description: ''
     post:
       operationId: fleet_vehicle_types_create
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       tags:
       - fleet
       requestBody:
@@ -1934,15 +2111,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/VehicleType'
           description: ''
-  /api/v1/fleet/vehicle-types/{id}/:
+  /v1/fleet/vehicle-types/{id}:
     get:
       operationId: fleet_vehicle_types_retrieve
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -1964,12 +2146,17 @@ paths:
           description: ''
     patch:
       operationId: fleet_vehicle_types_partial_update
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -2002,12 +2189,17 @@ paths:
           description: ''
     delete:
       operationId: fleet_vehicle_types_destroy
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -2023,15 +2215,20 @@ paths:
       responses:
         '204':
           description: No response body
-  /api/v1/fleet/vehicles/:
+  /v1/fleet/vehicles:
     get:
       operationId: fleet_vehicles_list
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - name: cursor
         required: false
@@ -2076,12 +2273,17 @@ paths:
           description: ''
     post:
       operationId: fleet_vehicles_create
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       tags:
       - fleet
       requestBody:
@@ -2104,15 +2306,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Vehicle'
           description: ''
-  /api/v1/fleet/vehicles/{id}/:
+  /v1/fleet/vehicles/{id}:
     get:
       operationId: fleet_vehicles_retrieve
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -2134,12 +2341,17 @@ paths:
           description: ''
     patch:
       operationId: fleet_vehicles_partial_update
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -2172,12 +2384,17 @@ paths:
           description: ''
     delete:
       operationId: fleet_vehicles_destroy
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -2193,14 +2410,16 @@ paths:
       responses:
         '204':
           description: No response body
-  /api/v1/fleet/vehicles/nearest/:
+  /v1/fleet/vehicles/nearest:
     get:
       operationId: fleet_vehicles_nearest_retrieve
-      description: |-
-        GET /api/v1/fleet/vehicles/nearest/?lat=&lng=&vehicle_type=&limit=
+      description: 'GET /api/v1/fleet/vehicles/nearest/?lat=&lng=&vehicle_type=&limit=
 
-        The dispatch-time query (§9). AGENCY_ADMIN only: it is how the agency picks who gets
-        the trip, and it necessarily ranges across every vendor.
+
+        The dispatch-time query (§9). AGENCY_ADMIN only: it is how the agency picks
+        who gets
+
+        the trip, and it necessarily ranges across every vendor.'
       tags:
       - fleet
       security:
@@ -2212,15 +2431,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Vehicle'
           description: ''
-  /api/v1/fleet/vendors/:
+  /v1/fleet/vendors:
     get:
       operationId: fleet_vendors_list
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - name: cursor
         required: false
@@ -2251,12 +2475,17 @@ paths:
           description: ''
     post:
       operationId: fleet_vendors_create
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       tags:
       - fleet
       requestBody:
@@ -2279,15 +2508,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/Vendor'
           description: ''
-  /api/v1/fleet/vendors/{id}/:
+  /v1/fleet/vendors/{id}:
     get:
       operationId: fleet_vendors_retrieve
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -2309,12 +2543,17 @@ paths:
           description: ''
     patch:
       operationId: fleet_vendors_partial_update
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -2347,12 +2586,17 @@ paths:
           description: ''
     delete:
       operationId: fleet_vendors_destroy
-      description: |-
-        List/retrieve from the ORM; create/update/destroy delegated to services.
+      description: 'List/retrieve from the ORM; create/update/destroy delegated to
+        services.
 
-        DRF's ModelViewSet writes through the serializer, which would put .save() calls in the
-        view layer. This keeps the read machinery (pagination, filtering, get_object) and routes
-        every mutation into apps.fleet.services instead.
+
+        DRF''s ModelViewSet writes through the serializer, which would put .save()
+        calls in the
+
+        view layer. This keeps the read machinery (pagination, filtering, get_object)
+        and routes
+
+        every mutation into apps.fleet.services instead.'
       parameters:
       - in: path
         name: id
@@ -2368,7 +2612,7 @@ paths:
       responses:
         '204':
           description: No response body
-  /api/v1/notifications/:
+  /v1/notifications:
     get:
       operationId: notifications_retrieve
       description: GET /api/v1/notifications/ — the requesting user's own IN_APP notifications.
@@ -2379,7 +2623,7 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/notifications/deliveries/:
+  /v1/notifications/deliveries:
     get:
       operationId: notifications_deliveries_list
       description: The delivery audit log. AGENCY_ADMIN; filters channel / status
@@ -2408,7 +2652,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedDeliveryList'
           description: ''
-  /api/v1/notifications/templates/:
+  /v1/notifications/templates:
     get:
       operationId: notifications_templates_list
       description: Template registry CRUD. AGENCY_ADMIN only; key + channel immutable
@@ -2464,7 +2708,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NotificationTemplate'
           description: ''
-  /api/v1/notifications/templates/{id}/:
+  /v1/notifications/templates/{id}:
     get:
       operationId: notifications_templates_retrieve
       description: Template registry CRUD. AGENCY_ADMIN only; key + channel immutable
@@ -2517,7 +2761,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/NotificationTemplate'
           description: ''
-  /api/v1/partner-credentials/:
+  /v1/partner-credentials:
     get:
       operationId: partner_credentials_list
       parameters:
@@ -2568,7 +2812,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Credential'
           description: ''
-  /api/v1/partner-credentials/{id}/:
+  /v1/partner-credentials/{id}:
     get:
       operationId: partner_credentials_retrieve
       parameters:
@@ -2588,7 +2832,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Credential'
           description: ''
-  /api/v1/partner-credentials/{id}/revoke/:
+  /v1/partner-credentials/{id}/revoke:
     post:
       operationId: partner_credentials_revoke_create
       parameters:
@@ -2619,7 +2863,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Credential'
           description: ''
-  /api/v1/partner-credentials/{id}/rotate/:
+  /v1/partner-credentials/{id}/rotate:
     post:
       operationId: partner_credentials_rotate_create
       parameters:
@@ -2650,19 +2894,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/Credential'
           description: ''
-  /api/v1/pricing/offers/:
+  /v1/pricing/offers:
     get:
       operationId: pricing_offers_list
-      description: |-
-        Quotes.
+      description: 'Quotes.
 
-        **No Idempotency-Key here, deliberately.** The middleware exists for mutations where a
-        repeat does damage — booking, cancel, billing adjustments (§10). An offer is cheap,
-        read-only in effect, and expires in 30 minutes: a duplicate quote costs one row that
-        nobody cites and that ages out on its own. Requiring a key would teach clients to mint
-        junk keys for harmless calls, which devalues the mechanism exactly where it matters.
+
+        **No Idempotency-Key here, deliberately.** The middleware exists for mutations
+        where a
+
+        repeat does damage — booking, cancel, billing adjustments (§10). An offer
+        is cheap,
+
+        read-only in effect, and expires in 30 minutes: a duplicate quote costs one
+        row that
+
+        nobody cites and that ages out on its own. Requiring a key would teach clients
+        to mint
+
+        junk keys for harmless calls, which devalues the mechanism exactly where it
+        matters.
+
         The single-use guarantee lives at *booking* (the partial unique on
-        consumed_by_trip_vehicle), which is the moment that actually needs protecting.
+
+        consumed_by_trip_vehicle), which is the moment that actually needs protecting.'
       parameters:
       - name: cursor
         required: false
@@ -2689,11 +2944,14 @@ paths:
           description: ''
     post:
       operationId: pricing_offers_create
-      description: |-
-        POST /api/v1/pricing/offers/ — one Offer per vendor who can serve this.
+      description: 'POST /api/v1/pricing/offers/ — one Offer per vendor who can serve
+        this.
 
-        An empty list is a valid answer: nobody has a negotiated rate for this customer and
-        vehicle type. That is a business fact, not a 404.
+
+        An empty list is a valid answer: nobody has a negotiated rate for this customer
+        and
+
+        vehicle type. That is a business fact, not a 404.'
       tags:
       - pricing
       requestBody:
@@ -2716,19 +2974,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/Offer'
           description: ''
-  /api/v1/pricing/offers/{id}/:
+  /v1/pricing/offers/{id}:
     get:
       operationId: pricing_offers_retrieve
-      description: |-
-        Quotes.
+      description: 'Quotes.
 
-        **No Idempotency-Key here, deliberately.** The middleware exists for mutations where a
-        repeat does damage — booking, cancel, billing adjustments (§10). An offer is cheap,
-        read-only in effect, and expires in 30 minutes: a duplicate quote costs one row that
-        nobody cites and that ages out on its own. Requiring a key would teach clients to mint
-        junk keys for harmless calls, which devalues the mechanism exactly where it matters.
+
+        **No Idempotency-Key here, deliberately.** The middleware exists for mutations
+        where a
+
+        repeat does damage — booking, cancel, billing adjustments (§10). An offer
+        is cheap,
+
+        read-only in effect, and expires in 30 minutes: a duplicate quote costs one
+        row that
+
+        nobody cites and that ages out on its own. Requiring a key would teach clients
+        to mint
+
+        junk keys for harmless calls, which devalues the mechanism exactly where it
+        matters.
+
         The single-use guarantee lives at *booking* (the partial unique on
-        consumed_by_trip_vehicle), which is the moment that actually needs protecting.
+
+        consumed_by_trip_vehicle), which is the moment that actually needs protecting.'
       parameters:
       - in: path
         name: id
@@ -2746,7 +3015,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Offer'
           description: ''
-  /api/v1/pricing/rate-cards/:
+  /v1/pricing/rate-cards:
     get:
       operationId: pricing_rate_cards_list
       parameters:
@@ -2797,7 +3066,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RateCard'
           description: ''
-  /api/v1/pricing/rate-cards/{id}/:
+  /v1/pricing/rate-cards/{id}:
     get:
       operationId: pricing_rate_cards_retrieve
       parameters:
@@ -2817,7 +3086,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RateCard'
           description: ''
-  /api/v1/pricing/rate-cards/{id}/history/:
+  /v1/pricing/rate-cards/{id}/history:
     get:
       operationId: pricing_rate_cards_history_retrieve
       description: Every version of this deal, oldest first.
@@ -2838,15 +3107,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/RateCard'
           description: ''
-  /api/v1/pricing/rate-cards/{id}/supersede/:
+  /v1/pricing/rate-cards/{id}/supersede:
     post:
       operationId: pricing_rate_cards_supersede_create
-      description: |-
-        POST /api/v1/pricing/rate-cards/{id}/supersede/
+      description: 'POST /api/v1/pricing/rate-cards/{id}/supersede/
 
-        Copy-on-write: a new version, the old one closed and linked. Rate cards are never
-        edited in place — an Offer priced from one is evidence of a quote (§1's price-lock
-        chain), and editing would rewrite what a customer was told.
+
+        Copy-on-write: a new version, the old one closed and linked. Rate cards are
+        never
+
+        edited in place — an Offer priced from one is evidence of a quote (§1''s price-lock
+
+        chain), and editing would rewrite what a customer was told.'
       parameters:
       - in: path
         name: id
@@ -2875,15 +3147,20 @@ paths:
               schema:
                 $ref: '#/components/schemas/RateCard'
           description: ''
-  /api/v1/pricing/simulate/:
+  /v1/pricing/simulate:
     post:
       operationId: pricing_simulate_create
-      description: |-
-        POST /api/v1/pricing/simulate/ — the fare breakdown, persisting nothing.
+      description: 'POST /api/v1/pricing/simulate/ — the fare breakdown, persisting
+        nothing.
 
-        The §8 simulator: "what would this cost on this card". It returns no price_id and mints
-        no Offer, because nothing here is bookable — a what-if that left a real quote behind
-        would be litter that looks spendable.
+
+        The §8 simulator: "what would this cost on this card". It returns no price_id
+        and mints
+
+        no Offer, because nothing here is bookable — a what-if that left a real quote
+        behind
+
+        would be litter that looks spendable.'
       tags:
       - pricing
       security:
@@ -2891,7 +3168,7 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/safety/alerts/:
+  /v1/safety/alerts:
     get:
       operationId: safety_alerts_list
       description: Open-alerts board + acknowledge / resolve / timeline. AGENCY_ADMIN
@@ -2920,7 +3197,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedSafetyAlertList'
           description: ''
-  /api/v1/safety/alerts/{id}/ack/:
+  /v1/safety/alerts/{id}/ack:
     post:
       operationId: safety_alerts_ack_create
       description: Open-alerts board + acknowledge / resolve / timeline. AGENCY_ADMIN
@@ -2954,7 +3231,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SafetyAlert'
           description: ''
-  /api/v1/safety/alerts/{id}/resolve/:
+  /v1/safety/alerts/{id}/resolve:
     post:
       operationId: safety_alerts_resolve_create
       description: Open-alerts board + acknowledge / resolve / timeline. AGENCY_ADMIN
@@ -2988,7 +3265,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SafetyAlert'
           description: ''
-  /api/v1/safety/alerts/{id}/timeline/:
+  /v1/safety/alerts/{id}/timeline:
     get:
       operationId: safety_alerts_timeline_retrieve
       description: Escalation ladder + the trip's outbox events, as one merged, tamper-evident
@@ -3010,14 +3287,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/SafetyAlert'
           description: ''
-  /api/v1/safety/trips/vehicles/{trip_vehicle_id}/sos:
+  /v1/safety/trips/vehicles/{trip_vehicle_id}/sos:
     post:
       operationId: safety_trips_vehicles_sos_create
-      description: |-
-        POST /api/v1/safety/trips/vehicles/{trip_vehicle_id}/sos — a driver raises SOS.
+      description: 'POST /api/v1/safety/trips/vehicles/{trip_vehicle_id}/sos — a driver
+        raises SOS.
 
-        DRIVER role; own-assignment enforcement lives in the service (raise_sos), so this door and
-        the service agree on who may open it.
+
+        DRIVER role; own-assignment enforcement lives in the service (raise_sos),
+        so this door and
+
+        the service agree on who may open it.'
       parameters:
       - in: path
         name: trip_vehicle_id
@@ -3032,7 +3312,7 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/tracking/live:
+  /v1/tracking/live:
     get:
       operationId: tracking_live_retrieve
       description: 'The live map feed: active vehicles + latest position + marker
@@ -3044,7 +3324,7 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/trips/:
+  /v1/trips:
     get:
       operationId: trips_list
       description: Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/...
@@ -3097,7 +3377,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TripRequest'
           description: ''
-  /api/v1/trips/{id}/:
+  /v1/trips/{id}:
     get:
       operationId: trips_retrieve
       description: Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/...
@@ -3119,7 +3399,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TripRequest'
           description: ''
-  /api/v1/trips/{id}/check-update/:
+  /v1/trips/{id}/check-update:
     get:
       operationId: trips_check_update_retrieve
       description: Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/...
@@ -3141,7 +3421,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TripRequest'
           description: ''
-  /api/v1/trips/{id}/clone/:
+  /v1/trips/{id}/clone:
     post:
       operationId: trips_clone_create
       description: Clone a trip — create DRAFT with same stops but new pickup_at.
@@ -3174,7 +3454,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TripRequest'
           description: ''
-  /api/v1/trips/{id}/vehicles/{vehicle_pk}/assign/:
+  /v1/trips/{id}/vehicles/{vehicle_pk}/assign:
     post:
       operationId: trips_vehicles_assign_create
       description: Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/...
@@ -3213,7 +3493,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TripRequest'
           description: ''
-  /api/v1/trips/{id}/vehicles/{vehicle_pk}/check-cancel/:
+  /v1/trips/{id}/vehicles/{vehicle_pk}/check-cancel:
     get:
       operationId: trips_vehicles_check_cancel_retrieve
       description: Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/...
@@ -3241,7 +3521,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TripRequest'
           description: ''
-  /api/v1/trips/{id}/vehicles/{vehicle_pk}/reassign/:
+  /v1/trips/{id}/vehicles/{vehicle_pk}/reassign:
     post:
       operationId: trips_vehicles_reassign_create
       description: Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/...
@@ -3280,15 +3560,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/TripRequest'
           description: ''
-  /api/v1/trips/{id}/vehicles/{vehicle_pk}/track/:
+  /v1/trips/{id}/vehicles/{vehicle_pk}/track:
     get:
       operationId: trips_vehicles_track_retrieve
-      description: |-
-        Live track for one trip vehicle: recent path (ring buffer) + milestone snapshots + ETA.
+      description: 'Live track for one trip vehicle: recent path (ring buffer) + milestone
+        snapshots + ETA.
 
-        The path and ETA are read-side only — the ring buffer is Redis, and the ETA gateway is
+
+        The path and ETA are read-side only — the ring buffer is Redis, and the ETA
+        gateway is
+
         never touched on the transition path (CLAUDE.md rule 6). Chronological (oldest-first)
-        path so a client can draw the polyline directly.
+
+        path so a client can draw the polyline directly.'
       parameters:
       - in: path
         name: id
@@ -3313,7 +3597,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TripRequest'
           description: ''
-  /api/v1/trips/{id}/vehicles/{vehicle_pk}/transitions/:
+  /v1/trips/{id}/vehicles/{vehicle_pk}/transitions:
     post:
       operationId: trips_vehicles_transitions_create
       description: Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/...
@@ -3352,7 +3636,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TripRequest'
           description: ''
-  /api/v1/trips/{id}/vehicles/{vehicle_pk}/verify-otp/:
+  /v1/trips/{id}/vehicles/{vehicle_pk}/verify-otp:
     post:
       operationId: trips_vehicles_verify_otp_create
       description: Trip CRUD + all lifecycle actions on /api/v1/trips/{id}/vehicles/{n}/...
@@ -3391,7 +3675,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/TripRequest'
           description: ''
-  /api/v1/trips/bulk/commit/:
+  /v1/trips/bulk/commit:
     post:
       operationId: trips_bulk_commit_create
       description: POST /api/v1/trips/bulk/commit — book all valid rows from a preview
@@ -3403,7 +3687,7 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/trips/bulk/preview/:
+  /v1/trips/bulk/preview:
     post:
       operationId: trips_bulk_preview_create
       description: POST /api/v1/trips/bulk/preview — parse and validate a CSV/XLSX
@@ -3415,7 +3699,7 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/trips/pax-payload/:
+  /v1/trips/pax-payload:
     post:
       operationId: trips_pax_payload_create
       description: POST /api/v1/trips/pax-payload — create trip from a pax-oriented
@@ -3427,7 +3711,7 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/trips/recurring-rules/:
+  /v1/trips/recurring-rules:
     get:
       operationId: trips_recurring_rules_list
       description: CRUD for RecurringRule. AGENCY_ADMIN only.
@@ -3481,7 +3765,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RecurringRule'
           description: ''
-  /api/v1/trips/recurring-rules/{id}/:
+  /v1/trips/recurring-rules/{id}:
     get:
       operationId: trips_recurring_rules_retrieve
       description: CRUD for RecurringRule. AGENCY_ADMIN only.
@@ -3535,7 +3819,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RecurringRule'
           description: ''
-  /api/v1/trips/recurring-rules/{id}/deactivate/:
+  /v1/trips/recurring-rules/{id}/deactivate:
     post:
       operationId: trips_recurring_rules_deactivate_create
       description: CRUD for RecurringRule. AGENCY_ADMIN only.
@@ -3569,7 +3853,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RecurringRule'
           description: ''
-  /api/v1/trips/vehicle-count/:
+  /v1/trips/vehicle-count:
     post:
       operationId: trips_vehicle_count_create
       description: POST /api/v1/trips/vehicle-count — create N vehicle slots in a
@@ -3581,7 +3865,7 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/users/:
+  /v1/users:
     get:
       operationId: users_retrieve
       description: /api/v1/users/ — AGENCY_ADMIN only (ARCHITECTURE.md §10).
@@ -3602,7 +3886,7 @@ paths:
       responses:
         '200':
           description: No response body
-  /api/v1/users/{user_id}/:
+  /v1/users/{user_id}:
     get:
       operationId: users_retrieve_2
       description: /api/v1/users/{id}/ — retrieve, or DELETE to deactivate.
@@ -3648,15 +3932,24 @@ paths:
   /metrics:
     get:
       operationId: metrics_retrieve
-      description: |-
-        Prometheus scrape endpoint (commit 16, §14).
+      description: 'Prometheus scrape endpoint (commit 16, §14).
 
-        Unauthenticated by design: it exposes only aggregate counters (no PII, no per-tenant data),
-        and is meant to be bound to an internal port/path allowlisted at the ALB, never routed to the
-        public internet (see docs §14 for the ALB split). Returns 404 when METRICS_ENABLED is off.
 
-        Under gunicorn (PROMETHEUS_MULTIPROC_DIR set) it aggregates every worker's samples via
-        MultiProcessCollector; single-process (runserver/worker) serves the default registry.
+        Unauthenticated by design: it exposes only aggregate counters (no PII, no
+        per-tenant data),
+
+        and is meant to be bound to an internal port/path allowlisted at the ALB,
+        never routed to the
+
+        public internet (see docs §14 for the ALB split). Returns 404 when METRICS_ENABLED
+        is off.
+
+
+        Under gunicorn (PROMETHEUS_MULTIPROC_DIR set) it aggregates every worker''s
+        samples via
+
+        MultiProcessCollector; single-process (runserver/worker) serves the default
+        registry.'
       tags:
       - metrics
       responses:
@@ -3665,15 +3958,23 @@ paths:
   /partner/v1/auth/refresh:
     post:
       operationId: partner_v1_auth_refresh_create
-      description: |-
-        POST /partner/v1/auth/refresh — rotate the pair.
+      description: 'POST /partner/v1/auth/refresh — rotate the pair.
 
-        SimpleJWT's own view: it validates the refresh token, blacklists it (ROTATE +
-        BLACKLIST_AFTER_ROTATION), and issues a new pair. The partner claims ride along in the
-        token payload, so the new access token carries the same identity with no DB read.
 
-        TokenRefreshView is already AllowAny and authenticates via the refresh token in the
-        body, so no authentication_classes / permission_classes overrides are needed.
+        SimpleJWT''s own view: it validates the refresh token, blacklists it (ROTATE
+        +
+
+        BLACKLIST_AFTER_ROTATION), and issues a new pair. The partner claims ride
+        along in the
+
+        token payload, so the new access token carries the same identity with no DB
+        read.
+
+
+        TokenRefreshView is already AllowAny and authenticates via the refresh token
+        in the
+
+        body, so no authentication_classes / permission_classes overrides are needed.'
       tags:
       - partner
       requestBody:
@@ -3698,12 +3999,15 @@ paths:
   /partner/v1/auth/token:
     post:
       operationId: partner_v1_auth_token_create
-      description: |-
-        POST /partner/v1/auth/token — exchange an API key for a JWT pair.
+      description: 'POST /partner/v1/auth/token — exchange an API key for a JWT pair.
+
 
         Unauthenticated (there is no token yet). The lookup is prefix-then-constant-time-hash:
-        the prefix finds at most one active row, and compare_digest decides it, so a wrong key
-        and an unknown key cost the same and reveal the same (nothing).
+
+        the prefix finds at most one active row, and compare_digest decides it, so
+        a wrong key
+
+        and an unknown key cost the same and reveal the same (nothing).'
       tags:
       - partner
       security:
@@ -3714,12 +4018,16 @@ paths:
   /partner/v1/book:
     post:
       operationId: partner_v1_book_create
-      description: |-
-        POST /partner/v1/book — Idempotency-Key required (§10).
+      description: 'POST /partner/v1/book — Idempotency-Key required (§10).
 
-        Idempotency is enforced by the middleware via this flag, exactly like the portal booking
-        endpoint. A replayed key returns the original response, so a partner retrying a timed-out
-        booking never double-books.
+
+        Idempotency is enforced by the middleware via this flag, exactly like the
+        portal booking
+
+        endpoint. A replayed key returns the original response, so a partner retrying
+        a timed-out
+
+        booking never double-books.'
       tags:
       - partner
       responses:
@@ -3778,11 +4086,15 @@ paths:
   /partner/v1/trips/{reference}/confirm:
     post:
       operationId: partner_v1_trips_confirm_create
-      description: |-
-        POST /partner/v1/trips/{reference}/confirm — idempotent no-op (§10 contract compat).
+      description: 'POST /partner/v1/trips/{reference}/confirm — idempotent no-op
+        (§10 contract compat).
 
-        Booking already confirms in RIDE (there is no two-phase commit), so confirm is a
-        read that returns current state. Kept because partner integrations expect the verb.
+
+        Booking already confirms in RIDE (there is no two-phase commit), so confirm
+        is a
+
+        read that returns current state. Kept because partner integrations expect
+        the verb.'
       parameters:
       - in: path
         name: reference
@@ -3933,11 +4245,13 @@ components:
       - HOURLY
       - PACKAGE
       type: string
-      description: |-
-        * `PER_KM` - Per kilometre
+      description: '* `PER_KM` - Per kilometre
+
         * `FIXED_LOCATION_PAIR` - Fixed price for a location pair
+
         * `HOURLY` - Per hour
-        * `PACKAGE` - Package with included km/hours
+
+        * `PACKAGE` - Package with included km/hours'
     BillableTrip:
       type: object
       properties:
@@ -4109,11 +4423,13 @@ components:
       - SMS
       - IN_APP
       type: string
-      description: |-
-        * `MATTERMOST` - Mattermost
+      description: '* `MATTERMOST` - Mattermost
+
         * `WHATSAPP` - WhatsApp
+
         * `SMS` - SMS
-        * `IN_APP` - In-app
+
+        * `IN_APP` - In-app'
     CreatedViaEnum:
       enum:
       - MANUAL
@@ -4123,13 +4439,17 @@ components:
       - API_PAX
       - API_VEHICLE_COUNT
       type: string
-      description: |-
-        * `MANUAL` - Manual
+      description: '* `MANUAL` - Manual
+
         * `CLONE` - Cloned from another trip
+
         * `BULK` - Bulk upload
+
         * `RECURRING` - Recurring rule
+
         * `API_PAX` - API — pax payload
-        * `API_VEHICLE_COUNT` - API — vehicle count
+
+        * `API_VEHICLE_COUNT` - API — vehicle count'
     Credential:
       type: object
       description: Read serializer. The key hash is never exposed — only the prefix.
@@ -4183,11 +4503,14 @@ components:
       - throttle_rate
     Customer:
       type: object
-      description: |-
-        Vendor/Customer contact details.
+      description: 'Vendor/Customer contact details.
 
-        A vendor's own record counts as "self" for its managers — they may see their own
-        company's contact details in full; an agency admin sees them masked, like any other PII.
+
+        A vendor''s own record counts as "self" for its managers — they may see their
+        own
+
+        company''s contact details in full; an agency admin sees them masked, like
+        any other PII.'
       properties:
         id:
           type: string
@@ -4272,10 +4595,11 @@ components:
       - SENT
       - FAILED
       type: string
-      description: |-
-        * `QUEUED` - Queued
+      description: '* `QUEUED` - Queued
+
         * `SENT` - Sent
-        * `FAILED` - Failed
+
+        * `FAILED` - Failed'
     DocTypeEnum:
       enum:
       - REGISTRATION
@@ -4290,18 +4614,27 @@ components:
       - MEDICAL
       - INDUCTION
       type: string
-      description: |-
-        * `REGISTRATION` - Registration certificate
+      description: '* `REGISTRATION` - Registration certificate
+
         * `PERMIT_NATIONAL` - National permit
+
         * `PERMIT_STATE` - State permit
+
         * `FITNESS` - Fitness certificate
+
         * `PUC` - Pollution under control
+
         * `INSURANCE` - Insurance
+
         * `LICENCE` - Driving licence
+
         * `PSV_BADGE` - PSV badge
+
         * `POLICE_VERIFICATION` - Police verification
+
         * `MEDICAL` - Medical certificate
-        * `INDUCTION` - Induction
+
+        * `INDUCTION` - Induction'
     Document:
       type: object
       properties:
@@ -4347,16 +4680,25 @@ components:
       - number
     Driver:
       type: object
-      description: |-
-        Masks PII fields unless the viewer is entitled to the raw value.
+      description: 'Masks PII fields unless the viewer is entitled to the raw value.
 
-        The matrix (§11), stated as one rule: you see raw contact details for yourself, and a
-        VENDOR_MANAGER additionally sees them for their own vendor's people. Everyone else —
+
+        The matrix (§11), stated as one rule: you see raw contact details for yourself,
+        and a
+
+        VENDOR_MANAGER additionally sees them for their own vendor''s people. Everyone
+        else —
+
         including AGENCY_ADMIN — sees masked values.
 
-        That AGENCY_ADMIN is masked is deliberate and worth not "fixing": an operator dispatches
-        trips, which needs a name and a role, not a driver's personal phone number. The masking
-        is server-side, so no client flag or query param can turn it off.
+
+        That AGENCY_ADMIN is masked is deliberate and worth not "fixing": an operator
+        dispatches
+
+        trips, which needs a name and a role, not a driver''s personal phone number.
+        The masking
+
+        is server-side, so no client flag or query param can turn it off.'
       properties:
         id:
           type: string
@@ -4411,26 +4753,27 @@ components:
       - ON_TRIP
       - OFFLINE
       type: string
-      description: |-
-        * `AVAILABLE` - Available
+      description: '* `AVAILABLE` - Available
+
         * `ON_TRIP` - On trip
-        * `OFFLINE` - Offline
+
+        * `OFFLINE` - Offline'
     EntityTypeEnum:
       enum:
       - VEHICLE
       - DRIVER
       type: string
-      description: |-
-        * `VEHICLE` - Vehicle
-        * `DRIVER` - Driver
+      description: '* `VEHICLE` - Vehicle
+
+        * `DRIVER` - Driver'
     FreqEnum:
       enum:
       - DAILY
       - WEEKLY
       type: string
-      description: |-
-        * `DAILY` - Daily
-        * `WEEKLY` - Weekly
+      description: '* `DAILY` - Daily
+
+        * `WEEKLY` - Weekly'
     InvoiceLineMatch:
       type: object
       properties:
@@ -4503,11 +4846,13 @@ components:
       - breakdown
       - not_available
       type: string
-      description: |-
-        * `active` - Active
+      description: '* `active` - Active
+
         * `on_trip` - On trip
+
         * `breakdown` - Breakdown
-        * `not_available` - Not available
+
+        * `not_available` - Not available'
     LocationTypeEnum:
       enum:
       - AIRPORT
@@ -4516,12 +4861,15 @@ components:
       - CITY
       - ADDRESS
       type: string
-      description: |-
-        * `AIRPORT` - Airport
+      description: '* `AIRPORT` - Airport
+
         * `RAIL` - Rail station
+
         * `HOTEL` - Hotel
+
         * `CITY` - City
-        * `ADDRESS` - Street address
+
+        * `ADDRESS` - Street address'
     NotificationTemplate:
       type: object
       properties:
@@ -5010,11 +5358,14 @@ components:
             $ref: '#/components/schemas/Vendor'
     PatchedCustomer:
       type: object
-      description: |-
-        Vendor/Customer contact details.
+      description: 'Vendor/Customer contact details.
 
-        A vendor's own record counts as "self" for its managers — they may see their own
-        company's contact details in full; an agency admin sees them masked, like any other PII.
+
+        A vendor''s own record counts as "self" for its managers — they may see their
+        own
+
+        company''s contact details in full; an agency admin sees them masked, like
+        any other PII.'
       properties:
         id:
           type: string
@@ -5076,16 +5427,25 @@ components:
           readOnly: true
     PatchedDriver:
       type: object
-      description: |-
-        Masks PII fields unless the viewer is entitled to the raw value.
+      description: 'Masks PII fields unless the viewer is entitled to the raw value.
 
-        The matrix (§11), stated as one rule: you see raw contact details for yourself, and a
-        VENDOR_MANAGER additionally sees them for their own vendor's people. Everyone else —
+
+        The matrix (§11), stated as one rule: you see raw contact details for yourself,
+        and a
+
+        VENDOR_MANAGER additionally sees them for their own vendor''s people. Everyone
+        else —
+
         including AGENCY_ADMIN — sees masked values.
 
-        That AGENCY_ADMIN is masked is deliberate and worth not "fixing": an operator dispatches
-        trips, which needs a name and a role, not a driver's personal phone number. The masking
-        is server-side, so no client flag or query param can turn it off.
+
+        That AGENCY_ADMIN is masked is deliberate and worth not "fixing": an operator
+        dispatches
+
+        trips, which needs a name and a role, not a driver''s personal phone number.
+        The masking
+
+        is server-side, so no client flag or query param can turn it off.'
       properties:
         id:
           type: string
@@ -5243,11 +5603,14 @@ components:
           readOnly: true
     PatchedVendor:
       type: object
-      description: |-
-        Vendor/Customer contact details.
+      description: 'Vendor/Customer contact details.
 
-        A vendor's own record counts as "self" for its managers — they may see their own
-        company's contact details in full; an agency admin sees them masked, like any other PII.
+
+        A vendor''s own record counts as "self" for its managers — they may see their
+        own
+
+        company''s contact details in full; an agency admin sees them masked, like
+        any other PII.'
       properties:
         id:
           type: string
@@ -5340,10 +5703,11 @@ components:
       - APPROVED
       - PAID
       type: string
-      description: |-
-        * `PENDING` - Pending
+      description: '* `PENDING` - Pending
+
         * `APPROVED` - Approved
-        * `PAID` - Paid
+
+        * `PAID` - Paid'
     RateCard:
       type: object
       properties:
@@ -5514,9 +5878,11 @@ components:
       - updated_at
     SafetyAlert:
       type: object
-      description: |-
-        Board/detail shape. Driver identity is intentionally not exposed here — the control-room
-        board is about the trip, and driver PII masking is the trips/partner surface's job.
+      description: 'Board/detail shape. Driver identity is intentionally not exposed
+        here — the control-room
+
+        board is about the trip, and driver PII masking is the trips/partner surface''s
+        job.'
       properties:
         id:
           type: string
@@ -5612,13 +5978,17 @@ components:
       - OVERSPEED
       - NO_SHOW_RISK
       type: string
-      description: |-
-        * `SOS` - SOS
+      description: '* `SOS` - SOS
+
         * `ROUTE_DEVIATION` - Route deviation
+
         * `PROLONGED_STOP` - Prolonged stop
+
         * `NO_MOVEMENT` - No movement
+
         * `OVERSPEED` - Overspeed
-        * `NO_SHOW_RISK` - No-show risk
+
+        * `NO_SHOW_RISK` - No-show risk'
     SafetyAlertStatusEnum:
       enum:
       - OPEN
@@ -5626,29 +5996,32 @@ components:
       - RESOLVED
       - FALSE_ALARM
       type: string
-      description: |-
-        * `OPEN` - Open
+      description: '* `OPEN` - Open
+
         * `ACKNOWLEDGED` - Acknowledged
+
         * `RESOLVED` - Resolved
-        * `FALSE_ALARM` - False alarm
+
+        * `FALSE_ALARM` - False alarm'
     ScopeEnum:
       enum:
       - VENDOR
       - CUSTOMER
       type: string
-      description: |-
-        * `VENDOR` - Vendor
-        * `CUSTOMER` - Customer
+      description: '* `VENDOR` - Vendor
+
+        * `CUSTOMER` - Customer'
     SeverityEnum:
       enum:
       - CRITICAL
       - HIGH
       - MEDIUM
       type: string
-      description: |-
-        * `CRITICAL` - Critical
+      description: '* `CRITICAL` - Critical
+
         * `HIGH` - High
-        * `MEDIUM` - Medium
+
+        * `MEDIUM` - Medium'
     Statement:
       type: object
       properties:
@@ -5756,19 +6129,20 @@ components:
       - DRAFT
       - FINAL
       type: string
-      description: |-
-        * `DRAFT` - Draft
-        * `FINAL` - Final
+      description: '* `DRAFT` - Draft
+
+        * `FINAL` - Final'
     Status3c2Enum:
       enum:
       - UNBILLED
       - STATEMENTED
       - RECONCILED
       type: string
-      description: |-
-        * `UNBILLED` - Unbilled
+      description: '* `UNBILLED` - Unbilled
+
         * `STATEMENTED` - Statemented
-        * `RECONCILED` - Reconciled
+
+        * `RECONCILED` - Reconciled'
     StatusC34Enum:
       enum:
       - PENDING
@@ -5789,24 +6163,39 @@ components:
       - SOS
       - CANCELLED
       type: string
-      description: |-
-        * `PENDING` - Pending
+      description: '* `PENDING` - Pending
+
         * `ASSIGNED` - Assigned
+
         * `DRIVER_ACCEPTED` - Driver accepted
+
         * `EN_ROUTE_PICKUP` - En route to pickup
+
         * `AT_PICKUP` - At pickup
+
         * `PAX_PICKED` - Passenger picked up
+
         * `IN_TRANSIT` - In transit
+
         * `AT_DROP` - At drop
+
         * `PAX_DROPPED` - Passenger dropped
+
         * `COMPLETED` - Completed
+
         * `NO_SHOW` - No show
+
         * `BREAKDOWN` - Breakdown
+
         * `ACCIDENT` - Accident
+
         * `VEHICLE_SWAP` - Vehicle swap
+
         * `DELAYED` - Delayed
+
         * `SOS` - SOS
-        * `CANCELLED` - Cancelled
+
+        * `CANCELLED` - Cancelled'
     Stop:
       type: object
       properties:
@@ -5859,10 +6248,11 @@ components:
       - DROP
       - WAYPOINT
       type: string
-      description: |-
-        * `PICKUP` - Pickup
+      description: '* `PICKUP` - Pickup
+
         * `DROP` - Drop
-        * `WAYPOINT` - Waypoint
+
+        * `WAYPOINT` - Waypoint'
     TokenRefresh:
       type: object
       properties:
@@ -5948,14 +6338,19 @@ components:
       - BILLED
       - CANCELLED
       type: string
-      description: |-
-        * `DRAFT` - Draft
+      description: '* `DRAFT` - Draft
+
         * `CONFIRMED` - Confirmed
+
         * `ASSIGNED` - Assigned
+
         * `IN_PROGRESS` - In progress
+
         * `COMPLETED` - Completed
+
         * `BILLED` - Billed
-        * `CANCELLED` - Cancelled
+
+        * `CANCELLED` - Cancelled'
     TripVehicle:
       type: object
       properties:
@@ -6124,11 +6519,14 @@ components:
       - name
     Vendor:
       type: object
-      description: |-
-        Vendor/Customer contact details.
+      description: 'Vendor/Customer contact details.
 
-        A vendor's own record counts as "self" for its managers — they may see their own
-        company's contact details in full; an agency admin sees them masked, like any other PII.
+
+        A vendor''s own record counts as "self" for its managers — they may see their
+        own
+
+        company''s contact details in full; an agency admin sees them masked, like
+        any other PII.'
       properties:
         id:
           type: string
@@ -6265,11 +6663,13 @@ components:
       - RECONCILED
       - DISPUTED
       type: string
-      description: |-
-        * `UPLOADED` - Uploaded
+      description: '* `UPLOADED` - Uploaded
+
         * `RECONCILING` - Reconciling
+
         * `RECONCILED` - Reconciled
-        * `DISPUTED` - Disputed
+
+        * `DISPUTED` - Disputed'
     VerdictEnum:
       enum:
       - MATCH
@@ -6277,11 +6677,13 @@ components:
       - MISSING_IN_INVOICE
       - MISSING_IN_SYSTEM
       type: string
-      description: |-
-        * `MATCH` - Match
+      description: '* `MATCH` - Match
+
         * `AMOUNT_MISMATCH` - Amount mismatch
+
         * `MISSING_IN_INVOICE` - Missing in invoice
-        * `MISSING_IN_SYSTEM` - Missing in system
+
+        * `MISSING_IN_SYSTEM` - Missing in system'
     WsTicket:
       type: object
       properties:

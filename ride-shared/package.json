@@ -15,14 +15,13 @@
     "./realtime/ws": "./src/realtime/ws.ts"
   },
   "scripts": {
-    "gen:api": "openapi-typescript schema.yaml -o src/api/schema.d.ts",
+    "gen:api": "python3 -c \"import yaml,sys; s=yaml.safe_load(open('schema.yaml')); s['paths']={('/'+'/'.join(k.lstrip('/').split('/')[1:]) if k.startswith('/api') else k).rstrip('/'): v for k,v in s['paths'].items()}; yaml.dump(s, open('schema_transformed.yaml','w'), allow_unicode=True, default_flow_style=False, sort_keys=False)\" && openapi-typescript schema_transformed.yaml -o src/api/schema.d.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
     "openapi-fetch": "^0.12.2",
-    "react": "^19.0.0",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

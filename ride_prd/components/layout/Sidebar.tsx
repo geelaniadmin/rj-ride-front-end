@@ -11,8 +11,6 @@ import {
   Route,
   Radio,
   MapPin,
-  SmartphoneNfc,
-  Users,
   Receipt,
   Code2,
   ClipboardList,
@@ -26,9 +24,7 @@ const NAV_ITEMS = [
   { labelKey: "tripRequests" as const, icon: Route, href: "/trips" },
   { labelKey: "dispatch" as const, icon: Radio, href: "/dispatch" },
   { labelKey: "tracking" as const, icon: MapPin, href: "/tracking" },
-  { labelKey: "driverMobile" as const, icon: SmartphoneNfc, href: "/driver-mobile" },
-  { labelKey: "passengerMobile" as const, icon: Users, href: "/passenger-mobile" },
-  { labelKey: "rosters" as const, icon: ClipboardList, href: "/rosters" },
+{ labelKey: "rosters" as const, icon: ClipboardList, href: "/rosters" },
   { labelKey: "pooling" as const, icon: GitBranch, href: "/pooling" },
   { labelKey: "billing" as const, icon: Receipt, href: "/billing" },
   { labelKey: "apiConsole" as const, icon: Code2, href: "/api-console" },
@@ -69,8 +65,8 @@ export const Sidebar: React.FC = () => {
 
       <div className="p-4 border-t border-white/10">
         <div className="text-xs text-white/50 text-center">
-          <p className="font-medium text-white/80">{t('prototypeVersion', language)}</p>
-          <p>{t('prototype', language)}</p>
+          <p className="font-medium text-white/80">RIDE</p>
+          <p>Transport Management</p>
         </div>
       </div>
     </aside>

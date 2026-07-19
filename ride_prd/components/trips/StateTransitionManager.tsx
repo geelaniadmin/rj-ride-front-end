@@ -3,6 +3,9 @@
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient, keys, isApiError } from "@ride/shared";
+import type { components } from "@ride/shared/api/schema.d";
+
+type TripRequest = components["schemas"]["TripRequest"];
 import { useToastStore } from "@/stores/toastStore";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -68,14 +71,14 @@ export const StateTransitionManager: React.FC<StateTransitionManagerProps> = ({
   const transitionMutation = useMutation({
     mutationFn: async ({ targetStatus, note }: { targetStatus: string; note?: string }) => {
       const { data: res, error: err } = await apiClient.POST(
-        "/v1/trips/{id}/vehicles/{vehicleId}/transitions",
+        "/v1/trips/{id}/vehicles/{vehicle_pk}/transitions",
         {
-          params: { path: { id: tripId, vehicleId } },
-          body: { targetStatus, note },
+          params: { path: { id: tripId, vehicle_pk: vehicleId } },
+          body: { targetStatus, note } as unknown as TripRequest,
         }
       );
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: (_, vars) => {
       addToast(`Vehicle → ${vars.targetStatus}`, "success");
@@ -94,14 +97,14 @@ export const StateTransitionManager: React.FC<StateTransitionManagerProps> = ({
   const verifyOtpMutation = useMutation({
     mutationFn: async ({ phase, otp }: { phase: "pickup" | "drop"; otp: string }) => {
       const { data: res, error: err } = await apiClient.POST(
-        "/v1/trips/{id}/vehicles/{vehicleId}/verify-otp",
+        "/v1/trips/{id}/vehicles/{vehicle_pk}/verify-otp",
         {
-          params: { path: { id: tripId, vehicleId } },
-          body: { phase, otp },
+          params: { path: { id: tripId, vehicle_pk: vehicleId } },
+          body: { phase, otp } as unknown as TripRequest,
         }
       );
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: () => {
       addToast("OTP verified", "success");

@@ -1,11 +1,17 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import type { components } from "@ride/shared/api/schema.d";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-type LivePosition = components["schemas"]["LivePosition"];
+type LivePosition = {
+  trip_vehicle_id: string;
+  status?: string;
+  marker_color?: string;
+  lat?: number | null;
+  lng?: number | null;
+  speed?: number | null;
+};
 
 interface LiveMapComponentProps {
   positions: LivePosition[];
@@ -62,7 +68,7 @@ const LiveMapComponent: React.FC<LiveMapComponentProps> = ({
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    const currentIds = new Set(positions.map((p) => p.tripVehicleId).filter(Boolean) as string[]);
+    const currentIds = new Set(positions.map((p) => p.trip_vehicle_id).filter(Boolean) as string[]);
 
     for (const [id, marker] of markersRef.current) {
       if (!currentIds.has(id)) {
@@ -72,10 +78,10 @@ const LiveMapComponent: React.FC<LiveMapComponentProps> = ({
     }
 
     for (const pos of positions) {
-      const id = pos.tripVehicleId;
+      const id = pos.trip_vehicle_id;
       if (!id || pos.lat == null || pos.lng == null) continue;
 
-      const color = pos.markerColor ?? "808080";
+      const color = pos.marker_color ?? "808080";
       const isSelected = selectedTripVehicleId === id;
       const icon = makeVehicleIcon(color, isSelected);
 
@@ -86,7 +92,7 @@ const LiveMapComponent: React.FC<LiveMapComponentProps> = ({
       } else {
         const marker = L.marker([pos.lat, pos.lng], { icon })
           .bindPopup(
-            `<div style="font-size:11px"><strong>${pos.vehicleStatus ?? "?"}</strong><br/>${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}${pos.speed != null ? `<br/>${pos.speed} km/h` : ""}</div>`
+            `<div style="font-size:11px"><strong>${pos.status ?? "?"}</strong><br/>${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}${pos.speed != null ? `<br/>${pos.speed} km/h` : ""}</div>`
           )
           .addTo(map);
         marker.on("click", () => {
@@ -97,7 +103,7 @@ const LiveMapComponent: React.FC<LiveMapComponentProps> = ({
     }
 
     if (selectedTripVehicleId) {
-      const selectedPos = positions.find((p) => p.tripVehicleId === selectedTripVehicleId);
+      const selectedPos = positions.find((p) => p.trip_vehicle_id === selectedTripVehicleId);
       if (selectedPos?.lat != null && selectedPos.lng != null) {
         map.panTo([selectedPos.lat, selectedPos.lng], { animate: true });
       }

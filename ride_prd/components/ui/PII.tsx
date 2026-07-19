@@ -44,7 +44,7 @@ export const PII: React.FC<PIIProps> = ({ value, type = "name", className = "" }
   const displayValue = revealed ? value : maskValue(value, type);
 
   return (
-    <div className={`inline-flex items-center gap-1 select-none ${className}`}>
+    <span className={`inline-flex items-center gap-1 select-none ${className}`}>
       <span className="font-mono text-sm text-inherit">{displayValue}</span>
       <button
         onClick={() => setRevealed(!revealed)}
@@ -57,7 +57,7 @@ export const PII: React.FC<PIIProps> = ({ value, type = "name", className = "" }
           <Eye className="w-4 h-4 text-inherit opacity-70" />
         )}
       </button>
-    </div>
+    </span>
   );
 };
 

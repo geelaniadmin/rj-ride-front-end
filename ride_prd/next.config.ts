@@ -1,8 +1,19 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const config: NextConfig = {
   reactStrictMode: true,
   eslint: { ignoreDuringBuilds: true },
+  skipTrailingSlashRedirect: true,
+  transpilePackages: ["@ride/shared"],
+  devIndicators: false,
+  webpack(webpackConfig) {
+    webpackConfig.resolve.alias = {
+      ...webpackConfig.resolve.alias,
+      "@tanstack/react-query": path.resolve(__dirname, "node_modules/@tanstack/react-query"),
+    };
+    return webpackConfig;
+  },
   async rewrites() {
     return {
       beforeFiles: [

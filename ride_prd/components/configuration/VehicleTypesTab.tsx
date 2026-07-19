@@ -12,8 +12,14 @@ import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
 import { useToastStore } from "@/stores/toastStore";
 
-type ConfigVehicleType = components["schemas"]["ConfigVehicleType"];
-type VehicleTypeInput = components["schemas"]["VehicleTypeInput"];
+type VehicleType = components["schemas"]["VehicleType"];
+type PatchedVehicleType = components["schemas"]["PatchedVehicleType"];
+
+interface VehicleTypeWriteInput {
+  name: string;
+  ac?: boolean;
+  capacity: number;
+}
 
 interface VehicleTypesTabProps {
   searchQuery?: string;
@@ -28,20 +34,20 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/config/vehicle-types", {});
       if (err) throw err;
-      return res?.result;
+      return res;
     },
   });
 
-  const allVts = data?.results ?? [];
+  const allVts = (data?.results ?? []) as VehicleType[];
   const vts = searchQuery.trim()
     ? allVts.filter((v) => v.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : allVts;
 
   const createMutation = useMutation({
-    mutationFn: async (input: VehicleTypeInput) => {
-      const { data: res, error: err } = await apiClient.POST("/v1/config/vehicle-types", { body: input });
+    mutationFn: async (input: VehicleTypeWriteInput) => {
+      const { data: res, error: err } = await apiClient.POST("/v1/config/vehicle-types", { body: input as unknown as VehicleType });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.vehicleTypes.list() });
@@ -54,13 +60,13 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, input }: { id: string; input: VehicleTypeInput }) => {
+    mutationFn: async ({ id, input }: { id: string; input: VehicleTypeWriteInput }) => {
       const { data: res, error: err } = await apiClient.PATCH("/v1/config/vehicle-types/{id}", {
         params: { path: { id } },
-        body: input,
+        body: input as unknown as PatchedVehicleType,
       });
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.vehicleTypes.list() });
@@ -72,30 +78,24 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
     },
   });
 
-  const toggleMutation = useMutation({
-    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { data: res, error: err } = active
-        ? await apiClient.DELETE("/v1/config/vehicle-types/{id}", { params: { path: { id } } })
-        : await apiClient.PATCH("/v1/config/vehicle-types/{id}", {
-            params: { path: { id } },
-            body: { name: "", seatingCapacity: 1, ac: false },
-          });
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: err } = await apiClient.DELETE("/v1/config/vehicle-types/{id}", { params: { path: { id } } });
       if (err) throw err;
-      return res?.result;
     },
-    onSuccess: (_data, { active }) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.vehicleTypes.list() });
-      addToast(active ? "Vehicle type deactivated" : "Vehicle type activated", "success");
+      addToast("Vehicle type deactivated", "success");
     },
     onError: (err: unknown) => {
-      addToast(err instanceof Error ? err.message : "Failed to toggle vehicle type", "error");
+      addToast(err instanceof Error ? err.message : "Failed to delete vehicle type", "error");
     },
   });
 
-  const emptyForm: VehicleTypeInput = { name: "", seatingCapacity: 4, ac: true, class: "Economy" };
+  const emptyForm: VehicleTypeWriteInput = { name: "", capacity: 4, ac: true };
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<VehicleTypeInput>(emptyForm);
+  const [formData, setFormData] = useState<VehicleTypeWriteInput>(emptyForm);
 
   const openCreate = () => {
     setEditingId(null);
@@ -103,22 +103,21 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
     setDrawerOpen(true);
   };
 
-  const openEdit = (vt: ConfigVehicleType) => {
+  const openEdit = (vt: VehicleType) => {
     setEditingId(vt.id);
-    setFormData({ name: vt.name, seatingCapacity: vt.seatingCapacity, ac: vt.ac, class: vt.class ?? "" });
+    setFormData({ name: vt.name, capacity: vt.capacity, ac: vt.ac });
     setDrawerOpen(true);
   };
 
   const handleSave = () => {
-    if (!formData.name || formData.seatingCapacity < 1) {
+    if (!formData.name || formData.capacity < 1) {
       addToast("Name and seating capacity are required", "error");
       return;
     }
-    const input: VehicleTypeInput = {
+    const input: VehicleTypeWriteInput = {
       name: formData.name,
-      seatingCapacity: formData.seatingCapacity,
+      capacity: formData.capacity,
       ac: formData.ac,
-      class: formData.class || undefined,
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, input });
@@ -129,20 +128,12 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
 
   const columns: Column[] = [
     { key: "name", header: "Type Name", sortable: true },
-    { key: "seatingCapacity", header: "Seating", sortable: true },
+    { key: "capacity", header: "Seating", sortable: true },
     {
       key: "ac",
       header: "AC",
       render: (val): React.ReactNode => (
         <Badge variant={val ? "green" : "red"}>{val ? "Yes" : "No"}</Badge>
-      ),
-    },
-    { key: "class", header: "Class", sortable: true },
-    {
-      key: "active",
-      header: "Status",
-      render: (val): React.ReactNode => (
-        <Badge variant={val ? "green" : "red"}>{val ? "Active" : "Inactive"}</Badge>
       ),
     },
   ];
@@ -184,18 +175,10 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
             <Input
               type="number"
               min="1"
-              value={formData.seatingCapacity}
+              value={formData.capacity}
               onChange={(e) =>
-                setFormData({ ...formData, seatingCapacity: parseInt(e.target.value) || 1 })
+                setFormData({ ...formData, capacity: parseInt(e.target.value) || 1 })
               }
-            />
-          </FormField>
-
-          <FormField label="Class">
-            <Input
-              value={formData.class ?? ""}
-              onChange={(e) => setFormData({ ...formData, class: e.target.value || undefined })}
-              placeholder="e.g., Economy, Premium"
             />
           </FormField>
 
@@ -203,7 +186,7 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
             <input
               type="checkbox"
               id="ac"
-              checked={formData.ac}
+              checked={formData.ac ?? true}
               onChange={(e) => setFormData({ ...formData, ac: e.target.checked })}
               className="w-4 h-4"
             />
@@ -232,16 +215,16 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
           <div key={vt.id} className="p-3 bg-ops-bg rounded border border-border text-sm flex items-center gap-3">
             <div>
               <p className="font-medium text-ops-sidebar">{vt.name}</p>
-              <p className="text-xs text-text-secondary">{vt.seatingCapacity} seats · {vt.ac ? "AC" : "Non-AC"}</p>
+              <p className="text-xs text-text-secondary">{vt.capacity} seats · {vt.ac ? "AC" : "Non-AC"}</p>
             </div>
             <Button size="sm" variant="ghost" onClick={() => openEdit(vt)}>Edit</Button>
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => toggleMutation.mutate({ id: vt.id, active: vt.active })}
-              disabled={toggleMutation.isPending}
+              onClick={() => deleteMutation.mutate(vt.id)}
+              disabled={deleteMutation.isPending}
             >
-              {vt.active ? "Deactivate" : "Activate"}
+              Deactivate
             </Button>
           </div>
         ))}

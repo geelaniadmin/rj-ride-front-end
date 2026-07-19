@@ -2,7 +2,7 @@ import { useTripStore } from "@/stores/tripStore";
 import { useVehicleStore } from "@/stores/vehicleStore";
 import { useAnomalyStore, AnomalyEvent } from "@/stores/anomalyStore";
 import type { AnomalyType } from "@/lib/types";
-import { useAlertStore } from "@ride/shared";
+import { useAlertStore } from "@/stores/alertStore";
 import { getTraccarSimulator } from "@/lib/mock/traccar";
 
 // ── Helpers ──

@@ -13,10 +13,25 @@ import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
 import { Plus, Minus, ArrowRight, Clock } from "lucide-react";
 
-type QuoteOffer = components["schemas"]["QuoteOffer"];
-type TripStop = components["schemas"]["TripStop"];
-type ConfigCustomer = components["schemas"]["ConfigCustomer"];
-type ConfigVehicleType = components["schemas"]["ConfigVehicleType"];
+type Customer = components["schemas"]["Customer"];
+type VehicleType = components["schemas"]["VehicleType"];
+
+type QuoteOffer = {
+  id: string;
+  price_id: string;
+  vendor: string;
+  rate_card: string;
+  rate_card_version: number;
+  basis: string;
+  price_minor: number;
+  currency: string;
+  free_cancellation_hours: number;
+  min_lead_time_hours: number;
+  expires_at: string;
+  created_at: string;
+  _slot_ref: string;
+  _vehicle_type_id: string;
+};
 
 type Phase = "form" | "offers" | "booked";
 
@@ -25,28 +40,28 @@ function generateIdempotencyKey(): string {
 }
 
 interface StopEntry {
-  type: "PICKUP" | "DROP" | "WAYPOINT";
-  locationType: "AIRPORT" | "RAIL" | "HOTEL" | "CITY" | "ADDRESS";
+  kind: "PICKUP" | "DROP" | "WAYPOINT";
+  location_type: "AIRPORT" | "RAIL" | "HOTEL" | "CITY" | "ADDRESS";
   address: string;
   lat: number;
   lng: number;
-  plannedTime: string;
-  flightNumber: string;
+  planned_time: string;
+  flight_number: string;
 }
 
 interface SlotEntry {
-  vehicleTypeId: string;
-  slotRef: string;
+  vehicle_type_id: string;
+  slot_ref: string;
 }
 
 const DEFAULT_STOP: StopEntry = {
-  type: "PICKUP",
-  locationType: "ADDRESS",
+  kind: "PICKUP",
+  location_type: "ADDRESS",
   address: "",
   lat: 0,
   lng: 0,
-  plannedTime: "",
-  flightNumber: "",
+  planned_time: "",
+  flight_number: "",
 };
 
 export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }) => {
@@ -56,70 +71,80 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
   const [phase, setPhase] = useState<Phase>("form");
   const [customerId, setCustomerId] = useState("");
   const [reference, setReference] = useState("");
+  const [pickupAt, setPickupAt] = useState<string>(() => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + 60);
+    return d.toISOString().slice(0, 16);
+  });
   const [stops, setStops] = useState<StopEntry[]>([
-    { ...DEFAULT_STOP, type: "PICKUP" },
-    { ...DEFAULT_STOP, type: "DROP" },
+    { ...DEFAULT_STOP, kind: "PICKUP" },
+    { ...DEFAULT_STOP, kind: "DROP" },
   ]);
-  const [slots, setSlots] = useState<SlotEntry[]>([{ vehicleTypeId: "", slotRef: "slot-1" }]);
+  const [slots, setSlots] = useState<SlotEntry[]>([{ vehicle_type_id: "", slot_ref: "slot-1" }]);
   const [offers, setOffers] = useState<QuoteOffer[]>([]);
-  const [selectedPriceIds, setSelectedPriceIds] = useState<Record<string, string>>({});
+  const [selectedOfferIds, setSelectedOfferIds] = useState<Record<string, string>>({});
   const [bookedTripId, setBookedTripId] = useState<string | null>(null);
   const [idempotencyKey] = useState(generateIdempotencyKey);
 
-  const { data: customers } = useQuery({
+  const { data: customersData } = useQuery({
     queryKey: keys.config.customers.list(),
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/config/customers", {});
       if (err) throw err;
-      return res?.result?.results ?? [];
+      return res;
     },
   });
 
-  const { data: vehicleTypes } = useQuery({
+  const { data: vehicleTypesData } = useQuery({
     queryKey: keys.config.vehicleTypes.list(),
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/config/vehicle-types", {});
       if (err) throw err;
-      return res?.result?.results ?? [];
+      return res;
     },
   });
 
+  const customers = (customersData?.results ?? []) as Customer[];
+  const vehicleTypes = (vehicleTypesData?.results ?? []) as VehicleType[];
+
   const quoteMutation = useMutation({
     mutationFn: async () => {
-      const { data: res, error: err } = await apiClient.POST("/v1/pricing/quote", {
-        body: {
-          customerId,
-          stops: stops.map((s, i) => ({
-            seq: i,
-            type: s.type,
-            locationType: s.locationType,
-            address: s.address,
-            lat: s.lat,
-            lng: s.lng,
-            plannedTime: s.plannedTime || undefined,
-            flightNumber: s.flightNumber || undefined,
-          })) as TripStop[],
-          vehicleSlots: slots.map((sl) => ({
-            vehicleTypeId: sl.vehicleTypeId,
-            slotRef: sl.slotRef,
-          })),
-          quotedAt: new Date().toISOString(),
-        },
-      });
-      if (err) throw err;
-      return res?.result;
+      const when = pickupAt ? new Date(pickupAt).toISOString() : new Date().toISOString();
+      const allOffers: QuoteOffer[] = [];
+
+      for (const slot of slots) {
+        if (!slot.vehicle_type_id) continue;
+        const resp = await fetch("/api/v1/pricing/offers/", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customer: customerId,
+            vehicle_type: slot.vehicle_type_id,
+            when,
+          }),
+        });
+        const envelope = await resp.json() as { result?: QuoteOffer[]; error?: { message?: string } };
+        if (!resp.ok) throw new Error(envelope?.error?.message ?? `Quote failed (${resp.status})`);
+        const slotOffers = (envelope.result ?? []) as QuoteOffer[];
+        for (const o of slotOffers) {
+          allOffers.push({ ...o, _slot_ref: slot.slot_ref, _vehicle_type_id: slot.vehicle_type_id });
+        }
+      }
+      return allOffers;
     },
     onSuccess: (result) => {
-      if (!result?.offers?.length) {
+      if (!result.length) {
         addToast("No offers returned — check rate card configuration", "error");
         return;
       }
-      setOffers(result.offers);
+      setOffers(result);
       const autoSelected: Record<string, string> = {};
-      for (const offer of result.offers) {
-        autoSelected[offer.slotRef] = offer.priceId;
+      for (const slot of slots) {
+        const best = result.find((o) => o._slot_ref === slot.slot_ref);
+        if (best) autoSelected[slot.slot_ref] = best.price_id;
       }
-      setSelectedPriceIds(autoSelected);
+      setSelectedOfferIds(autoSelected);
       setPhase("offers");
     },
     onError: (err) => {
@@ -129,30 +154,43 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
 
   const bookMutation = useMutation({
     mutationFn: async () => {
-      const { data: res, error: err } = await apiClient.POST("/v1/trips", {
-        headers: { "Idempotency-Key": idempotencyKey },
-        body: {
-          customerId,
-          stops: stops.map((s, i) => ({
-            seq: i,
-            type: s.type,
-            locationType: s.locationType,
-            address: s.address,
-            lat: s.lat,
-            lng: s.lng,
-            plannedTime: s.plannedTime || undefined,
-            flightNumber: s.flightNumber || undefined,
-          })) as TripStop[],
-          vehicleSlots: slots.map((sl) => ({
-            vehicleTypeId: sl.vehicleTypeId,
-            priceId: selectedPriceIds[sl.slotRef] ?? "",
-          })),
-          schedule: { type: "ONE_OFF" },
-          reference: reference || undefined,
+      const resp = await fetch("/api/v1/trips/", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
         },
+        body: JSON.stringify({
+          customer_id: customerId,
+          pickup_at: pickupAt ? new Date(pickupAt).toISOString() : new Date().toISOString(),
+          reference: reference || undefined,
+          stops: stops.map((s, i) => ({
+            sequence: i,
+            kind: s.kind,
+            location_type: s.location_type,
+            address: s.address,
+            lat: s.lat || undefined,
+            lng: s.lng || undefined,
+            extra: {
+              planned_time: s.planned_time || undefined,
+              flight_number: s.flight_number || undefined,
+            },
+          })),
+          vehicles: slots.map((sl) => {
+            const offer = offers.find(
+              (o) => o._slot_ref === sl.slot_ref && o.price_id === selectedOfferIds[sl.slot_ref]
+            );
+            return {
+              vehicle_type_id: sl.vehicle_type_id,
+              offer_id: offer?.id ?? selectedOfferIds[sl.slot_ref] ?? "",
+            };
+          }),
+        }),
       });
-      if (err) throw err;
-      return res?.result;
+      const envelope = await resp.json() as { result?: { id?: string }; error?: { message?: string } };
+      if (!resp.ok) throw new Error(envelope?.error?.message ?? `Booking failed (${resp.status})`);
+      return envelope.result;
     },
     onSuccess: (trip) => {
       addToast("Trip booked!", "success");
@@ -171,7 +209,7 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
   };
 
   const addStop = () => {
-    setStops((prev) => [...prev.slice(0, -1), { ...DEFAULT_STOP, type: "WAYPOINT" }, prev[prev.length - 1]!]);
+    setStops((prev) => [...prev.slice(0, -1), { ...DEFAULT_STOP, kind: "WAYPOINT" }, prev[prev.length - 1]!]);
   };
 
   const removeStop = (idx: number) => {
@@ -180,7 +218,7 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
   };
 
   const addSlot = () => {
-    setSlots((prev) => [...prev, { vehicleTypeId: "", slotRef: `slot-${prev.length + 1}` }]);
+    setSlots((prev) => [...prev, { vehicle_type_id: "", slot_ref: `slot-${prev.length + 1}` }]);
   };
 
   const removeSlot = (idx: number) => {
@@ -196,7 +234,7 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
         {bookedTripId && (
           <p className="text-xs font-mono text-text-secondary">{bookedTripId}</p>
         )}
-        <Button onClick={() => { setPhase("form"); setOffers([]); setSelectedPriceIds({}); setBookedTripId(null); }}>
+        <Button onClick={() => { setPhase("form"); setOffers([]); setSelectedOfferIds({}); setBookedTripId(null); }}>
           Create another
         </Button>
       </Card>
@@ -209,28 +247,28 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
         <h3 className="text-sm font-semibold">Select Offers</h3>
         <div className="space-y-3">
           {offers.map((offer) => {
-            const isSelected = selectedPriceIds[offer.slotRef] === offer.priceId;
-            const expires = new Date(offer.expiresAt);
+            const isSelected = selectedOfferIds[offer._slot_ref] === offer.price_id;
+            const expires = new Date(offer.expires_at);
             const minsLeft = Math.max(0, Math.round((expires.getTime() - Date.now()) / 60000));
-            const vtName = vehicleTypes?.find((v: ConfigVehicleType) => v.id === offer.vehicleTypeId)?.name ?? offer.vehicleTypeId;
+            const vtName = vehicleTypes?.find((v) => v.id === offer._vehicle_type_id)?.name ?? offer._vehicle_type_id;
 
             return (
               <div
-                key={offer.priceId}
+                key={offer.price_id}
                 role="button"
                 tabIndex={0}
-                onClick={() => setSelectedPriceIds((prev) => ({ ...prev, [offer.slotRef]: offer.priceId }))}
-                onKeyDown={(e) => e.key === "Enter" && setSelectedPriceIds((prev) => ({ ...prev, [offer.slotRef]: offer.priceId }))}
+                onClick={() => setSelectedOfferIds((prev) => ({ ...prev, [offer._slot_ref]: offer.price_id }))}
+                onKeyDown={(e) => e.key === "Enter" && setSelectedOfferIds((prev) => ({ ...prev, [offer._slot_ref]: offer.price_id }))}
                 className={`p-3 rounded border cursor-pointer transition-colors ${isSelected ? "border-brand-blue bg-brand-blue/5" : "border-border hover:border-brand-blue/40"}`}
               >
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-xs text-text-secondary">{vtName} — {offer.slotRef}</p>
+                    <p className="text-xs text-text-secondary">{vtName} — {offer._slot_ref}</p>
                     <p className="text-xl font-bold text-text-primary mt-1">
-                      {formatMoney(offer.priceMinor, offer.currency)}
+                      {formatMoney(offer.price_minor, offer.currency)}
                     </p>
                     <p className="text-xs text-text-secondary">
-                      {offer.basis} · Free cancel: {offer.freeCancellationHours}h
+                      {offer.basis} · Free cancel: {offer.free_cancellation_hours}h
                     </p>
                   </div>
                   <div className="text-right space-y-1">
@@ -250,7 +288,7 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
           <Button
             onClick={() => bookMutation.mutate()}
             variant="primary"
-            disabled={bookMutation.isPending || Object.keys(selectedPriceIds).length < slots.length}
+            disabled={bookMutation.isPending || Object.keys(selectedOfferIds).length < slots.length}
             className="flex-1"
           >
             {bookMutation.isPending ? "Booking…" : "Book Trip"} <ArrowRight className="w-4 h-4 ml-1" />
@@ -266,12 +304,20 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
         <Select
           value={customerId}
           onChange={(e) => setCustomerId(e.target.value)}
-          options={(customers ?? []).map((c: ConfigCustomer) => ({ value: c.id, label: c.name }))}
+          options={(customers ?? []).map((c) => ({ value: c.id, label: c.name }))}
         />
       </FormField>
 
       <FormField label="Reference (optional)">
         <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="PO / booking ref" />
+      </FormField>
+
+      <FormField label="Pickup Date & Time">
+        <Input
+          type="datetime-local"
+          value={pickupAt}
+          onChange={(e) => setPickupAt(e.target.value)}
+        />
       </FormField>
 
       <div className="space-y-3">
@@ -303,8 +349,8 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
               <div>
                 <label className="block text-xs text-text-secondary mb-1">Type</label>
                 <select
-                  value={stop.locationType}
-                  onChange={(e) => updateStop(idx, "locationType", e.target.value)}
+                  value={stop.location_type}
+                  onChange={(e) => updateStop(idx, "location_type", e.target.value)}
                   className="w-full px-2 py-1.5 bg-white border border-border rounded text-xs text-text-primary"
                 >
                   {["ADDRESS", "AIRPORT", "RAIL", "HOTEL", "CITY"].map((lt) => (
@@ -315,15 +361,15 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
               <Input
                 placeholder="Time (optional)"
                 type="datetime-local"
-                value={stop.plannedTime}
-                onChange={(e) => updateStop(idx, "plannedTime", e.target.value)}
+                value={stop.planned_time}
+                onChange={(e) => updateStop(idx, "planned_time", e.target.value)}
               />
             </div>
-            {stop.locationType === "AIRPORT" && (
+            {stop.location_type === "AIRPORT" && (
               <Input
                 placeholder="Flight number"
-                value={stop.flightNumber}
-                onChange={(e) => updateStop(idx, "flightNumber", e.target.value)}
+                value={stop.flight_number}
+                onChange={(e) => updateStop(idx, "flight_number", e.target.value)}
               />
             )}
           </Card>
@@ -339,11 +385,11 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
         </div>
 
         {slots.map((slot, idx) => (
-          <div key={slot.slotRef} className="flex items-center gap-2">
+          <div key={slot.slot_ref} className="flex items-center gap-2">
             <Select
-              value={slot.vehicleTypeId}
-              onChange={(e) => setSlots((prev) => prev.map((s, i) => i === idx ? { ...s, vehicleTypeId: e.target.value } : s))}
-              options={(vehicleTypes ?? []).map((v: ConfigVehicleType) => ({ value: v.id, label: v.name }))}
+              value={slot.vehicle_type_id}
+              onChange={(e) => setSlots((prev) => prev.map((s, i) => i === idx ? { ...s, vehicle_type_id: e.target.value } : s))}
+              options={(vehicleTypes ?? []).map((v) => ({ value: v.id, label: v.name }))}
               className="flex-1"
             />
             {slots.length > 1 && (
@@ -359,7 +405,7 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
         onClick={() => quoteMutation.mutate()}
         variant="primary"
         className="w-full"
-        disabled={!customerId || stops.some((s) => !s.address) || slots.some((s) => !s.vehicleTypeId) || quoteMutation.isPending}
+        disabled={!customerId || stops.some((s) => !s.address) || slots.some((s) => !s.vehicle_type_id) || quoteMutation.isPending}
       >
         {quoteMutation.isPending ? "Getting offers…" : "Get Quote"} <ArrowRight className="w-4 h-4 ml-1" />
       </Button>
