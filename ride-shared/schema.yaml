@@ -1,0 +1,781 @@
+openapi: "3.1.0"
+info:
+  title: RIDE API
+  version: "1.0.0"
+  description: Rezolv Integrated Dispatch Engine — Backend API
+
+servers:
+  - url: /api
+    description: Proxied backend
+
+tags:
+  - name: auth
+  - name: trips
+  - name: fleet
+  - name: pricing
+  - name: billing
+  - name: dispatch
+  - name: safety
+
+paths:
+  /v1/auth/csrf:
+    get:
+      operationId: getCsrfToken
+      tags: [auth]
+      summary: Obtain CSRF token (sets csrftoken cookie)
+      responses:
+        "204":
+          description: Cookie set
+
+  /v1/auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Return authenticated user session
+      responses:
+        "200":
+          description: Authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_AuthUser"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /v1/auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Email + password login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_AuthUser"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /v1/auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Invalidate session
+      responses:
+        "204":
+          description: Logged out
+
+  /v1/auth/ws-ticket:
+    post:
+      operationId: getWsTicket
+      tags: [auth]
+      summary: Obtain a short-lived WebSocket auth ticket
+      responses:
+        "200":
+          description: WS ticket
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_WsTicket"
+
+  /v1/trips:
+    get:
+      operationId: listTrips
+      tags: [trips]
+      summary: List trip requests
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: customerId
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Trip list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_TripList"
+    post:
+      operationId: createTrip
+      tags: [trips]
+      summary: Create a new trip request (book)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripCreateInput"
+      responses:
+        "201":
+          description: Created trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Trip"
+
+  /v1/trips/{id}:
+    get:
+      operationId: getTrip
+      tags: [trips]
+      summary: Get a single trip
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Trip detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Trip"
+    patch:
+      operationId: updateTrip
+      tags: [trips]
+      summary: Update a trip
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated trip
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Trip"
+
+  /v1/trips/{id}/cancel:
+    post:
+      operationId: cancelTrip
+      tags: [trips]
+      summary: Cancel a trip
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Trip"
+
+  /v1/trips/{id}/adjustments:
+    post:
+      operationId: createTripAdjustment
+      tags: [trips]
+      summary: Create a price adjustment for a trip
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, reason]
+              properties:
+                amount:
+                  type: integer
+                  description: Minor units
+                reason:
+                  type: string
+      responses:
+        "201":
+          description: Adjustment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Adjustment"
+
+  /v1/trips/{id}/approve:
+    post:
+      operationId: approveTrip
+      tags: [trips]
+      summary: Approve a trip
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Trip"
+
+  /v1/fleet/vehicles:
+    get:
+      operationId: listVehicles
+      tags: [fleet]
+      summary: List vehicles
+      responses:
+        "200":
+          description: Vehicle list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_VehicleList"
+
+  /v1/fleet/vehicles/{id}:
+    get:
+      operationId: getVehicle
+      tags: [fleet]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Vehicle detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Vehicle"
+
+  /v1/fleet/drivers:
+    get:
+      operationId: listDrivers
+      tags: [fleet]
+      summary: List drivers
+      responses:
+        "200":
+          description: Driver list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_DriverList"
+
+  /v1/fleet/drivers/{id}:
+    get:
+      operationId: getDriver
+      tags: [fleet]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Driver detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Driver"
+
+  /v1/pricing/rate-cards:
+    get:
+      operationId: listRateCards
+      tags: [pricing]
+      summary: List rate cards
+      responses:
+        "200":
+          description: Rate card list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_RateCardList"
+
+  /v1/pricing/rate-cards/{id}:
+    get:
+      operationId: getRateCard
+      tags: [pricing]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rate card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_RateCard"
+
+  /v1/billing/invoices:
+    get:
+      operationId: listInvoices
+      tags: [billing]
+      summary: List invoices
+      responses:
+        "200":
+          description: Invoice list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_InvoiceList"
+
+  /v1/billing/invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [billing]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_Invoice"
+
+  /v1/dispatch/assignments:
+    get:
+      operationId: listAssignments
+      tags: [dispatch]
+      summary: List dispatch assignments
+      responses:
+        "200":
+          description: Assignments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_AssignmentList"
+
+  /v1/safety/sos:
+    get:
+      operationId: listSosEvents
+      tags: [safety]
+      summary: List SOS events
+      responses:
+        "200":
+          description: SOS events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope_SosList"
+
+components:
+  schemas:
+    ApiError:
+      type: object
+      required: [name, code, message, status]
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        status:
+          type: integer
+        field:
+          type: string
+        request_id:
+          type: string
+
+    ErrorEnvelope:
+      type: object
+      required: [result, error]
+      properties:
+        result:
+          type: "null"
+        error:
+          $ref: "#/components/schemas/ApiError"
+
+    AuthUser:
+      type: object
+      required: [id, email, role]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [SUPER_ADMIN, OPS_ADMIN, OPS_AGENT, VENDOR_ADMIN, VENDOR_AGENT, CUSTOMER_ADMIN]
+        tenantId:
+          type: string
+        vendorId:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    WsTicket:
+      type: object
+      required: [ticket, expiresAt]
+      properties:
+        ticket:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    TripCreateInput:
+      type: object
+      required: [stops, vehicles, schedule]
+      properties:
+        stops:
+          type: array
+          items:
+            type: object
+        vehicles:
+          type: array
+          items:
+            type: object
+        schedule:
+          type: object
+        customerId:
+          type: string
+        reference:
+          type: string
+
+    Trip:
+      type: object
+      required: [id, status]
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        customerId:
+          type: string
+        status:
+          type: string
+        stops:
+          type: array
+          items:
+            type: object
+        vehicles:
+          type: array
+          items:
+            type: object
+        schedule:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    Adjustment:
+      type: object
+      required: [id, tripId, amount, reason]
+      properties:
+        id:
+          type: string
+        tripId:
+          type: string
+        amount:
+          type: integer
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Vehicle:
+      type: object
+      required: [id, registrationNo]
+      properties:
+        id:
+          type: string
+        registrationNo:
+          type: string
+        make:
+          type: string
+        model:
+          type: string
+        vehicleTypeId:
+          type: string
+        active:
+          type: boolean
+
+    Driver:
+      type: object
+      required: [id, name, phone]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        available:
+          type: boolean
+        active:
+          type: boolean
+
+    RateCard:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        version:
+          type: integer
+
+    Invoice:
+      type: object
+      required: [id, status, totalMinor, currency]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        totalMinor:
+          type: integer
+        currency:
+          type: string
+
+    Assignment:
+      type: object
+      required: [id, tripVehicleId]
+      properties:
+        id:
+          type: string
+        tripVehicleId:
+          type: string
+        vendorId:
+          type: string
+        status:
+          type: string
+
+    SosEvent:
+      type: object
+      required: [id, tripVehicleId, raisedAt]
+      properties:
+        id:
+          type: string
+        tripVehicleId:
+          type: string
+        raisedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+
+    Envelope_AuthUser:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/AuthUser"
+        error:
+          type: "null"
+
+    Envelope_WsTicket:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/WsTicket"
+        error:
+          type: "null"
+
+    Envelope_Trip:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/Trip"
+        error:
+          type: "null"
+
+    Envelope_TripList:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: array
+          items:
+            $ref: "#/components/schemas/Trip"
+        error:
+          type: "null"
+
+    Envelope_Adjustment:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/Adjustment"
+        error:
+          type: "null"
+
+    Envelope_Vehicle:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/Vehicle"
+        error:
+          type: "null"
+
+    Envelope_VehicleList:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: array
+          items:
+            $ref: "#/components/schemas/Vehicle"
+        error:
+          type: "null"
+
+    Envelope_Driver:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/Driver"
+        error:
+          type: "null"
+
+    Envelope_DriverList:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: array
+          items:
+            $ref: "#/components/schemas/Driver"
+        error:
+          type: "null"
+
+    Envelope_RateCard:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/RateCard"
+        error:
+          type: "null"
+
+    Envelope_RateCardList:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: array
+          items:
+            $ref: "#/components/schemas/RateCard"
+        error:
+          type: "null"
+
+    Envelope_Invoice:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/Invoice"
+        error:
+          type: "null"
+
+    Envelope_InvoiceList:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invoice"
+        error:
+          type: "null"
+
+    Envelope_Assignment:
+      type: object
+      required: [result]
+      properties:
+        result:
+          $ref: "#/components/schemas/Assignment"
+        error:
+          type: "null"
+
+    Envelope_AssignmentList:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: array
+          items:
+            $ref: "#/components/schemas/Assignment"
+        error:
+          type: "null"
+
+    Envelope_SosList:
+      type: object
+      required: [result]
+      properties:
+        result:
+          type: array
+          items:
+            $ref: "#/components/schemas/SosEvent"
+        error:
+          type: "null"

@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
 import { useSessionStore, useAlertStore } from "@ride/shared";
+import { ApiProviders } from "@ride/shared/api";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { ToastProvider, useToast } from "@/components/ui/Toast";
@@ -145,11 +146,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-screen bg-page-bg">
-        <ErrorBoundary>
-          <ToastProvider>
-            <LayoutInner>{children}</LayoutInner>
-          </ToastProvider>
-        </ErrorBoundary>
+        <ApiProviders>
+          <ErrorBoundary>
+            <ToastProvider>
+              <LayoutInner>{children}</LayoutInner>
+            </ToastProvider>
+          </ErrorBoundary>
+        </ApiProviders>
       </body>
     </html>
   );

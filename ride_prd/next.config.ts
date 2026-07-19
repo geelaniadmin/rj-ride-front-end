@@ -5,13 +5,15 @@ const config: NextConfig = {
   async rewrites() {
     return {
       beforeFiles: [
-        // Vendor portal - static assets
+        {
+          source: "/api/:path*",
+          destination: `${process.env.API_ORIGIN ?? "http://localhost:8000"}/api/:path*`,
+        },
         {
           source: "/vendor/_next/:path*",
           destination: "http://localhost:3001/vendor/_next/:path*",
           basePath: false,
         },
-        // Vendor portal - pages
         {
           source: "/vendor",
           destination: "http://localhost:3001/vendor",
@@ -22,13 +24,11 @@ const config: NextConfig = {
           destination: "http://localhost:3001/vendor/:path*",
           basePath: false,
         },
-        // Ops portal - static assets
         {
           source: "/ops/_next/:path*",
           destination: "http://localhost:3002/ops/_next/:path*",
           basePath: false,
         },
-        // Ops portal - pages
         {
           source: "/ops",
           destination: "http://localhost:3002/ops",

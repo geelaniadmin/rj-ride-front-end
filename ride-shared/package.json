@@ -8,6 +8,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/types/index.ts",
+    "./api": "./src/api/index.ts",
+    "./auth": "./src/auth/index.ts",
+    "./realtime": "./src/realtime/ws.ts",
     "./stores/tripStore": "./src/stores/tripStore.ts",
     "./stores/driverStore": "./src/stores/driverStore.ts",
     "./stores/vehicleStore": "./src/stores/vehicleStore.ts",
@@ -22,7 +25,24 @@
     "./mock/earnings": "./src/mock/earnings.ts",
     "./mock/alerts": "./src/mock/alerts.ts"
   },
+  "scripts": {
+    "gen:api": "openapi-typescript schema.yaml -o src/api/schema.d.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
   "dependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "openapi-fetch": "^0.12.2",
+    "react": "^19.0.0",
     "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "openapi-typescript": "^7.4.4",
+    "typescript": "^5",
+    "vitest": "^2.1.8"
+  },
+  "peerDependencies": {
+    "react": ">=18"
   }
 }

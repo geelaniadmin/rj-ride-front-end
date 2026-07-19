@@ -1,3 +1,7 @@
+/**
+ * @deprecated Use `AuthProvider` and `useSession` from `@ride/shared/auth` instead.
+ * This store will be removed once all portals are migrated to the server-auth flow.
+ */
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { VendorSession } from '../types';

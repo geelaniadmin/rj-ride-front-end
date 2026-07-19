@@ -32,3 +32,17 @@ export { encryptedStorage } from './encryptedStorage';
 
 // Helpers
 export { id } from './helpers';
+
+// API foundation
+export { apiClient, client, ApiError, isApiError, getErrorCode } from './api/client';
+export type { ApiErrorData } from './api/client';
+export { formatMoney, toMinor } from './api/money';
+export { createQueryClient, keys } from './api/query';
+export { ApiProviders } from './api/ApiProviders';
+
+// Auth
+export { AuthProvider, useSession, useAuth, requireRole } from './auth/AuthProvider';
+
+// Realtime
+export { connectEvents, useRideEvents } from './realtime/ws';
+export type { RideEvent, TripEvent, BillingEvent, SosEvent, TrackingEvent, DocumentEvent } from './realtime/ws';

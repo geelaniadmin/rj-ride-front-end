@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { RootLayoutContent } from './layout-content';
+import { ApiProviders } from '@ride/shared/api';
 
 export const metadata: Metadata = {
   title: 'Ops Portal',
@@ -11,7 +12,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="h-full">
       <body className="h-full">
-        <RootLayoutContent>{children}</RootLayoutContent>
+        <ApiProviders>
+          <RootLayoutContent>{children}</RootLayoutContent>
+        </ApiProviders>
       </body>
     </html>
   );
