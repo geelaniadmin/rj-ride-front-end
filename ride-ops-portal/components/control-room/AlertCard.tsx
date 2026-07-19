@@ -2,10 +2,25 @@
 
 import React from 'react';
 import { AlertTriangle, AlertCircle, AlertOctagon } from 'lucide-react';
-import { SafetyAlert } from '@ride/shared';
+
 import { Button } from '@/components/ui/Button';
 import { PiiField } from '@/components/ui/PiiField';
 import { timeAgo } from '@/lib/utils';
+
+interface SafetyAlert {
+  id: string;
+  type: string;
+  status?: string;
+  message?: string;
+  tripId?: string;
+  driverId?: string;
+  location?: string;
+  deviationMeters?: number;
+  stopDuration?: number;
+  vehiclePlate?: string;
+  paxName?: string;
+  createdAt: string;
+}
 
 interface AlertCardProps {
   alert: SafetyAlert;

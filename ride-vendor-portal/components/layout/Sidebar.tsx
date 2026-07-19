@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, ListOrdered, Truck, CircleDollarSign, Bell, LogOut, X } from "lucide-react";
-import { useSessionStore, useLanguageStore, t } from "@ride/shared";
+import { useAuth, useLanguageStore, t } from "@ride/shared";
 import { useRouter } from "next/navigation";
 
 export const NAV_ITEMS = [
@@ -24,10 +24,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
   const pathname = usePathname();
   const router = useRouter();
   const language = useLanguageStore((s) => s.language);
-  const clearSession = useSessionStore((s) => s.clearSession);
+  const { logout } = useAuth();
 
   const handleLogout = () => {
-    clearSession();
+    void logout();
     router.push("/login");
     onMobileClose?.();
   };

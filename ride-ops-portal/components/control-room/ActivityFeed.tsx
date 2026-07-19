@@ -2,8 +2,15 @@
 
 import React from 'react';
 import { AlertOctagon, AlertTriangle, AlertCircle } from 'lucide-react';
-import { SafetyAlert } from '@ride/shared';
 import { TimelineEvent } from '@/components/ui/TimelineEvent';
+
+interface SafetyAlert {
+  id: string;
+  type: string;
+  message: string;
+  tripId?: string;
+  createdAt: string;
+}
 
 interface ActivityFeedProps {
   alerts: SafetyAlert[];

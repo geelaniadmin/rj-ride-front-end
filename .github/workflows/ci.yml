@@ -1,0 +1,194 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, traccar]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  schema-drift:
+    name: Schema drift guard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ride-shared
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ride-shared/package-lock.json
+
+      - name: Install ride-shared deps
+        run: npm ci
+
+      - name: Regenerate schema types
+        run: npm run gen:api
+
+      - name: Fail if schema.d.ts has drifted
+        run: |
+          if ! git diff --exit-code src/api/schema.d.ts; then
+            echo ""
+            echo "ERROR: schema.d.ts is out of sync with schema.yaml."
+            echo "Run 'npm run gen:api' inside ride-shared and commit the updated file."
+            exit 1
+          fi
+
+  shared-tests:
+    name: ride-shared vitest
+    runs-on: ubuntu-latest
+    needs: schema-drift
+    defaults:
+      run:
+        working-directory: ride-shared
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ride-shared/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+  build-ride-prd:
+    name: Build ride_prd
+    runs-on: ubuntu-latest
+    needs: schema-drift
+    defaults:
+      run:
+        working-directory: ride_prd
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ride_prd/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  build-vendor-portal:
+    name: Build ride-vendor-portal
+    runs-on: ubuntu-latest
+    needs: schema-drift
+    defaults:
+      run:
+        working-directory: ride-vendor-portal
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ride-vendor-portal/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  build-ops-portal:
+    name: Build ride-ops-portal
+    runs-on: ubuntu-latest
+    needs: schema-drift
+    defaults:
+      run:
+        working-directory: ride-ops-portal
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ride-ops-portal/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  e2e:
+    name: Playwright smoke tests
+    runs-on: ubuntu-latest
+    needs: [build-ride-prd, build-vendor-portal, build-ops-portal]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ride
+          POSTGRES_USER: ride
+          POSTGRES_PASSWORD: ride
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Start backend (docker compose)
+        run: docker compose up -d --wait
+        working-directory: .
+        env:
+          DATABASE_URL: postgresql://ride:ride@localhost:5432/ride
+        continue-on-error: true
+
+      - name: Install e2e deps
+        run: npm ci
+        working-directory: e2e
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: e2e
+
+      - name: Run smoke tests
+        run: npx playwright test --reporter=github
+        working-directory: e2e
+        env:
+          BASE_URL_PRD: http://localhost:3000
+          BASE_URL_VENDOR: http://localhost:3001
+          BASE_URL_OPS: http://localhost:3002
+          API_BASE: http://localhost:8000
+          CI: true
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 7
