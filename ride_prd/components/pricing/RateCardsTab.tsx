@@ -35,6 +35,23 @@ interface RateCardsTabProps {
   searchQuery?: string;
 }
 
+// The backend RateCardWriteSerializer expects `vendor`/`customer`/`vehicle_type` (not the
+// `_id`-suffixed form-state names). Map before sending or the POST 400s ("vendor is required").
+function toWire(input: RateCardInput): Record<string, unknown> {
+  return {
+    vendor: input.vendor_id,
+    customer: input.customer_id,
+    vehicle_type: input.vehicle_type_id,
+    basis: input.basis,
+    rate_per_km_minor: input.rate_per_km_minor ?? undefined,
+    rate_per_hour_minor: input.rate_per_hour_minor ?? undefined,
+    currency: input.currency || undefined,
+    modifiers: input.modifiers,
+    valid_from: input.valid_from,
+    valid_to: input.valid_to || undefined,
+  };
+}
+
 export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) => {
   const language = useLanguageStore((s) => s.language);
   const addToast = useToastStore((s) => s.addToast);
@@ -92,7 +109,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
 
   const createMutation = useMutation({
     mutationFn: async (input: RateCardInput) => {
-      const { data: res, error: err } = await apiClient.POST("/v1/config/pricing/rate-cards", { body: input as unknown as RateCard });
+      const { data: res, error: err } = await apiClient.POST("/v1/config/pricing/rate-cards", { body: toWire(input) as unknown as RateCard });
       if (err) throw err;
       return res;
     },
@@ -110,7 +127,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
     mutationFn: async ({ id, input }: { id: string; input: RateCardInput }) => {
       const { data: res, error: err } = await apiClient.POST("/v1/config/pricing/rate-cards/{id}/supersede", {
         params: { path: { id } },
-        body: input as unknown as RateCard,
+        body: toWire(input) as unknown as RateCard,
       });
       if (err) throw err;
       return res;

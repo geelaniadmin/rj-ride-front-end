@@ -25,7 +25,10 @@ const PAGE_TITLES: Record<string, string> = {
   "/alerts": "Alerts",
 };
 
-const VENDOR_ROLES = ["VENDOR_ADMIN", "VENDOR_AGENT"] as const;
+// Must match the backend's User.Role enum (apps/accounts): the vendor-side roles are
+// VENDOR_MANAGER and DRIVER. The old values ("VENDOR_ADMIN"/"VENDOR_AGENT") don't exist,
+// so every real vendor user was wrongly rejected with "Access Denied".
+const VENDOR_ROLES = ["VENDOR_MANAGER", "DRIVER"] as const;
 
 function RealtimeSync() {
   const qc = useQueryClient();

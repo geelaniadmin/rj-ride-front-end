@@ -21,19 +21,19 @@ type LocalAlert = {
 function computeDocAlerts(vehicles: Vehicle[], drivers: Driver[]): LocalAlert[] {
   const alerts: LocalAlert[] = [];
   for (const v of vehicles) {
-    if (v.active === false) {
+    if (v.is_active === false) {
       alerts.push({
         id: `vehicle-inactive-${v.id}`,
         severity: "MEDIUM",
         title: "Vehicle inactive",
-        message: `${v.registrationNo} is currently marked as inactive`,
+        message: `${v.plate} is currently marked as inactive`,
         entityType: "vehicle",
       });
     }
   }
 
   for (const d of drivers) {
-    if (d.active === false) {
+    if (d.is_active === false) {
       alerts.push({
         id: `driver-inactive-${d.id}`,
         severity: "LOW",
@@ -41,7 +41,7 @@ function computeDocAlerts(vehicles: Vehicle[], drivers: Driver[]): LocalAlert[] 
         message: `${d.name} is currently inactive`,
         entityType: "driver",
       });
-    } else if (d.available === false) {
+    } else if (d.status !== "AVAILABLE") {
       alerts.push({
         id: `driver-unavailable-${d.id}`,
         severity: "LOW",
@@ -78,7 +78,7 @@ export default function AlertsPage() {
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/fleet/vehicles", {});
       if (err) throw err;
-      return (res?.result ?? []) as Vehicle[];
+      return (res?.results ?? []) as Vehicle[];
     },
   });
 
@@ -87,7 +87,7 @@ export default function AlertsPage() {
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/fleet/drivers", {});
       if (err) throw err;
-      return (res?.result ?? []) as Driver[];
+      return (res?.results ?? []) as Driver[];
     },
   });
 

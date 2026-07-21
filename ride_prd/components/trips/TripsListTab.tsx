@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, isApiError } from "@ride/shared";
+import { apiClient, keys, isApiError, csrfFetch } from "@ride/shared";
 import type { components } from "@ride/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
@@ -93,7 +93,7 @@ export const TripsListTab: React.FC = () => {
         return;
       }
       for (const v of vehicles) {
-        const resp = await fetch(`/api/v1/trips/${cancelTrip.id}/vehicles/${v.id}/transitions`, {
+        const resp = await csrfFetch(`/api/v1/trips/${cancelTrip.id}/vehicles/${v.id}/transitions`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },

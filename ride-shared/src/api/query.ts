@@ -108,6 +108,21 @@ export const keys = {
       detail: (id: string) =>
         ["dispatch", "assignments", "detail", id] as const,
     },
+    // Incoming API-sourced trip requests awaiting allocation (BE-18 / FE-6).
+    incoming: {
+      list: (filters?: FiltersShape) =>
+        ["dispatch", "incoming", "list", filters ?? {}] as const,
+      detail: (id: string) =>
+        ["dispatch", "incoming", "detail", id] as const,
+    },
+  },
+
+  // Vendor allocation offers (BE-18 / FE-6): the vendor-portal offers inbox.
+  offers: {
+    all: () => ["offers"] as const,
+    list: (filters?: FiltersShape) =>
+      ["offers", "list", filters ?? {}] as const,
+    detail: (id: string) => ["offers", "detail", id] as const,
   },
 
   tracking: {
@@ -133,6 +148,13 @@ export const wsInvalidationMap = {
   "trip.cancelled": keys.trips.all(),
   "trip.completed": keys.trips.all(),
   "trip.assigned": keys.dispatch.board(),
+  // Offer-cycle events touch the incoming queue and the board; keys.dispatch.all() is a
+  // prefix that invalidates both. Portals that also show the offers inbox pass a custom
+  // invalidationMap for keys.offers.
+  "trip.offer_made": keys.dispatch.all(),
+  "trip.offer_alerted": keys.dispatch.all(),
+  "trip.offer_expired": keys.dispatch.all(),
+  "trip.offer_withdrawn": keys.dispatch.all(),
   "billing.invoice_created": keys.billing.all(),
   "billing.invoice_updated": keys.billing.all(),
 } as const;

@@ -2,19 +2,20 @@
 
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, formatMoney, isApiError } from "@ride/shared";
+import { apiClient, keys, formatMoney, isApiError, csrfFetch } from "@ride/shared";
 import type { components } from "@ride/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
 import { Plus, Minus, ArrowRight, Clock } from "lucide-react";
 
 type Customer = components["schemas"]["Customer"];
 type VehicleType = components["schemas"]["VehicleType"];
+type Vendor = components["schemas"]["Vendor"];
 
 type QuoteOffer = {
   id: string;
@@ -29,11 +30,9 @@ type QuoteOffer = {
   min_lead_time_hours: number;
   expires_at: string;
   created_at: string;
-  _slot_ref: string;
-  _vehicle_type_id: string;
 };
 
-type Phase = "form" | "offers" | "booked";
+type Phase = "form" | "booked";
 
 function generateIdempotencyKey(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
@@ -70,6 +69,7 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
 
   const [phase, setPhase] = useState<Phase>("form");
   const [customerId, setCustomerId] = useState("");
+  const [vendorId, setVendorId] = useState("");
   const [reference, setReference] = useState("");
   const [pickupAt, setPickupAt] = useState<string>(() => {
     const d = new Date();
@@ -81,15 +81,21 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
     { ...DEFAULT_STOP, kind: "DROP" },
   ]);
   const [slots, setSlots] = useState<SlotEntry[]>([{ vehicle_type_id: "", slot_ref: "slot-1" }]);
-  const [offers, setOffers] = useState<QuoteOffer[]>([]);
-  const [selectedOfferIds, setSelectedOfferIds] = useState<Record<string, string>>({});
   const [bookedTripId, setBookedTripId] = useState<string | null>(null);
-  const [idempotencyKey] = useState(generateIdempotencyKey);
 
   const { data: customersData } = useQuery({
     queryKey: keys.config.customers.list(),
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/config/customers", {});
+      if (err) throw err;
+      return res;
+    },
+  });
+
+  const { data: vendorsData } = useQuery({
+    queryKey: keys.config.vendors.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/vendors", {});
       if (err) throw err;
       return res;
     },
@@ -106,64 +112,47 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
 
   const customers = (customersData?.results ?? []) as Customer[];
   const vehicleTypes = (vehicleTypesData?.results ?? []) as VehicleType[];
+  const vendors = (vendorsData?.results ?? []) as Vendor[];
 
-  const quoteMutation = useMutation({
+  // One-click create: for each vehicle slot, fetch the priced offer for the SELECTED vendor
+  // (offers are per vendor×customer×vehicle-type via rate cards), then book citing those
+  // offers. Booking routes the slot to that vendor, so it appears in the vendor portal.
+  const createMutation = useMutation({
     mutationFn: async () => {
+      // Validate on click (button stays enabled) so the reason is never a mystery.
+      if (!customerId) throw new Error("Select a customer.");
+      if (!vendorId) throw new Error("Select a vendor.");
+      if (slots.every((s) => !s.vehicle_type_id)) throw new Error("Select at least one vehicle type.");
+      if (stops.some((s) => !s.address.trim())) throw new Error("Enter the pickup and drop address for every stop.");
+
       const when = pickupAt ? new Date(pickupAt).toISOString() : new Date().toISOString();
-      const allOffers: QuoteOffer[] = [];
+      const chosen: { slot: SlotEntry; offer: QuoteOffer }[] = [];
 
       for (const slot of slots) {
         if (!slot.vehicle_type_id) continue;
-        const resp = await fetch("/api/v1/pricing/offers/", {
+        const resp = await csrfFetch("/api/v1/pricing/offers/", {
           method: "POST",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            customer: customerId,
-            vehicle_type: slot.vehicle_type_id,
-            when,
-          }),
+          body: JSON.stringify({ customer: customerId, vehicle_type: slot.vehicle_type_id, when }),
         });
         const envelope = await resp.json() as { result?: QuoteOffer[]; error?: { message?: string } };
-        if (!resp.ok) throw new Error(envelope?.error?.message ?? `Quote failed (${resp.status})`);
-        const slotOffers = (envelope.result ?? []) as QuoteOffer[];
-        for (const o of slotOffers) {
-          allOffers.push({ ...o, _slot_ref: slot.slot_ref, _vehicle_type_id: slot.vehicle_type_id });
+        if (!resp.ok) throw new Error(envelope?.error?.message ?? `Pricing failed (${resp.status})`);
+        const match = (envelope.result ?? []).find((o) => o.vendor === vendorId);
+        if (!match) {
+          const vtName = vehicleTypes.find((v) => v.id === slot.vehicle_type_id)?.name ?? "that vehicle type";
+          const vName = vendors.find((v) => v.id === vendorId)?.name ?? "the selected vendor";
+          throw new Error(`No rate card for ${vName} × ${vtName}. Add one under Pricing & Quotes.`);
         }
+        chosen.push({ slot, offer: match });
       }
-      return allOffers;
-    },
-    onSuccess: (result) => {
-      if (!result.length) {
-        addToast("No offers returned — check rate card configuration", "error");
-        return;
-      }
-      setOffers(result);
-      const autoSelected: Record<string, string> = {};
-      for (const slot of slots) {
-        const best = result.find((o) => o._slot_ref === slot.slot_ref);
-        if (best) autoSelected[slot.slot_ref] = best.price_id;
-      }
-      setSelectedOfferIds(autoSelected);
-      setPhase("offers");
-    },
-    onError: (err) => {
-      addToast(isApiError(err) ? err.message : "Quote failed", "error");
-    },
-  });
+      if (!chosen.length) throw new Error("Add at least one vehicle type.");
 
-  const bookMutation = useMutation({
-    mutationFn: async () => {
-      const resp = await fetch("/api/v1/trips/", {
+      const resp = await csrfFetch("/api/v1/trips/", {
         method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": generateIdempotencyKey() },
         body: JSON.stringify({
           customer_id: customerId,
-          pickup_at: pickupAt ? new Date(pickupAt).toISOString() : new Date().toISOString(),
+          pickup_at: when,
           reference: reference || undefined,
           stops: stops.map((s, i) => ({
             sequence: i,
@@ -177,30 +166,25 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
               flight_number: s.flight_number || undefined,
             },
           })),
-          vehicles: slots.map((sl) => {
-            const offer = offers.find(
-              (o) => o._slot_ref === sl.slot_ref && o.price_id === selectedOfferIds[sl.slot_ref]
-            );
-            return {
-              vehicle_type_id: sl.vehicle_type_id,
-              offer_id: offer?.id ?? selectedOfferIds[sl.slot_ref] ?? "",
-            };
-          }),
+          vehicles: chosen.map(({ slot, offer }) => ({
+            vehicle_type_id: slot.vehicle_type_id,
+            offer_id: offer.id,
+          })),
         }),
       });
       const envelope = await resp.json() as { result?: { id?: string }; error?: { message?: string } };
-      if (!resp.ok) throw new Error(envelope?.error?.message ?? `Booking failed (${resp.status})`);
+      if (!resp.ok) throw new Error(envelope?.error?.message ?? `Create failed (${resp.status})`);
       return envelope.result;
     },
     onSuccess: (trip) => {
-      addToast("Trip booked!", "success");
+      addToast("Trip created", "success");
       void qc.invalidateQueries({ queryKey: keys.trips.all() });
       setBookedTripId(trip?.id ?? null);
       setPhase("booked");
       onDone?.();
     },
     onError: (err) => {
-      addToast(isApiError(err) ? err.message : "Booking failed", "error");
+      addToast(isApiError(err) ? err.message : err instanceof Error ? err.message : "Create failed", "error");
     },
   });
 
@@ -234,77 +218,30 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
         {bookedTripId && (
           <p className="text-xs font-mono text-text-secondary">{bookedTripId}</p>
         )}
-        <Button onClick={() => { setPhase("form"); setOffers([]); setSelectedOfferIds({}); setBookedTripId(null); }}>
+        <Button onClick={() => { setPhase("form"); setBookedTripId(null); }}>
           Create another
         </Button>
       </Card>
     );
   }
 
-  if (phase === "offers") {
-    return (
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold">Select Offers</h3>
-        <div className="space-y-3">
-          {offers.map((offer) => {
-            const isSelected = selectedOfferIds[offer._slot_ref] === offer.price_id;
-            const expires = new Date(offer.expires_at);
-            const minsLeft = Math.max(0, Math.round((expires.getTime() - Date.now()) / 60000));
-            const vtName = vehicleTypes?.find((v) => v.id === offer._vehicle_type_id)?.name ?? offer._vehicle_type_id;
-
-            return (
-              <div
-                key={offer.price_id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedOfferIds((prev) => ({ ...prev, [offer._slot_ref]: offer.price_id }))}
-                onKeyDown={(e) => e.key === "Enter" && setSelectedOfferIds((prev) => ({ ...prev, [offer._slot_ref]: offer.price_id }))}
-                className={`p-3 rounded border cursor-pointer transition-colors ${isSelected ? "border-brand-blue bg-brand-blue/5" : "border-border hover:border-brand-blue/40"}`}
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-xs text-text-secondary">{vtName} — {offer._slot_ref}</p>
-                    <p className="text-xl font-bold text-text-primary mt-1">
-                      {formatMoney(offer.price_minor, offer.currency)}
-                    </p>
-                    <p className="text-xs text-text-secondary">
-                      {offer.basis} · Free cancel: {offer.free_cancellation_hours}h
-                    </p>
-                  </div>
-                  <div className="text-right space-y-1">
-                    {isSelected && <Badge variant="blue">Selected</Badge>}
-                    <div className={`text-xs flex items-center gap-1 justify-end ${minsLeft < 5 ? "text-amber-400" : "text-text-secondary"}`}>
-                      <Clock className="w-3 h-3" /> {minsLeft}m left
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="flex gap-2 pt-2">
-          <Button onClick={() => setPhase("form")} variant="secondary">Back</Button>
-          <Button
-            onClick={() => bookMutation.mutate()}
-            variant="primary"
-            disabled={bookMutation.isPending || Object.keys(selectedOfferIds).length < slots.length}
-            className="flex-1"
-          >
-            {bookMutation.isPending ? "Booking…" : "Book Trip"} <ArrowRight className="w-4 h-4 ml-1" />
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-5">
       <FormField label="Customer">
-        <Select
+        <SearchableSelect
           value={customerId}
-          onChange={(e) => setCustomerId(e.target.value)}
-          options={(customers ?? []).map((c) => ({ value: c.id, label: c.name }))}
+          onChange={setCustomerId}
+          options={customers.map((c) => ({ value: c.id, label: c.name }))}
+          placeholder="Search customer…"
+        />
+      </FormField>
+
+      <FormField label="Vendor">
+        <SearchableSelect
+          value={vendorId}
+          onChange={setVendorId}
+          options={vendors.map((v) => ({ value: v.id, label: v.name }))}
+          placeholder="Search vendor…"
         />
       </FormField>
 
@@ -386,10 +323,11 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
 
         {slots.map((slot, idx) => (
           <div key={slot.slot_ref} className="flex items-center gap-2">
-            <Select
+            <SearchableSelect
               value={slot.vehicle_type_id}
-              onChange={(e) => setSlots((prev) => prev.map((s, i) => i === idx ? { ...s, vehicle_type_id: e.target.value } : s))}
-              options={(vehicleTypes ?? []).map((v) => ({ value: v.id, label: v.name }))}
+              onChange={(val) => setSlots((prev) => prev.map((s, i) => i === idx ? { ...s, vehicle_type_id: val } : s))}
+              options={vehicleTypes.map((v) => ({ value: v.id, label: v.name }))}
+              placeholder="Search vehicle type…"
               className="flex-1"
             />
             {slots.length > 1 && (
@@ -402,12 +340,12 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
       </div>
 
       <Button
-        onClick={() => quoteMutation.mutate()}
+        onClick={() => createMutation.mutate()}
         variant="primary"
         className="w-full"
-        disabled={!customerId || stops.some((s) => !s.address) || slots.some((s) => !s.vehicle_type_id) || quoteMutation.isPending}
+        disabled={createMutation.isPending}
       >
-        {quoteMutation.isPending ? "Getting offers…" : "Get Quote"} <ArrowRight className="w-4 h-4 ml-1" />
+        {createMutation.isPending ? "Creating…" : "Create"} <ArrowRight className="w-4 h-4 ml-1" />
       </Button>
     </div>
   );

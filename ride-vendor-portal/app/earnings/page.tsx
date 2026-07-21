@@ -25,14 +25,14 @@ function PayoutsTab() {
         params: { query: {} },
       });
       if (err) throw err;
-      return res?.result?.results ?? [];
+      return res?.results ?? [];
     },
   });
 
   const payouts: Payout[] = data ?? [];
 
-  const totalPending = payouts.filter((p) => p.status === "PENDING").reduce((sum, p) => sum + p.amountMinor, 0);
-  const totalPaid = payouts.filter((p) => p.status === "PAID").reduce((sum, p) => sum + p.amountMinor, 0);
+  const totalPending = payouts.filter((p) => p.status === "PENDING").reduce((sum, p) => sum + p.net_minor, 0);
+  const totalPaid = payouts.filter((p) => p.status === "PAID").reduce((sum, p) => sum + p.net_minor, 0);
   const currency = payouts[0]?.currency ?? "INR";
 
   if (isLoading) return <div className="text-center py-8 text-text-muted text-sm">Loading payouts…</div>;
@@ -75,27 +75,30 @@ function PayoutsTab() {
                   <div>
                     <div className="flex items-center gap-2">
                       <p className="text-base font-bold text-text-primary">
-                        {formatMoney(payout.amountMinor, payout.currency)}
+                        {formatMoney(payout.net_minor, payout.currency)}
                       </p>
-                      <StatusBadge status={payout.status} />
+                      <StatusBadge status={payout.status ?? "PENDING"} />
                     </div>
                     <p className="text-xs text-text-muted mt-0.5">
-                      {payout.reference && <span>Ref: {payout.reference} · </span>}
-                      {payout.tripIds && payout.tripIds.length > 0 && (
-                        <span>{payout.tripIds.length} trip(s)</span>
-                      )}
+                      <span>
+                        {new Date(payout.period_year, payout.period_month - 1).toLocaleString(undefined, { month: "short", year: "numeric" })}
+                      </span>
+                      {" · "}
+                      <span>
+                        Gross {formatMoney(payout.gross_minor, payout.currency)} · Fee {formatMoney(payout.operator_fee_minor, payout.currency)}
+                      </span>
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  {payout.paidAt && (
+                  {payout.paid_at && (
                     <p className="text-xs text-text-muted">
-                      Paid {new Date(payout.paidAt).toLocaleDateString()}
+                      Paid {new Date(payout.paid_at).toLocaleDateString()}
                     </p>
                   )}
-                  {payout.approvedAt && !payout.paidAt && (
+                  {payout.approved_at && !payout.paid_at && (
                     <p className="text-xs text-text-muted">
-                      Approved {new Date(payout.approvedAt).toLocaleDateString()}
+                      Approved {new Date(payout.approved_at).toLocaleDateString()}
                     </p>
                   )}
                   <p className="text-xs font-mono text-text-muted mt-0.5">{payout.id.substring(0, 8)}…</p>
@@ -117,7 +120,7 @@ function StatementsTab() {
         params: { query: {} },
       });
       if (err) throw err;
-      return res?.result?.results ?? [];
+      return res?.results ?? [];
     },
   });
 
@@ -127,7 +130,7 @@ function StatementsTab() {
     const { data: res } = await apiClient.GET("/v1/billing/statements/{id}/download", {
       params: { path: { id } },
     });
-    const url = res?.result?.url;
+    const url = (res as unknown as { url?: string } | undefined)?.url;
     if (url) window.open(url, "_blank");
   };
 
@@ -151,16 +154,13 @@ function StatementsTab() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-text-primary">
-                  {formatMoney(stmt.totalMinor, stmt.currency)}
+                  {formatMoney(stmt.total_minor ?? 0, stmt.currency)}
                 </p>
                 <p className="text-xs text-text-muted mt-0.5">
-                  {stmt.periodStart && stmt.periodEnd && (
-                    <span>
-                      {new Date(stmt.periodStart).toLocaleDateString()} –{" "}
-                      {new Date(stmt.periodEnd).toLocaleDateString()}
-                    </span>
-                  )}
-                  {stmt.invoiceCount != null && <span> · {stmt.invoiceCount} invoice(s)</span>}
+                  <span>
+                    {new Date(stmt.period_year, stmt.period_month - 1).toLocaleString(undefined, { month: "short", year: "numeric" })}
+                  </span>
+                  <span> · {stmt.lines.length} line(s)</span>
                 </p>
               </div>
             </div>

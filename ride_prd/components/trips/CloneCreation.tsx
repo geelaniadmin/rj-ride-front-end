@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, isApiError } from "@ride/shared";
+import { apiClient, keys, isApiError, csrfFetch } from "@ride/shared";
 import type { components } from "@ride/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
@@ -38,7 +38,7 @@ export const CloneCreation: React.FC<{ onDone?: () => void }> = ({ onDone }) => 
   const cloneMutation = useMutation({
     mutationFn: async () => {
       if (!selectedId) throw new Error("No trip selected");
-      const resp = await fetch(`/api/v1/trips/${selectedId}/clone`, {
+      const resp = await csrfFetch(`/api/v1/trips/${selectedId}/clone`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

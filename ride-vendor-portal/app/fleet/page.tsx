@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient, keys, useLanguageStore, t } from "@ride/shared";
 import type { components } from "@ride/shared/api/schema.d";
+import { useVendorTrips } from "@/hooks/useVendorTrips";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Tabs } from "@/components/ui/Tabs";
 import { Truck, Users } from "lucide-react";
@@ -16,14 +17,54 @@ const TABS = [
   { id: "drivers", label: "Drivers" },
 ];
 
+// A vehicle/driver counts as "on trip" while its trip-vehicle is in any live (non-PENDING,
+// non-terminal) state. PENDING has no vehicle yet; COMPLETED/CANCELLED/NO_SHOW are done.
+const ON_TRIP_STATUSES = new Set([
+  "ASSIGNED",
+  "DRIVER_ACCEPTED",
+  "EN_ROUTE_PICKUP",
+  "AT_PICKUP",
+  "PAX_PICKED",
+  "IN_TRANSIT",
+  "AT_DROP",
+  "PAX_DROPPED",
+  "BREAKDOWN",
+  "ACCIDENT",
+  "VEHICLE_SWAP",
+  "DELAYED",
+  "SOS",
+]);
 
-function VehiclesTab() {
+/** Sets of vehicle ids and driver ids currently committed to a live trip. */
+function useOnTripSets(): { vehicleIds: Set<string>; driverIds: Set<string> } {
+  const { data: trips = [] } = useVendorTrips();
+  return useMemo(() => {
+    const vehicleIds = new Set<string>();
+    const driverIds = new Set<string>();
+    for (const trip of trips) {
+      for (const tv of trip.vehicles ?? []) {
+        if (ON_TRIP_STATUSES.has(tv.status)) {
+          if (tv.vehicle) vehicleIds.add(tv.vehicle);
+          if (tv.driver) driverIds.add(tv.driver);
+        }
+      }
+    }
+    return { vehicleIds, driverIds };
+  }, [trips]);
+}
+
+function FleetStatusBadge({ isActive, onTrip }: { isActive: boolean; onTrip: boolean }) {
+  if (isActive === false) return <StatusBadge status="OFFLINE" />;
+  return <StatusBadge status={onTrip ? "ON_TRIP" : "AVAILABLE"} />;
+}
+
+function VehiclesTab({ onTripIds }: { onTripIds: Set<string> }) {
   const { data: vehicles = [], isLoading } = useQuery({
     queryKey: keys.fleet.vehicles.list({}),
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/fleet/vehicles", {});
       if (err) throw err;
-      return (res?.result ?? []) as Vehicle[];
+      return (res?.results ?? []) as Vehicle[];
     },
   });
 
@@ -46,18 +87,11 @@ function VehiclesTab() {
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-text-primary font-mono">{vehicle.registrationNo}</span>
-                  {vehicle.active === false ? (
-                    <StatusBadge status="OFFLINE" />
-                  ) : (
-                    <StatusBadge status="AVAILABLE" />
-                  )}
+                  <span className="font-semibold text-text-primary font-mono">{vehicle.plate}</span>
+                  <FleetStatusBadge isActive={vehicle.is_active !== false} onTrip={onTripIds.has(vehicle.id)} />
                 </div>
-                {(vehicle.make || vehicle.model) && (
-                  <p className="text-sm text-text-muted">{vehicle.make} {vehicle.model}</p>
-                )}
-                {vehicle.vehicleTypeId && (
-                  <p className="text-xs text-text-muted font-mono">Type: {vehicle.vehicleTypeId}</p>
+                {vehicle.vehicle_type_name && (
+                  <p className="text-sm text-text-muted">{vehicle.vehicle_type_name}</p>
                 )}
               </div>
             </div>
@@ -69,13 +103,13 @@ function VehiclesTab() {
   );
 }
 
-function DriversTab() {
+function DriversTab({ onTripIds }: { onTripIds: Set<string> }) {
   const { data: drivers = [], isLoading } = useQuery({
     queryKey: keys.fleet.drivers.list({}),
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/fleet/drivers", {});
       if (err) throw err;
-      return (res?.result ?? []) as Driver[];
+      return (res?.results ?? []) as Driver[];
     },
   });
 
@@ -99,11 +133,7 @@ function DriversTab() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-semibold text-text-primary">{driver.name}</span>
-                  {driver.available === false || driver.active === false ? (
-                    <StatusBadge status="OFFLINE" />
-                  ) : (
-                    <StatusBadge status="AVAILABLE" />
-                  )}
+                  <FleetStatusBadge isActive={driver.is_active !== false} onTrip={onTripIds.has(driver.id)} />
                 </div>
                 <p className="text-sm text-text-muted font-mono">{driver.phone}</p>
               </div>
@@ -119,6 +149,7 @@ function DriversTab() {
 export default function FleetPage() {
   const language = useLanguageStore((s) => s.language);
   const [activeTab, setActiveTab] = useState("vehicles");
+  const { vehicleIds, driverIds } = useOnTripSets();
 
   return (
     <div className="space-y-6">
@@ -128,8 +159,8 @@ export default function FleetPage() {
       </div>
 
       <Tabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
-      {activeTab === "vehicles" && <VehiclesTab />}
-      {activeTab === "drivers" && <DriversTab />}
+      {activeTab === "vehicles" && <VehiclesTab onTripIds={vehicleIds} />}
+      {activeTab === "drivers" && <DriversTab onTripIds={driverIds} />}
     </div>
   );
 }

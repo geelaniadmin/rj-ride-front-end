@@ -127,11 +127,17 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
       addToast(t("vendorNameRequired", language), "error");
       return;
     }
+    // Email is required: it becomes the vendor's portal login (auto-provisioned on create).
+    const email = (formData.contact_email ?? "").trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      addToast("A valid contact email is required — it becomes the vendor's login.", "error");
+      return;
+    }
     const input: VendorWriteInput = {
       name: formData.name,
       contact_name: formData.contact_name || undefined,
       contact_phone: formData.contact_phone || undefined,
-      contact_email: formData.contact_email || undefined,
+      contact_email: email,
       address: formData.address || undefined,
     };
     if (editingId) {
@@ -221,13 +227,14 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
             />
           </FormField>
 
-          <FormField label={t("email", language)}>
+          <FormField label={t("email", language)} required>
             <Input
               type="email"
               value={formData.contact_email ?? ""}
               onChange={(e) => setFormData({ ...formData, contact_email: e.target.value || undefined })}
               placeholder="contact@vendor.local"
             />
+            <p className="text-xs text-text-secondary mt-1">Becomes the vendor&apos;s portal login (password: Vendor@12345).</p>
           </FormField>
 
           <FormField label="Address">

@@ -9,7 +9,7 @@ import { KpiCard } from "@/components/ui/KpiCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { CalendarCheck, Truck, Users, DollarSign, ArrowRight, Clock, Bell, CircleDollarSign } from "lucide-react";
 
-type TripSummary = components["schemas"]["TripSummary"];
+type Trip = components["schemas"]["TripRequest"];
 type Vehicle = components["schemas"]["Vehicle"];
 type Driver = components["schemas"]["Driver"];
 
@@ -30,7 +30,7 @@ export default function DashboardPage() {
         params: { query: {} },
       });
       if (err) throw err;
-      return (res?.result?.results ?? []) as TripSummary[];
+      return (res?.results ?? []) as Trip[];
     },
     staleTime: 30_000,
   });
@@ -40,7 +40,7 @@ export default function DashboardPage() {
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/fleet/vehicles", {});
       if (err) throw err;
-      return (res?.result ?? []) as Vehicle[];
+      return (res?.results ?? []) as Vehicle[];
     },
     staleTime: 60_000,
   });
@@ -50,21 +50,21 @@ export default function DashboardPage() {
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/fleet/drivers", {});
       if (err) throw err;
-      return (res?.result ?? []) as Driver[];
+      return (res?.results ?? []) as Driver[];
     },
     staleTime: 60_000,
   });
 
   const today = new Date().toDateString();
-  const tripsToday = trips.filter((t) => new Date(t.createdAt).toDateString() === today).length;
+  const tripsToday = trips.filter((t) => new Date(t.created_at).toDateString() === today).length;
   const activeNow = trips.filter((t) => ACTIVE_STATUSES.has(t.status)).length;
   const needingAttention = trips.filter((t) => NEEDS_ATTENTION_STATUSES.has(t.status));
   const activeTrips = trips.filter((t) => ACTIVE_STATUSES.has(t.status));
 
   const totalDrivers = drivers.length;
-  const availableDrivers = drivers.filter((d) => d.available !== false && d.active !== false).length;
-  const onTripDrivers = drivers.filter((d) => d.available === false && d.active !== false).length;
-  const offlineDrivers = drivers.filter((d) => d.active === false).length;
+  const availableDrivers = drivers.filter((d) => d.is_active !== false && d.status === "AVAILABLE").length;
+  const onTripDrivers = drivers.filter((d) => d.status === "ON_TRIP").length;
+  const offlineDrivers = drivers.filter((d) => d.is_active === false || d.status === "OFFLINE").length;
 
   const availablePct = totalDrivers > 0 ? Math.round((availableDrivers / totalDrivers) * 100) : 0;
   const onTripPct = totalDrivers > 0 ? Math.round((onTripDrivers / totalDrivers) * 100) : 0;
@@ -87,7 +87,7 @@ export default function DashboardPage() {
         <KpiCard label={t("tripsToday", language)} value={tripsToday} icon={CalendarCheck} accentColor="text-brand-blue" />
         <KpiCard label={t("activeNow", language)} value={activeNow} icon={Truck} accentColor="text-success" />
         <KpiCard label={t("driversOnDuty", language)} value={availableDrivers} icon={Users} accentColor="text-warning" />
-        <KpiCard label="Fleet Vehicles" value={vehicles.filter((v) => v.active !== false).length} icon={DollarSign} accentColor="text-brand-blue" />
+        <KpiCard label="Fleet Vehicles" value={vehicles.filter((v) => v.is_active !== false).length} icon={DollarSign} accentColor="text-brand-blue" />
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -202,7 +202,7 @@ export default function DashboardPage() {
                       <span className="font-mono text-xs text-text-muted">{trip.id.slice(0, 8)}</span>
                       <StatusBadge status={trip.status} />
                     </div>
-                    <p className="text-xs text-text-muted truncate">{trip.pickupAddress ?? "—"}</p>
+                    <p className="text-xs text-text-muted truncate">{trip.stops?.[0]?.address ?? "—"}</p>
                   </div>
                   <Link href="/trips" className="text-xs text-brand-blue hover:underline shrink-0 ml-4">
                     Acknowledge
@@ -235,7 +235,7 @@ export default function DashboardPage() {
                       <span className="font-mono text-xs text-text-muted">{trip.id.slice(0, 8)}</span>
                       <StatusBadge status={trip.status} />
                     </div>
-                    <p className="text-xs text-text-muted truncate">{trip.pickupAddress ?? "—"}</p>
+                    <p className="text-xs text-text-muted truncate">{trip.stops?.[0]?.address ?? "—"}</p>
                   </div>
                   <Link href="/trips" className="text-xs text-brand-blue hover:underline shrink-0 ml-4">
                     {t("track", language)}

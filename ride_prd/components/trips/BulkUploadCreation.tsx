@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { keys, isApiError } from "@ride/shared";
+import { keys, isApiError, csrfFetch } from "@ride/shared";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -70,7 +70,7 @@ export const BulkUploadCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
     setRows(parsed);
     setValidating(true);
     try {
-      const resp = await fetch("/api/v1/trips/bulk/preview/", {
+      const resp = await csrfFetch("/api/v1/trips/bulk/preview/", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -106,7 +106,7 @@ export const BulkUploadCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
           price_ids: (v.offers ?? []).map((o) => o.price_id),
         }));
 
-      const resp = await fetch("/api/v1/trips/bulk/commit/", {
+      const resp = await csrfFetch("/api/v1/trips/bulk/commit/", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

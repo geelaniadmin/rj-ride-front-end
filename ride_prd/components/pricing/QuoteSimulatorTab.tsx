@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiClient, keys, formatMoney } from "@ride/shared";
+import { apiClient, keys, formatMoney, csrfFetch } from "@ride/shared";
 import type { components } from "@ride/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
@@ -73,7 +73,7 @@ export const QuoteSimulatorTab: React.FC<QuoteSimulatorTabProps> = () => {
     }
     setLoading(true);
     try {
-      const resp = await fetch("/api/v1/pricing/offers/", {
+      const resp = await csrfFetch("/api/v1/pricing/offers/", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

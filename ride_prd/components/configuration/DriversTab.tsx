@@ -1,15 +1,38 @@
 "use client";
 
-import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguageStore, t, apiClient, keys, QueryBoundary } from "@ride/shared";
 import type { components } from "@ride/shared/api/schema.d";
+import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";
+import { Drawer } from "@/components/ui/Drawer";
+import { Input } from "@/components/ui/Input";
+import { FormField } from "@/components/ui/FormField";
+import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
 import { PII } from "@/components/ui/PII";
 import { HealthStrip } from "@/components/configuration/HealthStrip";
+import { useToastStore } from "@/stores/toastStore";
 
 type ApiDriver = components["schemas"]["Driver"];
+type PatchedDriver = components["schemas"]["PatchedDriver"];
+type ApiVendor = components["schemas"]["Vendor"];
+
+interface DriverFormState {
+  vendor: string;
+  name: string;
+  phone: string;
+  licence_number: string;
+  status: string;
+  is_active: boolean;
+}
+
+const STATUS_OPTIONS = [
+  { value: "AVAILABLE", label: "Available" },
+  { value: "ON_TRIP", label: "On trip" },
+  { value: "OFFLINE", label: "Offline" },
+];
 
 interface DriversTabProps {
   searchQuery?: string;
@@ -17,6 +40,8 @@ interface DriversTabProps {
 
 export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
   const language = useLanguageStore((s) => s.language);
+  const addToast = useToastStore((s) => s.addToast);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
     queryKey: keys.fleet.drivers.list(),
@@ -27,6 +52,17 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
     },
   });
 
+  // Agency admins may file a driver under any vendor, so list them all for the dropdown.
+  const { data: vendorsData } = useQuery({
+    queryKey: keys.config.vendors.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/vendors", {});
+      if (err) throw err;
+      return res;
+    },
+  });
+  const vendors = (vendorsData?.results ?? []) as ApiVendor[];
+
   const allDrivers: ApiDriver[] = (data as { results?: ApiDriver[] } | undefined)?.results ?? (data as ApiDriver[] | undefined) ?? [];
   const drivers = searchQuery.trim()
     ? allDrivers.filter(
@@ -35,6 +71,118 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
           d.phone.includes(searchQuery)
       )
     : allDrivers;
+
+  const createMutation = useMutation({
+    mutationFn: async (input: Record<string, unknown>) => {
+      const { data: res, error: err } = await apiClient.POST("/v1/fleet/drivers", { body: input as unknown as ApiDriver });
+      if (err) throw err;
+      return res;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.fleet.drivers.list() });
+      addToast("Driver created", "success");
+      setDrawerOpen(false);
+    },
+    onError: (err: unknown) => {
+      addToast(err instanceof Error ? err.message : "Failed to create driver", "error");
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, input }: { id: string; input: Record<string, unknown> }) => {
+      const { data: res, error: err } = await apiClient.PATCH("/v1/fleet/drivers/{id}", {
+        params: { path: { id } },
+        body: input as unknown as PatchedDriver,
+      });
+      if (err) throw err;
+      return res;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.fleet.drivers.list() });
+      addToast("Driver updated", "success");
+      setDrawerOpen(false);
+    },
+    onError: (err: unknown) => {
+      addToast(err instanceof Error ? err.message : "Failed to update driver", "error");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: err } = await apiClient.DELETE("/v1/fleet/drivers/{id}", { params: { path: { id } } });
+      if (err) throw err;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.fleet.drivers.list() });
+      addToast("Driver deactivated", "success");
+    },
+    onError: (err: unknown) => {
+      addToast(err instanceof Error ? err.message : "Failed to deactivate driver", "error");
+    },
+  });
+
+  const emptyForm: DriverFormState = { vendor: "", name: "", phone: "", licence_number: "", status: "AVAILABLE", is_active: true };
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<DriverFormState>(emptyForm);
+
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData(emptyForm);
+    setDrawerOpen(true);
+  };
+
+  const openEdit = (driver: ApiDriver) => {
+    setEditingId(driver.id);
+    // phone & licence_number arrive PII-masked on read, so we never pre-fill them — the
+    // user leaves them blank to keep the stored value (partial PATCH) or retypes to change.
+    setFormData({
+      vendor: driver.vendor,
+      name: driver.name,
+      phone: "",
+      licence_number: "",
+      status: driver.status ?? "AVAILABLE",
+      is_active: driver.is_active,
+    });
+    setDrawerOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!formData.vendor || !formData.name.trim()) {
+      addToast("Vendor and name are required", "error");
+      return;
+    }
+    if (editingId) {
+      // Partial update: only send PII fields when the user actually retyped them.
+      const input: Record<string, unknown> = {
+        vendor: formData.vendor,
+        name: formData.name.trim(),
+        status: formData.status,
+        is_active: formData.is_active,
+      };
+      if (formData.phone.trim()) input.phone = formData.phone.trim();
+      if (formData.licence_number.trim()) input.licence_number = formData.licence_number.trim();
+      updateMutation.mutate({ id: editingId, input });
+      return;
+    }
+    if (!formData.phone.trim() || !formData.licence_number.trim()) {
+      addToast("Phone and licence number are required", "error");
+      return;
+    }
+    createMutation.mutate({
+      vendor: formData.vendor,
+      name: formData.name.trim(),
+      phone: formData.phone.trim(),
+      licence_number: formData.licence_number.trim(),
+      status: formData.status,
+      is_active: formData.is_active,
+    });
+  };
+
+  const vendorOptions = [
+    { value: "", label: "Select vendor…" },
+    ...vendors.map((v) => ({ value: v.id, label: v.name })),
+  ];
 
   const columns: Column[] = [
     {
@@ -74,6 +222,9 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
         <h3 className="font-semibold text-ops-sidebar">
           {t("drivers", language)} ({drivers.length})
         </h3>
+        <Button onClick={openCreate} variant="primary" size="sm">
+          New Driver
+        </Button>
       </div>
 
       <HealthStrip expiredCount={0} expiringCount={0} />
@@ -92,6 +243,81 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
         />
       </QueryBoundary>
 
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        title={editingId ? "Edit Driver" : "New Driver"}
+        width="md"
+      >
+        <div className="space-y-4">
+          <FormField label="Vendor" required>
+            <Select
+              options={vendorOptions}
+              value={formData.vendor}
+              onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
+            />
+          </FormField>
+
+          <FormField label={t("driverName", language)} required>
+            <Input
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Full name"
+            />
+          </FormField>
+
+          <FormField label={t("phone", language)} required={!editingId}>
+            <Input
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder={editingId ? "Leave blank to keep current" : "+91 98765 43210"}
+            />
+          </FormField>
+
+          <FormField label="Licence Number" required={!editingId}>
+            <Input
+              value={formData.licence_number}
+              onChange={(e) => setFormData({ ...formData, licence_number: e.target.value })}
+              placeholder={editingId ? "Leave blank to keep current" : "e.g., KA0120210001234"}
+            />
+          </FormField>
+
+          <FormField label={t("status", language)}>
+            <Select
+              options={STATUS_OPTIONS}
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+            />
+          </FormField>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="driver-active"
+              checked={formData.is_active}
+              onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+              className="w-4 h-4"
+            />
+            <label htmlFor="driver-active" className="text-sm text-ops-sidebar">
+              Active
+            </label>
+          </div>
+
+          <div className="flex gap-2 pt-4">
+            <Button
+              onClick={handleSave}
+              variant="primary"
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
+              {editingId ? "Update" : "Create"}
+            </Button>
+            <Button onClick={() => setDrawerOpen(false)} variant="secondary">
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Drawer>
+
       {drivers.map((driver) => (
         <div key={driver.id} className="p-3 bg-ops-bg rounded border border-border text-sm">
           <div className="font-medium text-ops-sidebar">
@@ -100,6 +326,19 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
           <p className="text-xs text-text-secondary mt-1">
             <PII value={driver.phone} type="phone" />
           </p>
+          <div className="flex gap-2 mt-2">
+            <Button size="sm" variant="ghost" onClick={() => openEdit(driver)}>
+              {t("edit", language)}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => deleteMutation.mutate(driver.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {t("deactivate", language)}
+            </Button>
+          </div>
         </div>
       ))}
     </div>

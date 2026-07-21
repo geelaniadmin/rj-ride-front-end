@@ -18,7 +18,7 @@ export { encryptedStorage } from './encryptedStorage';
 export { id } from './helpers';
 
 // API foundation
-export { apiClient, client, ApiError, isApiError, getErrorCode } from './api/client';
+export { apiClient, client, ApiError, isApiError, getErrorCode, csrfFetch } from './api/client';
 export type { ApiErrorData } from './api/client';
 export { formatMoney, toMinor } from './api/money';
 export { createQueryClient, keys, wsInvalidationMap } from './api/query';
@@ -32,4 +32,7 @@ export { AuthProvider, useSession, useAuth, requireRole } from './auth/AuthProvi
 
 // Realtime
 export { connectEvents, useRideEvents } from './realtime/ws';
-export type { RideEvent, TripEvent, BillingEvent, SosEvent, TrackingEvent, DocumentEvent } from './realtime/ws';
+export type { RideEvent, TripEvent, OfferEvent, BillingEvent, SosEvent, TrackingEvent, DocumentEvent } from './realtime/ws';
+
+export { useCountdown, countdownFrom } from './hooks/useCountdown';
+export type { Countdown } from './hooks/useCountdown';

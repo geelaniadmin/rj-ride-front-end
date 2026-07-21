@@ -113,7 +113,14 @@ export default function TrackingPage() {
     queryKey: keys.tracking.track(selectedTripVehicleId ?? ""),
     queryFn: async () => {
       if (!selectedTripVehicleId) return null;
-      const resp = await fetch(`/api/v1/tracking/${selectedTripVehicleId}/track/`, { credentials: "include" });
+      // The track detail lives on the trips viewset, not /tracking/. It needs both the trip
+      // id and the trip-vehicle id, which the live position carries.
+      const pos = livePositionsRef.current.get(selectedTripVehicleId);
+      if (!pos?.trip_id) return null;
+      const resp = await fetch(
+        `/api/v1/trips/${pos.trip_id}/vehicles/${selectedTripVehicleId}/track/`,
+        { credentials: "include" },
+      );
       if (!resp.ok) {
         addToast("Track fetch failed", "error");
         return null;

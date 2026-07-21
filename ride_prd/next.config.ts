@@ -3,6 +3,9 @@ import path from "path";
 
 const config: NextConfig = {
   reactStrictMode: true,
+  // Allow LAN-IP access in dev so Next doesn't block its own _next/HMR resources
+  // as cross-origin (which breaks client hydration when not served from localhost).
+  allowedDevOrigins: ["192.168.1.39", "localhost", "127.0.0.1"],
   eslint: { ignoreDuringBuilds: true },
   skipTrailingSlashRedirect: true,
   transpilePackages: ["@ride/shared"],

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, keys, isApiError, useLanguageStore, t, formatMoney } from "@ride/shared";
 import type { components } from "@ride/shared/api/schema.d";
@@ -14,7 +14,9 @@ import { TripMapViewWrapper } from "@/components/trips/TripMapViewWrapper";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Search, X, CheckCircle, RefreshCw, Key } from "lucide-react";
 
-type TripSummary = components["schemas"]["TripSummary"];
+type Trip = components["schemas"]["TripRequest"];
+type Stop = components["schemas"]["Stop"];
+type TripVehicle = components["schemas"]["TripVehicle"];
 type Vehicle = components["schemas"]["Vehicle"];
 type Driver = components["schemas"]["Driver"];
 
@@ -23,23 +25,62 @@ const ACTIVE_STATUSES = new Set([
   "PAX_PICKED", "IN_TRANSIT", "AT_DROP", "PAX_DROPPED",
 ]);
 
-const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
+const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED", "NO_SHOW"]);
 
-const OTP_PHASES: Record<string, "pickup" | "drop"> = {
-  PAX_PICKED: "pickup",
-  PAX_DROPPED: "drop",
-};
+// The happy-path lifecycle in order. The vendor drives it with just two OTP actions
+// (Passenger Pickup, Passenger Drop); the intermediate driver states are advanced
+// automatically so a single click moves the whole journey forward.
+const LIFECYCLE = [
+  "ASSIGNED",
+  "DRIVER_ACCEPTED",
+  "EN_ROUTE_PICKUP",
+  "AT_PICKUP",
+  "PAX_PICKED",
+  "IN_TRANSIT",
+  "AT_DROP",
+  "PAX_DROPPED",
+  "COMPLETED",
+];
+const PRE_PICKUP = new Set(["ASSIGNED", "DRIVER_ACCEPTED", "EN_ROUTE_PICKUP", "AT_PICKUP"]);
+const PRE_DROP = new Set(["PAX_PICKED", "IN_TRANSIT", "AT_DROP"]);
 
-const TRANSITION_TARGETS: Record<string, string[]> = {
-  ASSIGNED: ["DRIVER_ACCEPTED", "EN_ROUTE_PICKUP"],
-  DRIVER_ACCEPTED: ["EN_ROUTE_PICKUP"],
-  EN_ROUTE_PICKUP: ["AT_PICKUP"],
-  AT_PICKUP: ["PAX_PICKED"],
-  PAX_PICKED: ["IN_TRANSIT"],
-  IN_TRANSIT: ["AT_DROP"],
-  AT_DROP: ["PAX_DROPPED"],
-  PAX_DROPPED: ["COMPLETED"],
-};
+// Ordered list of statuses to transition THROUGH to get from `from` up to and including `to`.
+function advancePath(from: string, to: string): string[] {
+  const i = LIFECYCLE.indexOf(from);
+  const j = LIFECYCLE.indexOf(to);
+  return i >= 0 && j > i ? LIFECYCLE.slice(i + 1, j + 1) : [];
+}
+
+async function postTransition(tripId: string, vehicleId: string, status: string): Promise<void> {
+  const { error } = await apiClient.POST("/v1/trips/{id}/vehicles/{vehicle_pk}/transitions", {
+    params: { path: { id: tripId, vehicle_pk: vehicleId } },
+    body: { status } as never,
+  });
+  if (error) throw error;
+}
+
+async function postVerifyOtp(
+  tripId: string,
+  vehicleId: string,
+  phase: "pickup" | "drop",
+  otp: string,
+): Promise<void> {
+  const { error } = await apiClient.POST("/v1/trips/{id}/vehicles/{vehicle_pk}/verify-otp", {
+    params: { path: { id: tripId, vehicle_pk: vehicleId } },
+    body: { phase, otp } as never,
+  });
+  if (error) throw error;
+}
+
+// Re-read the vehicle's live status so an orchestration is resilient to a partially-advanced
+// state (e.g. a previous wrong-OTP attempt already moved it to AT_PICKUP).
+async function fetchTvStatus(tripId: string, vehicleId: string, fallback: string): Promise<string> {
+  const { data } = await apiClient.GET("/v1/trips/{id}", { params: { path: { id: tripId } } });
+  const tv = (data as unknown as { vehicles?: { id: string; status: string }[] })?.vehicles?.find(
+    (v) => v.id === vehicleId,
+  );
+  return tv?.status ?? fallback;
+}
 
 export default function TripsPage() {
   const language = useLanguageStore((s) => s.language);
@@ -49,8 +90,8 @@ export default function TripsPage() {
   const { data: trips = [], isLoading } = useVendorTrips();
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null);
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
-  const [showReassignModal, setShowReassignModal] = useState<{ tripId: string; vehicleId: string } | null>(null);
-  const [otpModal, setOtpModal] = useState<{ tripId: string; vehicleId: string; phase: "pickup" | "drop"; targetStatus: string } | null>(null);
+  const [showReassignModal, setShowReassignModal] = useState<{ tripId: string; vehicleId: string; mode: "allot" | "reassign" } | null>(null);
+  const [otpModal, setOtpModal] = useState<{ tripId: string; vehicleId: string; phase: "pickup" | "drop"; currentStatus: string } | null>(null);
   const [otpValue, setOtpValue] = useState("");
   const [reassignVehicleId, setReassignVehicleId] = useState("");
   const [reassignDriverId, setReassignDriverId] = useState("");
@@ -66,7 +107,7 @@ export default function TripsPage() {
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/fleet/vehicles", {});
       if (err) throw err;
-      return (res?.result ?? []) as Vehicle[];
+      return (res?.results ?? []) as Vehicle[];
     },
   });
 
@@ -75,9 +116,29 @@ export default function TripsPage() {
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/fleet/drivers", {});
       if (err) throw err;
-      return (res?.result ?? []) as Driver[];
+      return (res?.results ?? []) as Driver[];
     },
   });
+
+  // Assets already committed to a live trip are locked (also enforced server-side) and must
+  // not be offered for another allocation. Derived from this vendor's active trips.
+  const { onTripVehicleIds, onTripDriverIds } = useMemo(() => {
+    const vIds = new Set<string>();
+    const dIds = new Set<string>();
+    const ACTIVE = new Set([
+      "ASSIGNED", "DRIVER_ACCEPTED", "EN_ROUTE_PICKUP", "AT_PICKUP", "PAX_PICKED",
+      "IN_TRANSIT", "AT_DROP", "PAX_DROPPED", "BREAKDOWN", "ACCIDENT", "VEHICLE_SWAP", "DELAYED", "SOS",
+    ]);
+    for (const trip of trips) {
+      for (const tv of trip.vehicles ?? []) {
+        if (ACTIVE.has(tv.status)) {
+          if (tv.vehicle) vIds.add(tv.vehicle);
+          if (tv.driver) dIds.add(tv.driver);
+        }
+      }
+    }
+    return { onTripVehicleIds: vIds, onTripDriverIds: dIds };
+  }, [trips]);
 
   const statusOptions = useMemo(() => {
     const set = new Set(trips.map((t) => t.status));
@@ -91,7 +152,7 @@ export default function TripsPage() {
         const q = debouncedSearch.toLowerCase();
         const matchId = trip.id.toLowerCase().includes(q);
         const matchRef = trip.reference?.toLowerCase().includes(q) ?? false;
-        const matchAddr = trip.pickupAddress?.toLowerCase().includes(q) ?? false;
+        const matchAddr = trip.stops?.[0]?.address?.toLowerCase().includes(q) ?? false;
         if (!matchId && !matchRef && !matchAddr) return false;
       }
       return true;
@@ -101,11 +162,11 @@ export default function TripsPage() {
   const transitionMutation = useMutation({
     mutationFn: async ({ tripId, vehicleId, targetStatus }: { tripId: string; vehicleId: string; targetStatus: string }) => {
       const { data: res, error: err } = await apiClient.POST(
-        "/v1/trips/{id}/vehicles/{vehicleId}/transitions",
-        { params: { path: { id: tripId, vehicleId } }, body: { targetStatus } }
+        "/v1/trips/{id}/vehicles/{vehicle_pk}/transitions",
+        { params: { path: { id: tripId, vehicle_pk: vehicleId } }, body: { status: targetStatus } as never }
       );
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: (_, vars) => {
       addToast(`Status updated → ${vars.targetStatus.replace(/_/g, " ")}`, "success");
@@ -120,39 +181,60 @@ export default function TripsPage() {
     },
   });
 
-  const otpMutation = useMutation({
-    mutationFn: async ({ tripId, vehicleId, phase, otp }: { tripId: string; vehicleId: string; phase: "pickup" | "drop"; otp: string }) => {
-      const { data: res, error: err } = await apiClient.POST(
-        "/v1/trips/{id}/vehicles/{vehicleId}/verify-otp",
-        { params: { path: { id: tripId, vehicleId } }, body: { phase, otp } }
-      );
-      if (err) throw err;
-      return res?.result;
+  // Pickup: advance the vehicle to AT_PICKUP (through any intermediate driver states),
+  // verify the pickup OTP, then move it to PAX_PICKED — one click, one OTP.
+  const pickupMutation = useMutation({
+    mutationFn: async ({ tripId, vehicleId, currentStatus, otp }: { tripId: string; vehicleId: string; currentStatus: string; otp: string }) => {
+      const cur = await fetchTvStatus(tripId, vehicleId, currentStatus);
+      for (const s of advancePath(cur, "AT_PICKUP")) await postTransition(tripId, vehicleId, s);
+      await postVerifyOtp(tripId, vehicleId, "pickup", otp);
+      await postTransition(tripId, vehicleId, "PAX_PICKED");
     },
-    onSuccess: (_, vars) => {
-      addToast(`OTP verified — ${vars.phase}`, "success");
+    onSuccess: () => {
+      addToast("Passenger picked up", "success");
       setOtpModal(null);
       setOtpValue("");
       void qc.invalidateQueries({ queryKey: keys.trips.all() });
     },
     onError: (err) => {
-      addToast(isApiError(err) ? (err as { message: string }).message : "OTP verification failed", "error");
+      addToast(isApiError(err) ? (err as { message: string }).message : "Pickup failed", "error");
+    },
+  });
+
+  // Drop: advance to AT_DROP (through IN_TRANSIT), verify the drop OTP, then PAX_DROPPED →
+  // COMPLETED, ending the trip — one click, one OTP.
+  const dropMutation = useMutation({
+    mutationFn: async ({ tripId, vehicleId, currentStatus, otp }: { tripId: string; vehicleId: string; currentStatus: string; otp: string }) => {
+      const cur = await fetchTvStatus(tripId, vehicleId, currentStatus);
+      for (const s of advancePath(cur, "AT_DROP")) await postTransition(tripId, vehicleId, s);
+      await postVerifyOtp(tripId, vehicleId, "drop", otp);
+      await postTransition(tripId, vehicleId, "PAX_DROPPED");
+      await postTransition(tripId, vehicleId, "COMPLETED");
+    },
+    onSuccess: () => {
+      addToast("Trip completed", "success");
+      setOtpModal(null);
+      setOtpValue("");
+      void qc.invalidateQueries({ queryKey: keys.trips.all() });
+    },
+    onError: (err) => {
+      addToast(isApiError(err) ? (err as { message: string }).message : "Drop failed", "error");
     },
   });
 
   const assignMutation = useMutation({
-    mutationFn: async ({ tripId, vehicleId, fleetVehicleId, driverId }: {
-      tripId: string; vehicleId: string; fleetVehicleId: string; driverId: string;
+    mutationFn: async ({ tripId, vehicleId, fleetVehicleId, driverId, reason }: {
+      tripId: string; vehicleId: string; fleetVehicleId: string; driverId: string; reason: string;
     }) => {
       const { data: res, error: err } = await apiClient.POST(
-        "/v1/trips/{id}/vehicles/{vehicleId}/assign",
+        "/v1/trips/{id}/vehicles/{vehicle_pk}/reassign",
         {
-          params: { path: { id: tripId, vehicleId } },
-          body: { fleetVehicleId, driverId },
+          params: { path: { id: tripId, vehicle_pk: vehicleId } },
+          body: { new_vehicle_id: fleetVehicleId, new_driver_id: driverId, reason } as never,
         }
       );
       if (err) throw err;
-      return res?.result;
+      return res;
     },
     onSuccess: () => {
       addToast("Vehicle and driver reassigned", "success");
@@ -167,20 +249,66 @@ export default function TripsPage() {
     },
   });
 
-  const handleTransition = useCallback((tripId: string, vehicleId: string, targetStatus: string) => {
-    if (OTP_PHASES[targetStatus]) {
-      setOtpModal({ tripId, vehicleId, phase: OTP_PHASES[targetStatus]!, targetStatus });
-    } else {
-      transitionMutation.mutate({ tripId, vehicleId, targetStatus });
-    }
-  }, [transitionMutation]);
+  // Initial allotment for a PENDING slot routed to this vendor: the vendor accepts the trip
+  // by choosing a vehicle+driver from their own fleet (assign, mode=manual → status ASSIGNED).
+  const allotMutation = useMutation({
+    mutationFn: async ({ tripId, vehicleId, fleetVehicleId, driverId }: {
+      tripId: string; vehicleId: string; fleetVehicleId: string; driverId: string;
+    }) => {
+      const { data: res, error: err } = await apiClient.POST(
+        "/v1/trips/{id}/vehicles/{vehicle_pk}/assign",
+        {
+          params: { path: { id: tripId, vehicle_pk: vehicleId } },
+          body: { mode: "manual", vehicle_id: fleetVehicleId, driver_id: driverId } as never,
+        }
+      );
+      if (err) throw err;
+      return res;
+    },
+    onSuccess: () => {
+      addToast("Trip accepted — vehicle & driver allotted", "success");
+      setShowReassignModal(null);
+      setReassignVehicleId("");
+      setReassignDriverId("");
+      void qc.invalidateQueries({ queryKey: keys.trips.all() });
+    },
+    onError: (err) => {
+      addToast(isApiError(err) ? (err as { message: string }).message : "Allotment failed", "error");
+    },
+  });
+
+  // Reject a PENDING request — Phase-1 has no soft decline, so this cancels the slot.
+  const rejectMutation = useMutation({
+    mutationFn: async ({ tripId, vehicleId }: { tripId: string; vehicleId: string }) => {
+      const { data: res, error: err } = await apiClient.POST(
+        "/v1/trips/{id}/vehicles/{vehicle_pk}/transitions",
+        {
+          params: { path: { id: tripId, vehicle_pk: vehicleId } },
+          body: { status: "CANCELLED", context: { reason: "Rejected by vendor" } } as never,
+        }
+      );
+      if (err) throw err;
+      return res;
+    },
+    onSuccess: () => {
+      addToast("Trip request rejected (cancelled)", "success");
+      void qc.invalidateQueries({ queryKey: keys.trips.all() });
+    },
+    onError: (err) => {
+      addToast(isApiError(err) ? (err as { message: string }).message : "Reject failed", "error");
+    },
+  });
 
   const handleOtpSubmit = () => {
     if (!otpModal || !otpValue.trim()) return;
-    otpMutation.mutate({ ...otpModal, otp: otpValue });
+    if (otpModal.phase === "pickup") {
+      pickupMutation.mutate({ ...otpModal, otp: otpValue });
+    } else {
+      dropMutation.mutate({ ...otpModal, otp: otpValue });
+    }
   };
 
-  const columns: Column<TripSummary>[] = [
+  const columns: Column<Trip>[] = [
     {
       key: "id", header: t("tripId", language),
       render: (trip) => <span className="font-mono text-xs">{trip.id.substring(0, 8)}…</span>,
@@ -195,18 +323,18 @@ export default function TripsPage() {
       key: "route", header: t("route", language),
       render: (trip) => (
         <span className="text-xs text-text-muted truncate max-w-[200px] inline-block">
-          {trip.pickupAddress ?? "—"}
+          {trip.stops?.[0]?.address ?? "—"}
         </span>
       ),
     },
     {
       key: "vehicles", header: "Vehicles",
-      render: (trip) => <span className="text-sm">{trip.vehicleCount ?? 1}</span>,
+      render: (trip) => <span className="text-sm">{trip.vehicles?.length ?? 1}</span>,
     },
     {
       key: "scheduled", header: t("scheduled", language),
-      render: (trip) => trip.scheduleWhen ? (
-        <span className="text-xs">{new Date(trip.scheduleWhen).toLocaleString()}</span>
+      render: (trip) => trip.pickup_at ? (
+        <span className="text-xs">{new Date(trip.pickup_at).toLocaleString()}</span>
       ) : <span className="text-text-muted">—</span>,
       sortable: true,
     },
@@ -303,7 +431,7 @@ export default function TripsPage() {
               <div>
                 <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">{t("route", language)}</h4>
                 <div className="space-y-3">
-                  {tripDetail.stops.map((stop, idx) => (
+                  {tripDetail.stops.map((stop: Stop, idx: number) => (
                     <div key={idx} className="flex items-start gap-3">
                       <div className="flex flex-col items-center">
                         <div className={`w-3 h-3 rounded-full mt-1 ${idx === 0 ? "bg-success" : idx === tripDetail.stops.length - 1 ? "bg-danger" : "bg-warning"}`} />
@@ -312,21 +440,18 @@ export default function TripsPage() {
                       <div>
                         <p className="text-sm text-text-primary font-medium">{stop.address}</p>
                         <p className="text-xs text-text-muted">
-                          {stop.locationType} · {stop.type}
-                          {stop.plannedTime && ` · ${new Date(stop.plannedTime).toLocaleTimeString()}`}
+                          {stop.location_type} · {stop.kind}
                         </p>
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="mt-4">
-                  <TripMapViewWrapper stops={tripDetail.stops.map((s) => ({
+                  <TripMapViewWrapper stops={tripDetail.stops.map((s: Stop) => ({
                     address: s.address,
-                    lat: s.lat,
-                    lng: s.lng,
-                    type: s.type as "PICKUP" | "DROP" | "WAYPOINT",
-                    locationType: s.locationType as "AIRPORT" | "RAIL" | "HOTEL" | "CITY" | "ADDRESS",
-                    plannedTime: s.plannedTime,
+                    lat: s.lat != null ? Number(s.lat) : 0,
+                    lng: s.lng != null ? Number(s.lng) : 0,
+                    type: s.kind,
                   }))} />
                 </div>
               </div>
@@ -336,9 +461,11 @@ export default function TripsPage() {
               <div>
                 <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Vehicles</h4>
                 <div className="space-y-3">
-                  {tripDetail.vehicles.map((tv, idx) => {
+                  {tripDetail.vehicles.map((tv: TripVehicle, idx: number) => {
                     const currentStatus = tv.status;
-                    const availableTargets = TRANSITION_TARGETS[currentStatus] ?? [];
+                    const canPickup = PRE_PICKUP.has(currentStatus);
+                    const canDrop = PRE_DROP.has(currentStatus);
+                    const canComplete = currentStatus === "PAX_DROPPED";
                     const canReassign = ACTIVE_STATUSES.has(currentStatus);
                     const isTerminal = TERMINAL_STATUSES.has(currentStatus);
 
@@ -349,12 +476,33 @@ export default function TripsPage() {
                             <span className="text-xs text-text-muted font-mono">Vehicle {idx + 1}</span>
                             <StatusBadge status={tv.status} />
                           </div>
+                          {currentStatus === "PENDING" && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setReassignVehicleId("");
+                                  setReassignDriverId("");
+                                  setShowReassignModal({ tripId: tripDetail.id, vehicleId: tv.id, mode: "allot" });
+                                }}
+                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-success/10 text-success border border-success/30 rounded-lg hover:bg-success/20 transition-colors font-medium"
+                              >
+                                <CheckCircle className="w-3 h-3" /> Accept &amp; Allot
+                              </button>
+                              <button
+                                onClick={() => rejectMutation.mutate({ tripId: tripDetail.id, vehicleId: tv.id })}
+                                disabled={rejectMutation.isPending}
+                                className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-danger/10 text-danger border border-danger/30 rounded-lg hover:bg-danger/20 transition-colors font-medium disabled:opacity-50"
+                              >
+                                <X className="w-3 h-3" /> Reject
+                              </button>
+                            </div>
+                          )}
                           {!isTerminal && canReassign && (
                             <button
                               onClick={() => {
-                                setReassignVehicleId(tv.vehicleId ?? "");
-                                setReassignDriverId(tv.driverId ?? "");
-                                setShowReassignModal({ tripId: tripDetail.id, vehicleId: tv.id });
+                                setReassignVehicleId(tv.vehicle ?? "");
+                                setReassignDriverId(tv.driver ?? "");
+                                setShowReassignModal({ tripId: tripDetail.id, vehicleId: tv.id, mode: "reassign" });
                               }}
                               className="flex items-center gap-1 px-2.5 py-1.5 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors font-medium"
                             >
@@ -363,43 +511,80 @@ export default function TripsPage() {
                           )}
                         </div>
 
-                        {tv.vehicleId && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-text-muted">Vehicle needed:</span>
+                          <span className="px-2 py-0.5 text-xs font-semibold bg-brand-blue/10 text-brand-blue rounded-md">
+                            {tv.vehicle_type_name}
+                          </span>
+                        </div>
+
+                        {tv.vehicle && (
                           <p className="text-xs text-text-muted">
-                            Fleet Vehicle: <span className="font-mono text-text-primary">{tv.vehicleId}</span>
+                            Fleet Vehicle: <span className="font-mono text-text-primary">{tv.vehicle_plate ?? tv.vehicle}</span>
                           </p>
                         )}
-                        {tv.driverId && (
+                        {tv.driver && (
                           <p className="text-xs text-text-muted">
-                            Driver: <span className="font-mono text-text-primary">{tv.driverId}</span>
+                            Driver: <span className="font-mono text-text-primary">{tv.driver_name ?? tv.driver}</span>
                           </p>
                         )}
-                        {tv.lockedPriceMinor != null && tv.lockedPriceCurrency && (
+                        {tv.locked_price != null && tv.currency && (
                           <p className="text-sm font-semibold text-text-primary">
-                            {formatMoney(tv.lockedPriceMinor, tv.lockedPriceCurrency)}
+                            {formatMoney(tv.locked_price, tv.currency)}
                           </p>
                         )}
 
-                        {!isTerminal && availableTargets.length > 0 && (
+                        {(() => {
+                          // pickup_otp/drop_otp aren't in the generated schema yet — read via cast.
+                          const otp = tv as unknown as { pickup_otp?: string; drop_otp?: string };
+                          if (!otp.pickup_otp && !otp.drop_otp) return null;
+                          return (
+                            <div className="flex flex-wrap gap-4 mt-1 p-2 bg-brand-blue/5 rounded-lg border border-brand-blue/10">
+                              {otp.pickup_otp && (
+                                <div className="text-xs">
+                                  <span className="text-text-muted">Pickup OTP: </span>
+                                  <span className="font-mono font-bold text-brand-blue tracking-widest">{otp.pickup_otp}</span>
+                                </div>
+                              )}
+                              {otp.drop_otp && (
+                                <div className="text-xs">
+                                  <span className="text-text-muted">Drop OTP: </span>
+                                  <span className="font-mono font-bold text-brand-blue tracking-widest">{otp.drop_otp}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {(canPickup || canDrop || canComplete) && (
                           <div className="flex flex-wrap gap-2 pt-1">
-                            {availableTargets.map((target) => {
-                              const needsOtp = !!OTP_PHASES[target];
-                              return (
-                                <button
-                                  key={target}
-                                  onClick={() => handleTransition(tripDetail.id, tv.id, target)}
-                                  disabled={transitionMutation.isPending}
-                                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${
-                                    target === "DRIVER_ACCEPTED"
-                                      ? "bg-success/10 text-success border border-success/30 hover:bg-success/20"
-                                      : "bg-brand-blue/10 text-brand-blue border border-brand-blue/20 hover:bg-brand-blue/20"
-                                  }`}
-                                >
-                                  {needsOtp && <Key className="w-3 h-3" />}
-                                  {target === "DRIVER_ACCEPTED" ? <CheckCircle className="w-3 h-3" /> : null}
-                                  {target.replace(/_/g, " ")}
-                                </button>
-                              );
-                            })}
+                            {canPickup && (
+                              <button
+                                onClick={() => setOtpModal({ tripId: tripDetail.id, vehicleId: tv.id, phase: "pickup", currentStatus })}
+                                disabled={pickupMutation.isPending}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium bg-brand-blue/10 text-brand-blue border border-brand-blue/20 hover:bg-brand-blue/20 transition-colors disabled:opacity-50"
+                              >
+                                <Key className="w-3 h-3" /> {pickupMutation.isPending ? "Picking up…" : "Passenger Pickup"}
+                              </button>
+                            )}
+                            {canDrop && (
+                              <button
+                                onClick={() => setOtpModal({ tripId: tripDetail.id, vehicleId: tv.id, phase: "drop", currentStatus })}
+                                disabled={dropMutation.isPending}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                              >
+                                <Key className="w-3 h-3" /> {dropMutation.isPending ? "Completing…" : "Passenger Drop"}
+                              </button>
+                            )}
+                            {canComplete && (
+                              <button
+                                onClick={() => transitionMutation.mutate({ tripId: tripDetail.id, vehicleId: tv.id, targetStatus: "COMPLETED" })}
+                                disabled={transitionMutation.isPending}
+                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium bg-emerald-600 text-white border border-emerald-600 hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                              >
+                                <CheckCircle className="w-3 h-3" /> Complete Trip
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -420,12 +605,14 @@ export default function TripsPage() {
         <Modal
           open={!!showReassignModal}
           onClose={() => { setShowReassignModal(null); setReassignVehicleId(""); setReassignDriverId(""); setReassignReason(""); }}
-          title="Reassign Vehicle & Driver"
+          title={showReassignModal.mode === "allot" ? "Accept & Allot — Vehicle & Driver" : "Reassign Vehicle & Driver"}
           size="lg"
         >
           <div className="space-y-4">
             <p className="text-sm text-text-muted">
-              Select a replacement vehicle and driver from your fleet. The current assignment will be replaced.
+              {showReassignModal.mode === "allot"
+                ? "Choose a vehicle and driver from your fleet to serve this trip. This accepts the request and assigns it."
+                : "Select a replacement vehicle and driver from your fleet. The current assignment will be replaced."}
             </p>
 
             <div>
@@ -436,9 +623,9 @@ export default function TripsPage() {
                 className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
               >
                 <option value="">Select vehicle…</option>
-                {fleetVehicles.filter((v) => v.active !== false).map((v) => (
+                {fleetVehicles.filter((v) => v.is_active !== false && !onTripVehicleIds.has(v.id)).map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.registrationNo} — {v.make} {v.model}
+                    {v.plate} — {v.vehicle_type_name}
                   </option>
                 ))}
               </select>
@@ -452,39 +639,60 @@ export default function TripsPage() {
                 className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
               >
                 <option value="">Select driver…</option>
-                {fleetDrivers.filter((d) => d.available !== false && d.active !== false).map((d) => (
+                {fleetDrivers.filter((d) => d.is_active !== false && d.status !== "OFFLINE" && !onTripDriverIds.has(d.id)).map((d) => (
                   <option key={d.id} value={d.id}>{d.name} — {d.phone}</option>
                 ))}
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">Reason</label>
-              <input
-                type="text"
-                value={reassignReason}
-                onChange={(e) => setReassignReason(e.target.value)}
-                placeholder="e.g. Vehicle breakdown, driver unavailable…"
-                className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-              />
-            </div>
+            {showReassignModal.mode !== "allot" && (
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-2">Reason <span className="text-danger">*</span></label>
+                <input
+                  type="text"
+                  value={reassignReason}
+                  onChange={(e) => setReassignReason(e.target.value)}
+                  placeholder="e.g. Vehicle breakdown, driver unavailable…"
+                  className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                />
+              </div>
+            )}
 
             <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => {
-                  if (!showReassignModal || !reassignVehicleId || !reassignDriverId) return;
-                  assignMutation.mutate({
-                    tripId: showReassignModal.tripId,
-                    vehicleId: showReassignModal.vehicleId,
-                    fleetVehicleId: reassignVehicleId,
-                    driverId: reassignDriverId,
-                  });
-                }}
-                disabled={!reassignVehicleId || !reassignDriverId || assignMutation.isPending}
-                className="flex-1 px-4 py-2.5 bg-brand-blue text-white rounded-lg font-medium text-sm hover:bg-brand-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {assignMutation.isPending ? "Reassigning…" : "Confirm Reassign"}
-              </button>
+              {showReassignModal.mode === "allot" ? (
+                <button
+                  onClick={() => {
+                    if (!showReassignModal || !reassignVehicleId || !reassignDriverId) return;
+                    allotMutation.mutate({
+                      tripId: showReassignModal.tripId,
+                      vehicleId: showReassignModal.vehicleId,
+                      fleetVehicleId: reassignVehicleId,
+                      driverId: reassignDriverId,
+                    });
+                  }}
+                  disabled={!reassignVehicleId || !reassignDriverId || allotMutation.isPending}
+                  className="flex-1 px-4 py-2.5 bg-success text-white rounded-lg font-medium text-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {allotMutation.isPending ? "Allotting…" : "Accept & Allot"}
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (!showReassignModal || !reassignVehicleId || !reassignDriverId || !reassignReason.trim()) return;
+                    assignMutation.mutate({
+                      tripId: showReassignModal.tripId,
+                      vehicleId: showReassignModal.vehicleId,
+                      fleetVehicleId: reassignVehicleId,
+                      driverId: reassignDriverId,
+                      reason: reassignReason,
+                    });
+                  }}
+                  disabled={!reassignVehicleId || !reassignDriverId || !reassignReason.trim() || assignMutation.isPending}
+                  className="flex-1 px-4 py-2.5 bg-brand-blue text-white rounded-lg font-medium text-sm hover:bg-brand-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {assignMutation.isPending ? "Reassigning…" : "Confirm Reassign"}
+                </button>
+              )}
               <button
                 onClick={() => { setShowReassignModal(null); setReassignVehicleId(""); setReassignDriverId(""); setReassignReason(""); }}
                 className="px-4 py-2.5 border border-border text-text-primary rounded-lg font-medium text-sm hover:bg-ops-bg transition-colors"
@@ -522,10 +730,14 @@ export default function TripsPage() {
             <div className="flex gap-3 pt-2">
               <button
                 onClick={handleOtpSubmit}
-                disabled={!otpValue.trim() || otpMutation.isPending}
+                disabled={!otpValue.trim() || pickupMutation.isPending || dropMutation.isPending}
                 className="flex-1 px-4 py-2.5 bg-success text-white rounded-lg font-medium text-sm hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {otpMutation.isPending ? "Verifying…" : "Verify OTP"}
+                {pickupMutation.isPending || dropMutation.isPending
+                  ? "Confirming…"
+                  : otpModal.phase === "pickup"
+                    ? "Confirm Pickup"
+                    : "Confirm Drop & Complete"}
               </button>
               <button
                 onClick={() => { setOtpModal(null); setOtpValue(""); }}

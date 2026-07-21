@@ -11,6 +11,14 @@ export type TripEvent =
   | { type: "trip.completed"; tripId: string; payload: Record<string, unknown> }
   | { type: "trip.assigned"; tripId: string; payload: Record<string, unknown> };
 
+// Vendor allocation offer cycle (BE-18): an offer is made to a vendor, alerted near its
+// response deadline, then either accepted (→ trip.assigned), withdrawn, or expired.
+export type OfferEvent =
+  | { type: "trip.offer_made"; tripId: string; payload: Record<string, unknown> }
+  | { type: "trip.offer_alerted"; tripId: string; payload: Record<string, unknown> }
+  | { type: "trip.offer_expired"; tripId: string; payload: Record<string, unknown> }
+  | { type: "trip.offer_withdrawn"; tripId: string; payload: Record<string, unknown> };
+
 export type BillingEvent =
   | { type: "billing.invoice_created"; invoiceId: string; payload: Record<string, unknown> }
   | { type: "billing.invoice_updated"; invoiceId: string; payload: Record<string, unknown> };
@@ -41,6 +49,7 @@ export type DocumentEvent = {
 
 export type RideEvent =
   | TripEvent
+  | OfferEvent
   | BillingEvent
   | SosEvent
   | TrackingEvent

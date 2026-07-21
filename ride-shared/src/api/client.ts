@@ -45,6 +45,33 @@ function needsIdempotencyKey(url: string): boolean {
   return IDEMPOTENT_PATH_PATTERNS.some((re) => re.test(url));
 }
 
+// `crypto.randomUUID` only exists in a secure context (HTTPS or http://localhost).
+// When the app is served over plain HTTP on a LAN IP (e.g. http://192.168.1.39),
+// it is undefined and calling it throws, which breaks idempotent writes
+// (book/cancel/adjustments/approve). `crypto.getRandomValues` IS available in
+// insecure contexts, so fall back to a manual RFC-4122 v4 UUID.
+function uuidv4(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80; // variant 10
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0"));
+  return (
+    hex.slice(0, 4).join("") +
+    "-" +
+    hex.slice(4, 6).join("") +
+    "-" +
+    hex.slice(6, 8).join("") +
+    "-" +
+    hex.slice(8, 10).join("") +
+    "-" +
+    hex.slice(10, 16).join("")
+  );
+}
+
 function getCookie(name: string): string | undefined {
   if (typeof document === "undefined") return undefined;
   const match = document.cookie
@@ -70,6 +97,29 @@ async function ensureCsrfCookie(): Promise<void> {
   await csrfFetchPromise;
 }
 
+/**
+ * `fetch` drop-in for the handful of call sites that build requests by hand instead of
+ * through `apiClient` (trip quote/book, bulk upload, clone, cancel, quote simulator).
+ * It defaults `credentials: "include"` and — for unsafe methods — ensures the CSRF cookie
+ * exists and attaches the `X-CSRFToken` header, exactly like `csrfMiddleware` does for the
+ * typed client. Without it Django rejects those POSTs with 403 "CSRF token missing".
+ */
+export async function csrfFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+): Promise<Response> {
+  const method = (init.method ?? "GET").toUpperCase();
+  const headers = new Headers(init.headers);
+  if (UNSAFE_METHODS.has(method)) {
+    await ensureCsrfCookie();
+    const token = getCookie("csrftoken");
+    if (token && !headers.has("X-CSRFToken")) {
+      headers.set("X-CSRFToken", token);
+    }
+  }
+  return fetch(input, { credentials: "include", ...init, headers });
+}
+
 const csrfMiddleware: Middleware = {
   async onRequest({ request }) {
     if (!UNSAFE_METHODS.has(request.method)) return request;
@@ -91,20 +141,39 @@ const idempotencyMiddleware: Middleware = {
     if (!needsIdempotencyKey(url.pathname)) return request;
     const headers = new Headers(request.headers);
     if (!headers.has("Idempotency-Key")) {
-      headers.set("Idempotency-Key", crypto.randomUUID());
+      headers.set("Idempotency-Key", uuidv4());
     }
     return new Request(request, { headers });
   },
 };
 
 const trailingSlashMiddleware: Middleware = {
-  onRequest({ request }) {
+  async onRequest({ request }) {
     const url = new URL(request.url);
-    if (!url.pathname.endsWith("/") && !url.pathname.includes(".")) {
-      url.pathname += "/";
-      return new Request(url.toString(), request);
+    if (url.pathname.endsWith("/") || url.pathname.includes(".")) {
+      return request;
     }
-    return request;
+    url.pathname += "/";
+    // NOTE: `new Request(newUrl, request)` silently drops the body of POST/PATCH
+    // requests (the body ReadableStream is not transferable across a URL change
+    // without `duplex`), which made the proxied write arrive body-less and fail
+    // (503 at the Next rewrite proxy). Read the body first and rebuild the request
+    // explicitly so the payload survives the trailing-slash rewrite.
+    const hasBody = request.method !== "GET" && request.method !== "HEAD";
+    const body = hasBody ? await request.arrayBuffer() : undefined;
+    return new Request(url.toString(), {
+      method: request.method,
+      headers: request.headers,
+      body,
+      credentials: request.credentials,
+      mode: request.mode,
+      cache: request.cache,
+      redirect: request.redirect,
+      referrer: request.referrer,
+      integrity: request.integrity,
+      keepalive: request.keepalive,
+      signal: request.signal,
+    });
   },
 };
 
