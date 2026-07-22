@@ -3,16 +3,17 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListOrdered, Truck, CircleDollarSign, Bell, LogOut, X } from "lucide-react";
+import { LayoutDashboard, ListOrdered, Inbox, Truck, CircleDollarSign, Bell, LogOut, X } from "lucide-react";
 import { useAuth, useLanguageStore, t } from "@ride/shared";
 import { useRouter } from "next/navigation";
 
 export const NAV_ITEMS = [
   { href: "/" as const, labelKey: "dashboard" as const, icon: LayoutDashboard, shortcut: "1" as const },
-  { href: "/trips" as const, labelKey: "trips" as const, icon: ListOrdered, shortcut: "2" as const },
-  { href: "/fleet" as const, labelKey: "fleet" as const, icon: Truck, shortcut: "3" as const },
-  { href: "/earnings" as const, labelKey: "earnings" as const, icon: CircleDollarSign, shortcut: "4" as const },
-  { href: "/alerts" as const, labelKey: "alerts" as const, icon: Bell, shortcut: "5" as const },
+  { href: "/offers" as const, labelKey: "offers" as const, icon: Inbox, shortcut: "2" as const },
+  { href: "/trips" as const, labelKey: "trips" as const, icon: ListOrdered, shortcut: "3" as const },
+  { href: "/fleet" as const, labelKey: "fleet" as const, icon: Truck, shortcut: "4" as const },
+  { href: "/earnings" as const, labelKey: "earnings" as const, icon: CircleDollarSign, shortcut: "5" as const },
+  { href: "/alerts" as const, labelKey: "alerts" as const, icon: Bell, shortcut: "6" as const },
 ] as const;
 
 interface SidebarProps {

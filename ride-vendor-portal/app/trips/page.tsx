@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { Modal } from "@/components/ui/Modal";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Drawer } from "@/components/ui/Drawer";
 import { TripMapViewWrapper } from "@/components/trips/TripMapViewWrapper";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -139,6 +140,38 @@ export default function TripsPage() {
     }
     return { onTripVehicleIds: vIds, onTripDriverIds: dIds };
   }, [trips]);
+
+  // Busy assets stay VISIBLE but greyed out, so the vendor can see the whole fleet and understand
+  // why something can't be picked. They become selectable again the moment the trip releases them.
+  const vehicleOptions = useMemo(
+    () =>
+      fleetVehicles
+        .filter((v) => v.is_active !== false)
+        .map((v) => ({
+          value: v.id,
+          label: `${v.plate} — ${v.vehicle_type_name}`,
+          disabled: onTripVehicleIds.has(v.id),
+          hint: "on a trip",
+        })),
+    [fleetVehicles, onTripVehicleIds],
+  );
+
+  const driverOptions = useMemo(
+    () =>
+      fleetDrivers
+        .filter((d) => d.is_active !== false)
+        .map((d) => {
+          const offline = d.status === "OFFLINE";
+          const busy = onTripDriverIds.has(d.id);
+          return {
+            value: d.id,
+            label: `${d.name} — ${d.phone}`,
+            disabled: busy || offline,
+            hint: busy ? "on a trip" : offline ? "offline" : undefined,
+          };
+        }),
+    [fleetDrivers, onTripDriverIds],
+  );
 
   const statusOptions = useMemo(() => {
     const set = new Set(trips.map((t) => t.status));
@@ -616,33 +649,27 @@ export default function TripsPage() {
             </p>
 
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">Vehicle <span className="text-danger">*</span></label>
-              <select
+              <label className="block text-sm font-medium text-text-primary mb-2">
+                Vehicle <span className="text-danger">*</span>
+              </label>
+              <SearchableSelect
                 value={reassignVehicleId}
-                onChange={(e) => setReassignVehicleId(e.target.value)}
-                className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-              >
-                <option value="">Select vehicle…</option>
-                {fleetVehicles.filter((v) => v.is_active !== false && !onTripVehicleIds.has(v.id)).map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.plate} — {v.vehicle_type_name}
-                  </option>
-                ))}
-              </select>
+                onChange={setReassignVehicleId}
+                options={vehicleOptions}
+                placeholder="Search by plate or type…"
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-text-primary mb-2">Driver <span className="text-danger">*</span></label>
-              <select
+              <label className="block text-sm font-medium text-text-primary mb-2">
+                Driver <span className="text-danger">*</span>
+              </label>
+              <SearchableSelect
                 value={reassignDriverId}
-                onChange={(e) => setReassignDriverId(e.target.value)}
-                className="w-full px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-              >
-                <option value="">Select driver…</option>
-                {fleetDrivers.filter((d) => d.is_active !== false && d.status !== "OFFLINE" && !onTripDriverIds.has(d.id)).map((d) => (
-                  <option key={d.id} value={d.id}>{d.name} — {d.phone}</option>
-                ))}
-              </select>
+                onChange={setReassignDriverId}
+                options={driverOptions}
+                placeholder="Search driver by name or phone…"
+              />
             </div>
 
             {showReassignModal.mode !== "allot" && (

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ApiProviders, useRideEvents, keys } from "@ride/shared";
@@ -19,6 +19,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 const PAGE_TITLES: Record<string, string> = {
   "/": "Dashboard",
+  "/offers": "Offers",
   "/trips": "Trips",
   "/fleet": "Fleet",
   "/earnings": "Earnings",
@@ -62,7 +63,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     const hintDismissed = sessionStorage.getItem("ride_kb_hint_dismissed");
     if (!hintDismissed) {
       sessionStorage.setItem("ride_kb_hint_dismissed", "true");
-      addToast("Keyboard shortcuts active: 1-5 to navigate", "info");
+      addToast("Keyboard shortcuts active: 1-6 to navigate", "info");
     }
     setMobileSidebarOpen(false);
   }, [addToast]);
@@ -71,6 +72,16 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
   const isLogin = pathname === "/login";
   const title = PAGE_TITLES[pathname] || "Vendor Portal";
+
+  // Redirect from an effect, never from the render body. Calling router.push() while this
+  // component renders updates the Router mid-render, which React reports as
+  // "Cannot update a component (Router) while rendering a different component (LayoutInner)".
+  // `replace` (not `push`) so the protected URL isn't left in history for the back button.
+  useEffect(() => {
+    if (!isLoading && !user && !isLogin) {
+      router.replace("/login");
+    }
+  }, [isLoading, user, isLogin, router]);
 
   if (isLogin) return <>{children}</>;
 
@@ -85,10 +96,8 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
+  // The effect above is navigating; render nothing rather than flashing the shell.
+  if (!user) return null;
 
   const isVendor = VENDOR_ROLES.includes(user.role as typeof VENDOR_ROLES[number]);
   if (!isVendor) {
