@@ -13,6 +13,8 @@ import { Drawer } from "@/components/ui/Drawer";
 import { TripMapViewWrapper } from "@/components/trips/TripMapViewWrapper";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Search, X, CheckCircle, RefreshCw, Key } from "lucide-react";
+import { OfferTimeline } from "@/components/offers/OfferTimeline";
+import type { OfferRound } from "@/components/offers/OfferTimeline";
 
 type Trip = components["schemas"]["TripRequest"];
 type Stop = components["schemas"]["Stop"];
@@ -80,6 +82,31 @@ async function fetchTvStatus(tripId: string, vehicleId: string, fallback: string
     (v) => v.id === vehicleId,
   );
   return tv?.status ?? fallback;
+}
+
+function OfferRoundsSection({ tripId }: { tripId: string }) {
+  const { data: rounds = [], isLoading } = useQuery<OfferRound[]>({
+    queryKey: ["trip-offers", tripId],
+    queryFn: async () => {
+      const { data: res, error } = await apiClient.GET("/v1/trips/{id}/offers" as never, {
+        params: { path: { id: tripId } },
+      } as never);
+      if (error) throw error;
+      return ((res as unknown as { result?: OfferRound[] })?.result ?? []) as OfferRound[];
+    },
+    enabled: !!tripId,
+    staleTime: 30_000,
+  });
+
+  if (isLoading) return null;
+  if (!rounds.length) return null;
+
+  return (
+    <div>
+      <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">Offer History</h4>
+      <OfferTimeline rounds={rounds} />
+    </div>
+  );
 }
 
 export default function TripsPage() {
@@ -593,6 +620,8 @@ export default function TripsPage() {
                 </div>
               </div>
             )}
+
+            <OfferRoundsSection tripId={selectedTripId} />
           </div>
         )}
         {selectedTripId && !tripDetail && (

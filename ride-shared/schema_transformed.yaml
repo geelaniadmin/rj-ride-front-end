@@ -1445,6 +1445,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/BoardCard'
           description: ''
+  /v1/dispatch/incoming:
+    get:
+      operationId: dispatch_incoming_retrieve
+      description: API-originated trips awaiting allocation (offer intake queue, commit
+        18, §9).
+      tags:
+      - dispatch
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BoardCard'
+          description: ''
   /v1/fleet/customers:
     get:
       operationId: fleet_customers_list
@@ -2761,6 +2777,44 @@ paths:
               schema:
                 $ref: '#/components/schemas/NotificationTemplate'
           description: ''
+  /v1/offers/{id}/accept:
+    post:
+      operationId: offers_accept_create
+      description: POST /api/v1/offers/{pk}/accept — the vendor's only response (assign
+        vehicle+driver).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - offers
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /v1/offers/{id}/withdraw:
+    post:
+      operationId: offers_withdraw_create
+      description: POST /api/v1/offers/{pk}/withdraw — AGENCY_ADMIN pulls an active
+        offer to re-route early.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - offers
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /v1/partner-credentials:
     get:
       operationId: partner_credentials_list
@@ -3454,6 +3508,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/TripRequest'
           description: ''
+  /v1/trips/{id}/offers:
+    get:
+      operationId: trips_offers_retrieve
+      description: GET /api/v1/trips/{pk}/offers — the offer history timeline for
+        a trip.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - trips
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /v1/trips/{id}/vehicles/{vehicle_pk}/assign:
     post:
       operationId: trips_vehicles_assign_create
@@ -3865,6 +3938,25 @@ paths:
       responses:
         '200':
           description: No response body
+  /v1/trips/vehicles/{vehicle_pk}/offer:
+    post:
+      operationId: trips_vehicles_offer_create
+      description: POST /api/v1/trips/vehicles/{vehicle_pk}/offer — AGENCY_ADMIN offers
+        a slot to a vendor.
+      parameters:
+      - in: path
+        name: vehicle_pk
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - trips
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /v1/users:
     get:
       operationId: users_retrieve
@@ -3920,6 +4012,18 @@ paths:
       - cookieAuth: []
       responses:
         '204':
+          description: No response body
+  /v1/vendor/offers:
+    get:
+      operationId: vendor_offers_retrieve
+      description: GET /api/v1/vendor/offers?status=active — the vendor's live offer
+        queue with countdowns.
+      tags:
+      - vendor
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
           description: No response body
   /healthz:
     get:
@@ -4387,7 +4491,7 @@ components:
           readOnly: true
         status:
           allOf:
-          - $ref: '#/components/schemas/StatusC34Enum'
+          - $ref: '#/components/schemas/StatusBaeEnum'
           readOnly: true
         column:
           type: string
@@ -6143,9 +6247,10 @@ components:
         * `STATEMENTED` - Statemented
 
         * `RECONCILED` - Reconciled'
-    StatusC34Enum:
+    StatusBaeEnum:
       enum:
       - PENDING
+      - VENDOR_OFFERED
       - ASSIGNED
       - DRIVER_ACCEPTED
       - EN_ROUTE_PICKUP
@@ -6164,6 +6269,8 @@ components:
       - CANCELLED
       type: string
       description: '* `PENDING` - Pending
+
+        * `VENDOR_OFFERED` - Offered to vendor
 
         * `ASSIGNED` - Assigned
 
@@ -6394,7 +6501,7 @@ components:
           nullable: true
         status:
           allOf:
-          - $ref: '#/components/schemas/StatusC34Enum'
+          - $ref: '#/components/schemas/StatusBaeEnum'
           readOnly: true
         locked_price:
           type: integer
@@ -6415,6 +6522,12 @@ components:
         drop_verified:
           type: boolean
           readOnly: true
+        pickup_otp:
+          type: string
+          readOnly: true
+        drop_otp:
+          type: string
+          readOnly: true
         pax:
           readOnly: true
           description: 'Passenger list: [{name, phone, email?}].'
@@ -6431,12 +6544,14 @@ components:
       - currency
       - driver
       - driver_name
+      - drop_otp
       - drop_verified
       - id
       - locked_price
       - locked_rate_card_version
       - pax
       - penalty_minor
+      - pickup_otp
       - pickup_verified
       - requested_vehicle_type
       - status

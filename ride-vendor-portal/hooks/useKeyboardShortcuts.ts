@@ -9,6 +9,7 @@ const SHORTCUT_MAP: Record<string, string> = {
   "3": "/fleet",
   "4": "/earnings",
   "5": "/alerts",
+  "6": "/offers",
 };
 
 interface UseKeyboardShortcutsOptions {

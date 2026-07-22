@@ -23,6 +23,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/fleet": "Fleet",
   "/earnings": "Earnings",
   "/alerts": "Alerts",
+  "/offers": "Offers",
 };
 
 // Must match the backend's User.Role enum (apps/accounts): the vendor-side roles are
@@ -39,6 +40,10 @@ function RealtimeSync() {
       "trip.cancelled": keys.trips.all(),
       "trip.completed": keys.trips.all(),
       "trip.assigned": keys.trips.all(),
+      "trip.offer_made": keys.offers.all(),
+      "trip.offer_alerted": keys.offers.all(),
+      "trip.offer_expired": keys.offers.all(),
+      "trip.offer_withdrawn": keys.offers.all(),
       "billing.invoice_created": keys.billing.all(),
       "billing.invoice_updated": keys.billing.all(),
     },

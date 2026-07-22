@@ -15,6 +15,7 @@ import {
   Code2,
   ClipboardList,
   GitBranch,
+  Inbox,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -23,8 +24,9 @@ const NAV_ITEMS = [
   { labelKey: "pricingAndQuotes" as const, icon: Tags, href: "/pricing" },
   { labelKey: "tripRequests" as const, icon: Route, href: "/trips" },
   { labelKey: "dispatch" as const, icon: Radio, href: "/dispatch" },
+  { labelKey: "incomingQueue" as const, icon: Inbox, href: "/dispatch/incoming" },
   { labelKey: "tracking" as const, icon: MapPin, href: "/tracking" },
-{ labelKey: "rosters" as const, icon: ClipboardList, href: "/rosters" },
+  { labelKey: "rosters" as const, icon: ClipboardList, href: "/rosters" },
   { labelKey: "pooling" as const, icon: GitBranch, href: "/pooling" },
   { labelKey: "billing" as const, icon: Receipt, href: "/billing" },
   { labelKey: "apiConsole" as const, icon: Code2, href: "/api-console" },

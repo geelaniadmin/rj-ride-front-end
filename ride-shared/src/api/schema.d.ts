@@ -773,6 +773,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/dispatch/incoming": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description API-originated trips awaiting allocation (offer intake queue, commit 18, §9). */
+        get: operations["dispatch_incoming_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/fleet/customers": {
         parameters: {
             query?: never;
@@ -1280,6 +1297,40 @@ export interface paths {
         patch: operations["notifications_templates_partial_update"];
         trace?: never;
     };
+    "/v1/offers/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description POST /api/v1/offers/{pk}/accept — the vendor's only response (assign vehicle+driver). */
+        post: operations["offers_accept_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/offers/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description POST /api/v1/offers/{pk}/withdraw — AGENCY_ADMIN pulls an active offer to re-route early. */
+        post: operations["offers_withdraw_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/partner-credentials": {
         parameters: {
             query?: never;
@@ -1675,6 +1726,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/trips/{id}/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET /api/v1/trips/{pk}/offers — the offer history timeline for a trip. */
+        get: operations["trips_offers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/trips/{id}/vehicles/{vehicle_pk}/assign": {
         parameters: {
             query?: never;
@@ -1904,6 +1972,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/trips/vehicles/{vehicle_pk}/offer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description POST /api/v1/trips/vehicles/{vehicle_pk}/offer — AGENCY_ADMIN offers a slot to a vendor. */
+        post: operations["trips_vehicles_offer_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/users": {
         parameters: {
             query?: never;
@@ -1935,6 +2020,23 @@ export interface paths {
         post?: never;
         /** @description Deactivates. Users are never hard-deleted (ARCHITECTURE.md §9). */
         delete: operations["users_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/vendor/offers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET /api/v1/vendor/offers?status=active — the vendor's live offer queue with countdowns. */
+        get: operations["vendor_offers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2295,7 +2397,7 @@ export interface components {
             readonly vendor_name: string;
             readonly vehicle_registration: string;
             readonly driver_name: string;
-            readonly status: components["schemas"]["StatusC34Enum"];
+            readonly status: components["schemas"]["StatusBaeEnum"];
             /** @description Map granular status to board column name. */
             readonly column: string;
             /** @description Integer minor units. Set once at booking; DB trigger rejects changes. */
@@ -3132,6 +3234,7 @@ export interface components {
         Status3c2Enum: "UNBILLED" | "STATEMENTED" | "RECONCILED";
         /**
          * @description * `PENDING` - Pending
+         *     * `VENDOR_OFFERED` - Offered to vendor
          *     * `ASSIGNED` - Assigned
          *     * `DRIVER_ACCEPTED` - Driver accepted
          *     * `EN_ROUTE_PICKUP` - En route to pickup
@@ -3150,7 +3253,7 @@ export interface components {
          *     * `CANCELLED` - Cancelled
          * @enum {string}
          */
-        StatusC34Enum: "PENDING" | "ASSIGNED" | "DRIVER_ACCEPTED" | "EN_ROUTE_PICKUP" | "AT_PICKUP" | "PAX_PICKED" | "IN_TRANSIT" | "AT_DROP" | "PAX_DROPPED" | "COMPLETED" | "NO_SHOW" | "BREAKDOWN" | "ACCIDENT" | "VEHICLE_SWAP" | "DELAYED" | "SOS" | "CANCELLED";
+        StatusBaeEnum: "PENDING" | "VENDOR_OFFERED" | "ASSIGNED" | "DRIVER_ACCEPTED" | "EN_ROUTE_PICKUP" | "AT_PICKUP" | "PAX_PICKED" | "IN_TRANSIT" | "AT_DROP" | "PAX_DROPPED" | "COMPLETED" | "NO_SHOW" | "BREAKDOWN" | "ACCIDENT" | "VEHICLE_SWAP" | "DELAYED" | "SOS" | "CANCELLED";
         Stop: {
             /** Format: uuid */
             readonly id: string;
@@ -3222,13 +3325,15 @@ export interface components {
             /** Format: uuid */
             readonly driver: string | null;
             readonly driver_name: string | null;
-            readonly status: components["schemas"]["StatusC34Enum"];
+            readonly status: components["schemas"]["StatusBaeEnum"];
             /** @description Integer minor units. Set once at booking; DB trigger rejects changes. */
             readonly locked_price: number | null;
             readonly locked_rate_card_version: number | null;
             readonly currency: string;
             readonly pickup_verified: boolean;
             readonly drop_verified: boolean;
+            readonly pickup_otp: string;
+            readonly drop_otp: string;
             /** @description Passenger list: [{name, phone, email?}]. */
             readonly pax: unknown;
             /** @description Cancellation penalty in minor units. Set by cancel_vehicle(). */
@@ -4491,6 +4596,25 @@ export interface operations {
             };
         };
     };
+    dispatch_incoming_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardCard"];
+                };
+            };
+        };
+    };
     fleet_customers_list: {
         parameters: {
             query?: {
@@ -5391,6 +5515,46 @@ export interface operations {
             };
         };
     };
+    offers_accept_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    offers_withdraw_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     partner_credentials_list: {
         parameters: {
             query?: {
@@ -5976,6 +6140,26 @@ export interface operations {
             };
         };
     };
+    trips_offers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     trips_vehicles_assign_create: {
         parameters: {
             query?: never;
@@ -6328,6 +6512,26 @@ export interface operations {
             };
         };
     };
+    trips_vehicles_offer_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vehicle_pk: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     users_retrieve: {
         parameters: {
             query?: never;
@@ -6397,6 +6601,24 @@ export interface operations {
         responses: {
             /** @description No response body */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    vendor_offers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

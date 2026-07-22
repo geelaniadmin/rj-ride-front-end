@@ -125,7 +125,7 @@ export const TripDetailView: React.FC<TripDetailViewProps> = ({ tripId }) => {
                   <span className="font-mono text-xs text-text-secondary">{v.id.substring(0, 8)}…</span>
                   <span className="ml-2 text-text-secondary">vt: {v.vehicle_type_name}</span>
                 </div>
-                <StatusBadge status={v.status} />
+                <StatusBadge status={v.status as never} />
               </div>
 
               {v.locked_price != null && v.currency && (
