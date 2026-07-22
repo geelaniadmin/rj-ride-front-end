@@ -257,8 +257,14 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
             <Input
               value={formData.traccar_device_id ?? ""}
               onChange={(e) => setFormData({ ...formData, traccar_device_id: e.target.value })}
-              placeholder="Optional — GPS tracker id"
+              placeholder="Optional — e.g. 1"
+              inputMode="numeric"
             />
+            <p className="text-xs text-text-secondary mt-1">
+              Traccar&apos;s <strong>numeric device id</strong> (the <code>id</code> column in
+              Traccar → Devices) — not the IMEI or plate. GPS only reaches this vehicle when this
+              matches.
+            </p>
           </FormField>
 
           <div className="flex items-center gap-2">

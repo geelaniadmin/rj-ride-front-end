@@ -1,152 +1,155 @@
-# RIDE Ops Portal — Phase-wise Prompt Pack
-# 3 roles: Control room | Rate manager | Super admin
-# Fully wired to ride-shared (rideprd + vendor portal sync)
+# RITMO Booking API Integration Document
+
+## Overview
+
+This document describes the API flow for creating a RITMO booking. The integration requires two steps:
+
+1. Generate an access token using the API key.
+2. Use the generated token to create a booking request.
 
 ---
 
-## Folder it lives in
+# Step 1 — Generate Access Token
 
-  Ride_polish/
-    rideprd/               existing
-    ride-shared/           existing
-    ride-vendor-portal/    existing
-    ride-ops-portal/       ← this project
-
----
-
-## Files
-
-  OPS_CONTEXT.md           Paste before every phase
-  phase-0-foundation.md    Shell, login, role switcher, UI components
-  phase-1-control-room.md  Preethi — safety board, SOS, anomalies, reports
-  phase-2-rate-manager.md  Rate cards, versioning, simulator, audit
-  phase-3-super-admin.md   Geelani — all tenants, billing, health, audit
-  phase-4-polish.md        Notifications, mobile, E2E demo script
-
----
-
-## 5 wire-ups (all cross-portal, no page refresh)
-
-  1. SOS acknowledge  ops portal → rideprd + vendor portal
-  2. Rate card new    ops portal → rideprd pricing + trips
-  3. New tenant       ops portal → rideprd tenant switcher
-  4. Trip complete    rideprd → ops portal platform revenue
-  5. All actions      all portals → ops portal cross-tenant audit log
-
----
-
-## How to use
-
-  From Ride_polish/:
-    Phase 0: cat OPS_CONTEXT.md phase-0-foundation.md | claude
-    Test: login as all 3 roles, debug badge shows shared store counts
-    Commit: ride-ops-portal + ride-shared
-
-    Phase 1: cat OPS_CONTEXT.md phase-1-control-room.md | claude
-    Test: SOS ack in ops → rideprd dispatch clears (no refresh)
-
-    Phase 2: cat OPS_CONTEXT.md phase-2-rate-manager.md | claude
-    Test: new rate card in ops → rideprd pricing shows it (no refresh)
-
-    Phase 3: cat OPS_CONTEXT.md phase-3-super-admin.md | claude
-    Test: new tenant in ops → rideprd switcher shows it (no refresh)
-
-    Phase 4: cat OPS_CONTEXT.md phase-4-polish.md | claude
-    Test: run full 10-step e2e demo script
-
----
-
-## Estimated time (AI agents running vigorously)
-
-  Phase 0:  3-4 hrs    Shell + 3 role layouts + components
-  Phase 1:  5-6 hrs    Control room (live map + SOS wire-up)
-  Phase 2:  4-5 hrs    Rate manager + rideprd wire-up
-  Phase 3:  4-5 hrs    Super admin + all tenant wire-ups
-  Phase 4:  3-4 hrs    Polish + mobile + e2e demo
-  ──────────────────────
-  Total:   ~19-24 hrs  (~3 days with agents running continuously)
-
----
-
-## Schema contract — keeping the frontend in sync with the backend
-
-The TypeScript types consumed by all three apps (`ride_prd`, `ride-vendor-portal`, `ride-ops-portal`)
-are generated from a single source of truth: `ride-shared/schema.yaml`.
-
-**Update flow (backend merges a new API shape):**
-
-1. Copy the updated OpenAPI spec from the backend repo:
-   ```
-   cp /path/to/backend/openapi.yaml ride-shared/schema.yaml
-   ```
-2. Regenerate the TypeScript types:
-   ```
-   cd ride-shared && npm run gen:api
-   ```
-3. Fix every TypeScript compile error in all three apps (the compiler is the contract-drift alarm).
-4. Run the full local gate (see below) until green.
-5. Open a PR. The CI `schema-drift` job will fail on any PR where `schema.d.ts` is not in sync with `schema.yaml`.
-
-**CI enforcement (`schema-drift` job in `.github/workflows/ci.yml`):**
-- Installs ride-shared deps, runs `npm run gen:api`, then `git diff --exit-code src/api/schema.d.ts`.
-- A non-empty diff means the committed `schema.d.ts` no longer matches `schema.yaml` — the job fails and blocks the PR.
-
----
-
-## Deployment — Vercel (per-app)
-
-Each app is deployed as a separate Vercel project. The monorepo `vercel.json` at the repo root
-configures which directory maps to which project.
-
-### Required environment variables
-
-| Variable | Example | Notes |
-|---|---|---|
-| `API_ORIGIN` | `https://api.ride.example.com` | Base URL of the Django backend. Set per Vercel environment (Production / Preview / Development). |
-| `NEXT_PUBLIC_WS_ORIGIN` | `wss://api.ride.example.com` | WebSocket origin for real-time events. Must match `API_ORIGIN` host (same CORS policy). |
-
-### Why CORS stays closed
-
-The Django backend allows only the specific origins listed in `CORS_ALLOWED_ORIGINS`. No wildcard.
-Vercel preview deployments get their own origin (`https://<deployment-id>.vercel.app`) which must be
-added to `CORS_ALLOWED_ORIGINS` (or use a pattern) before the preview can hit the API.
-
-### WebSocket ticket flow
+## Endpoint
 
 ```
-Browser                     Next.js (SSR edge)          Django backend
-  |                               |                           |
-  |--- POST /v1/ws/ticket ------->|--- forward w/ JWT ------->|
-  |                               |<-- { ticket, expiresAt } -|
-  |<-- { ticket } ---------------|                            |
-  |                               |                           |
-  |--- ws://api/ws?ticket=<T> ----------------------------------->|
-  |<-- events (trip.*, sos.*, billing.*, tracking.*) -------------|
+POST /partner/v1/auth/token
 ```
 
-- The ticket is a short-lived (60 s) opaque token issued by the backend.
-- The frontend requests it via authenticated REST, then opens the WebSocket using the ticket as a
-  query param. This avoids sending the JWT in the WebSocket upgrade URL (which would be logged).
-- On expiry the client reconnects (`connectEvents` in `ride-shared/src/realtime/ws.ts` handles
-  automatic reconnect with exponential back-off).
+## Request Body
+
+```json
+{
+  "api_key": "xCDLHYnK.tpZAFPTCwbgtoAN1wV3FBhm2DFxl1x7C"
+}
+```
+
+## Purpose
+
+The API key is exchanged for an access token. This token must be included in the Authorization header while creating bookings.
 
 ---
 
-## Local gate — run before every PR
+# Step 2 — Create Booking
 
-```bash
-# 1. ride-shared unit tests
-cd ride-shared && npm test && cd ..
+## Endpoint
 
-# 2. Lint + build all three apps
-cd ride_prd && npm run lint && npm run build && cd ..
-cd ride-vendor-portal && npm run lint && npm run build && cd ..
-cd ride-ops-portal && npm run lint && npm run build && cd ..
-
-# 3. E2E smoke (requires running backend + all three dev servers)
-cd e2e && npm ci && npx playwright install chromium && npx playwright test
+```
+POST /partner/v1/ritmo/book
 ```
 
-Set `BASE_URL_PRD`, `BASE_URL_VENDOR`, `BASE_URL_OPS`, and `API_BASE` in `e2e/.env` if the dev
-servers run on non-default ports.
+## Request Headers
 
+```json
+{
+  "Authorization": "Bearer <access token from step 1>",
+  "Content-Type": "application/json",
+  "Idempotency-Key": "3f2b8c14-9d7a-4e51-b2c6-8a1f0e77d934"
+}
+```
+
+### Header Description
+
+| Header          | Description                                        |
+| --------------- | -------------------------------------------------- |
+| Authorization   | JWT access token generated from authentication API |
+| Content-Type    | Request payload format                             |
+| Idempotency-Key | Unique key to prevent duplicate booking creation   |
+
+---
+
+## Booking Request Body
+
+```json
+{
+  "passenger_name": "Deepak Joshi",
+  "passenger_phone": "+919845300001",
+  "pickup_datetime": "2026-08-20T07:30:00Z",
+  "car_type": "SUV",
+  "pickup": "Hubballi Airport",
+  "drop": "Karwar Beach Resort",
+  "distance_km": "180",
+  "ritmo_ref": "RITMO-DEMO-5001"
+}
+```
+
+---
+
+# Request Field Details
+
+| Field           | Type              | Description                       |
+| --------------- | ----------------- | --------------------------------- |
+| passenger_name  | String            | Passenger full name               |
+| passenger_phone | String            | Passenger contact number          |
+| pickup_datetime | ISO 8601 DateTime | Scheduled pickup time in UTC      |
+| car_type        | String            | Requested vehicle type            |
+| pickup          | String            | Pickup location                   |
+| drop            | String            | Drop location                     |
+| distance_km     | String            | Estimated trip distance           |
+| ritmo_ref       | String            | Unique external booking reference |
+
+---
+
+# Booking API Response
+
+## Successful Response
+
+```json
+{
+  "result": {
+    "reference": "T-17",
+    "status": "CONFIRMED",
+    "is_sandbox": false,
+    "vehicles": [
+      {
+        "trip_vehicle_id": "019f88xx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+        "status": "PENDING",
+        "locked_price_minor": 630000,
+        "currency": "INR"
+      }
+    ],
+    "ritmo_ref": "RITMO-DEMO-5001"
+  }
+}
+```
+
+---
+
+# Response Field Details
+
+| Field              | Description                                    |
+| ------------------ | ---------------------------------------------- |
+| reference          | Internal trip reference generated by RITMO     |
+| status             | Booking status                                 |
+| is_sandbox         | Indicates whether booking is sandbox/test mode |
+| vehicles           | Assigned vehicle details                       |
+| trip_vehicle_id    | Unique vehicle assignment ID                   |
+| vehicle status     | Current vehicle allocation status              |
+| locked_price_minor | Confirmed trip price in minor currency units   |
+| currency           | Currency code                                  |
+| ritmo_ref          | External booking reference provided in request |
+
+---
+
+# Booking Flow Summary
+
+```
+Client
+  |
+  | 1. Send API Key
+  ↓
+/partner/v1/auth/token
+  |
+  | Returns Access Token
+  ↓
+Client
+  |
+  | 2. Send Booking Request + Bearer Token
+  ↓
+/partner/v1/ritmo/book
+  |
+  | Returns Booking Confirmation
+  ↓
+Trip Created Successfully
+```

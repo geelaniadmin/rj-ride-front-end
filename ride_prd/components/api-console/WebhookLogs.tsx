@@ -1,182 +1,182 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { useWebhookStore } from "@/stores/webhookStore";
-import { useTenantStore } from "@/stores/tenantStore";
+import React, { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { csrfFetch } from "@ride/shared";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Clock, CheckCircle, AlertCircle, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Clock, CheckCircle, AlertCircle, TrendingUp, RefreshCw } from "lucide-react";
+
+interface Subscription {
+  id: string;
+  url: string;
+  credential_name: string | null;
+}
+
+/** One delivery attempt. Every retry is its own row, so the whole history is visible. */
+interface Delivery {
+  id: string;
+  subscription_id: string;
+  outbox_event_id: string;
+  attempt: number;
+  status: string; // PENDING | SUCCESS | FAILED | ...
+  status_code: number | null;
+  response_snippet: string;
+  duration_ms: number | null;
+  requested_at: string | null;
+  created_at: string;
+}
+
+async function envelope<T>(resp: Response, fallback: string): Promise<T> {
+  const body = (await resp.json().catch(() => ({}))) as {
+    result?: T;
+    error?: { message?: string };
+  };
+  if (!resp.ok) throw new Error(body?.error?.message ?? `${fallback} (${resp.status})`);
+  return body.result as T;
+}
 
 export const WebhookLogs: React.FC = () => {
-  const activeTenantId = useTenantStore((s) => s.activeTenantId);
-  const allEndpoints = useWebhookStore((s) => s.endpoints);
-  const allLogs = useWebhookStore((s) => s.logs);
-  const [selectedWebhookId, setSelectedWebhookId] = useState<string | null>(null);
+  const [selectedWebhookId, setSelectedWebhookId] = useState<string>("");
 
-  const endpoints = useMemo(() => allEndpoints.filter((e) => e.tenantId === activeTenantId), [allEndpoints, activeTenantId]);
+  const { data: endpoints = [] } = useQuery({
+    queryKey: ["webhooks", "subscriptions"],
+    queryFn: async (): Promise<Subscription[]> => {
+      const resp = await csrfFetch("/api/v1/webhooks/", { credentials: "include" });
+      return envelope<Subscription[]>(resp, "Failed to load webhooks");
+    },
+  });
 
-  const relevantLogs = useMemo(() => {
-    const webhookIds = endpoints.map((e) => e.id);
-    return allLogs.filter((l) => webhookIds.includes(l.webhookId));
-  }, [endpoints, allLogs]);
-
-  const filteredLogs = useMemo(() => {
-    if (!selectedWebhookId) return relevantLogs;
-    return relevantLogs.filter((l) => l.webhookId === selectedWebhookId);
-  }, [relevantLogs, selectedWebhookId]);
+  // Deliveries are per-subscription on the backend; with none picked we merge across all of them.
+  const {
+    data: logs = [],
+    isLoading,
+    refetch,
+    isFetching,
+  } = useQuery({
+    queryKey: ["webhooks", "deliveries", selectedWebhookId, endpoints.map((e) => e.id).join(",")],
+    enabled: endpoints.length > 0,
+    queryFn: async (): Promise<Delivery[]> => {
+      const targets = selectedWebhookId
+        ? endpoints.filter((e) => e.id === selectedWebhookId)
+        : endpoints;
+      const batches = await Promise.all(
+        targets.map(async (e) => {
+          const resp = await csrfFetch(`/api/v1/webhooks/${e.id}/deliveries/`, {
+            credentials: "include",
+          });
+          return envelope<Delivery[]>(resp, "Failed to load deliveries");
+        }),
+      );
+      return batches
+        .flat()
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    },
+    refetchInterval: 30_000,
+  });
 
   const stats = useMemo(() => {
+    const is = (s: string) => (d: Delivery) => d.status.toUpperCase() === s;
     return {
-      total: filteredLogs.length,
-      success: filteredLogs.filter((l) => l.status === "success").length,
-      failed: filteredLogs.filter((l) => l.status === "failed").length,
-      pending: filteredLogs.filter((l) => l.status === "pending").length,
+      total: logs.length,
+      success: logs.filter(is("SUCCESS")).length,
+      failed: logs.filter(is("FAILED")).length,
+      pending: logs.filter(is("PENDING")).length,
     };
-  }, [filteredLogs]);
+  }, [logs]);
 
-  const formatTime = (isoString: string) => {
-    return new Date(isoString).toLocaleTimeString();
+  const badgeFor = (status: string) => {
+    const s = status.toUpperCase();
+    if (s === "SUCCESS") return "green";
+    if (s === "FAILED") return "red";
+    return "amber";
   };
+
+  const urlFor = (id: string) => endpoints.find((e) => e.id === id)?.url ?? "—";
 
   return (
     <div className="space-y-4">
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
-        <Card padding="md" className="bg-ops-bg border border-border">
-          <p className="text-xs text-text-secondary">Total Events</p>
-          <p className="text-xl font-bold text-text-primary mt-1">{stats.total}</p>
-        </Card>
-        <Card padding="md" className="bg-success/10 border border-success/30">
-          <p className="text-xs text-success">Delivered</p>
-          <p className="text-xl font-bold text-text-primary mt-1">{stats.success}</p>
-        </Card>
-        <Card padding="md" className="bg-alert-amber/10 border border-alert-amber/30">
-          <p className="text-xs text-alert-amber">Pending</p>
-          <p className="text-xl font-bold text-text-primary mt-1">{stats.pending}</p>
-        </Card>
-        <Card padding="md" className="bg-danger/10 border border-danger/30">
-          <p className="text-xs text-danger">Failed</p>
-          <p className="text-xl font-bold text-text-primary mt-1">{stats.failed}</p>
-        </Card>
+        {[
+          { label: "Total", value: stats.total, icon: TrendingUp },
+          { label: "Success", value: stats.success, icon: CheckCircle },
+          { label: "Failed", value: stats.failed, icon: AlertCircle },
+          { label: "Pending", value: stats.pending, icon: Clock },
+        ].map(({ label, value, icon: Icon }) => (
+          <Card key={label} padding="md" className="bg-ops-bg border border-border">
+            <div className="flex items-center gap-2">
+              <Icon className="w-4 h-4 text-text-secondary" />
+              <div>
+                <p className="text-xs text-text-secondary">{label}</p>
+                <p className="text-lg font-semibold text-text-primary">{value}</p>
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
 
-      {/* Filter */}
-      {endpoints.length > 0 && (
-        <Card padding="lg" header={<h3 className="font-semibold text-text-primary">🔍 Filter by Webhook</h3>}>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setSelectedWebhookId(null)}
-              className={`px-3 py-1 rounded text-sm transition-all ${!selectedWebhookId ? "bg-brand-blue text-white" : "bg-ops-bg text-text-primary border border-border hover:bg-ops-bg/80"}`}
-            >
-              All Webhooks ({endpoints.length})
-            </button>
-            {endpoints.map((endpoint) => (
-              <button
-                key={endpoint.id}
-                onClick={() => setSelectedWebhookId(endpoint.id)}
-                className={`px-3 py-1 rounded text-sm transition-all ${
-                  selectedWebhookId === endpoint.id ? "bg-brand-blue text-white" : "bg-ops-bg text-text-primary border border-border hover:bg-ops-bg/80"
-                }`}
-              >
-                {endpoint.partnerId}
-              </button>
-            ))}
-          </div>
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <label className="block text-xs text-text-secondary mb-1">Endpoint</label>
+          <SearchableSelect
+            value={selectedWebhookId}
+            onChange={setSelectedWebhookId}
+            options={endpoints.map((e) => ({ value: e.id, label: e.url }))}
+            placeholder="All endpoints"
+          />
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => void refetch()} disabled={isFetching}>
+          <RefreshCw className={`w-4 h-4 mr-1 ${isFetching ? "animate-spin" : ""}`} /> Refresh
+        </Button>
+      </div>
+
+      {endpoints.length === 0 ? (
+        <Card padding="lg" className="text-center text-text-secondary py-8">
+          <p>No webhook endpoints yet — register one under the Webhooks tab first.</p>
         </Card>
-      )}
-
-      {/* Logs Table */}
-      <Card padding="lg" header={<h3 className="font-semibold text-text-primary">📋 Webhook Delivery Log</h3>}>
-        <div className="space-y-2 max-h-96 overflow-y-auto">
-          {filteredLogs.length === 0 ? (
-            <p className="text-sm text-text-secondary text-center py-4">No logs</p>
-          ) : (
-            filteredLogs
-              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-              .map((log) => {
-                const endpoint = endpoints.find((e) => e.id === log.webhookId);
-                const statusIcon =
-                  log.status === "success" ? (
-                    <CheckCircle className="w-4 h-4 text-success" />
-                  ) : log.status === "failed" ? (
-                    <AlertCircle className="w-4 h-4 text-danger" />
-                  ) : log.status === "pending" ? (
-                    <Clock className="w-4 h-4 text-alert-amber" />
-                  ) : (
-                    <TrendingUp className="w-4 h-4 text-brand-blue" />
-                  );
-
-                return (
-                  <div key={log.id} className="p-3 bg-ops-bg rounded border border-border space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {statusIcon}
-                        <span className="text-sm font-medium text-text-primary">{log.event}</span>
-                        <Badge
-                          variant={
-                            log.status === "success" ? "green" : log.status === "failed" ? "red" : log.status === "pending" ? "amber" : "blue"
-                          }
-                        >
-                          {log.status.toUpperCase()}
-                        </Badge>
-                      </div>
-                      <span className="text-xs text-text-secondary">{formatTime(log.createdAt)}</span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div>
-                        <p className="text-text-secondary">Webhook</p>
-                        <p className="text-text-primary">{endpoint?.partnerId || log.webhookId}</p>
-                      </div>
-                      <div>
-                        <p className="text-text-secondary">Attempt</p>
-                        <p className="text-text-primary">{log.attempt} / 10</p>
-                      </div>
-                      {log.statusCode && (
-                        <div>
-                          <p className="text-text-secondary">HTTP Status</p>
-                          <p className={log.statusCode === 200 ? "text-success" : "text-danger"}>{log.statusCode}</p>
-                        </div>
-                      )}
-                      {log.error && (
-                        <div>
-                          <p className="text-text-secondary">Error</p>
-                          <p className="text-danger truncate">{log.error}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {log.payload !== undefined && (
-                      <details className="text-xs">
-                        <summary className="cursor-pointer text-text-secondary hover:text-text-primary">View Payload</summary>
-                        <pre className="mt-2 bg-ops-sidebar rounded p-2 text-white overflow-x-auto max-w-sm border border-ops-sidebar/80">{JSON.stringify(log.payload as unknown, null, 2)}</pre>
-                      </details>
+      ) : isLoading ? (
+        <div className="py-8 text-center text-sm text-text-secondary">Loading deliveries…</div>
+      ) : logs.length === 0 ? (
+        <Card padding="lg" className="text-center text-text-secondary py-8">
+          <p>No delivery attempts recorded yet.</p>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {logs.map((log) => (
+            <Card key={log.id} padding="md">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant={badgeFor(log.status)}>{log.status}</Badge>
+                    {log.status_code != null && (
+                      <span className="text-xs font-mono text-text-secondary">
+                        HTTP {log.status_code}
+                      </span>
+                    )}
+                    <span className="text-xs text-text-tertiary">attempt {log.attempt}</span>
+                    {log.duration_ms != null && (
+                      <span className="text-xs text-text-tertiary">{log.duration_ms} ms</span>
                     )}
                   </div>
-                );
-              })
-          )}
+                  <p className="text-xs font-mono text-text-secondary mt-1 break-all">
+                    {urlFor(log.subscription_id)}
+                  </p>
+                  {log.response_snippet && (
+                    <p className="text-xs text-text-tertiary mt-1 break-all">
+                      {log.response_snippet}
+                    </p>
+                  )}
+                </div>
+                <span className="text-xs text-text-tertiary shrink-0">
+                  {new Date(log.created_at).toLocaleString()}
+                </span>
+              </div>
+            </Card>
+          ))}
         </div>
-      </Card>
-
-      {/* Retry Info */}
-      <Card padding="lg" header={<h3 className="font-semibold text-text-primary">🔄 Retry Policy</h3>}>
-        <div className="space-y-2 text-xs text-text-secondary">
-          <div className="flex gap-2">
-            <span className="font-medium text-text-secondary">Max Attempts:</span>
-            <span className="text-text-primary">10</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="font-medium text-text-secondary">Retry Interval:</span>
-            <span className="text-text-primary">2 minutes between attempts</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="font-medium text-text-secondary">Backoff:</span>
-            <span className="text-text-primary">Linear (no exponential backoff)</span>
-          </div>
-          <p className="text-text-secondary italic mt-2">Failed deliveries are retried automatically. Check back after a few minutes.</p>
-        </div>
-      </Card>
+      )}
     </div>
   );
 };

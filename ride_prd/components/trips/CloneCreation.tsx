@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import type { TripStatus } from "@/lib/types";
 import { Copy, ChevronRight } from "lucide-react";
 
@@ -108,11 +109,8 @@ export const CloneCreation: React.FC<{ onDone?: () => void }> = ({ onDone }) => 
       {selectedId && (
         <div>
           <label className="block text-xs text-text-secondary mb-1">New schedule (optional)</label>
-          <Input
-            type="datetime-local"
-            value={scheduleWhen}
-            onChange={(e) => setScheduleWhen(e.target.value)}
-          />
+          <DateTimePicker mode="datetime" value={scheduleWhen}
+            onChange={(val) => setScheduleWhen(val)} />
         </div>
       )}
 

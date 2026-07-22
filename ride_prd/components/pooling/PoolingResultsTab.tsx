@@ -15,6 +15,7 @@ import { DataTable, Column } from "@/components/ui/DataTable";
 import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
 import { PII } from "@/components/ui/PII";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Route, RefreshCw, Shield, AlertTriangle, CheckCircle, Eye, Users, MapPin } from "lucide-react";
 import { PooledTrip } from "@/lib/types";
 
@@ -197,12 +198,8 @@ export const PoolingResultsTab: React.FC = () => {
       }>
         <div className="grid grid-cols-4 gap-4 mb-4">
           <FormField label="Date">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm text-text-primary"
-            />
+            <DateTimePicker mode="date" value={selectedDate}
+              onChange={(val) => setSelectedDate(val)} />
           </FormField>
           <FormField label="Pooling Config">
             <Select

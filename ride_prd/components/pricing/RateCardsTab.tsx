@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { useToastStore } from "@/stores/toastStore";
 import { useConfigFiltersStore } from "@/stores/configFiltersStore";
 
@@ -331,19 +332,13 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
           )}
 
           <FormField label={t("validFrom", language)}>
-            <Input
-              type="date"
-              value={formData.valid_from}
-              onChange={(e) => setFormData({ ...formData, valid_from: e.target.value })}
-            />
+            <DateTimePicker mode="date" value={formData.valid_from}
+              onChange={(val) => setFormData({ ...formData, valid_from: val })} />
           </FormField>
 
           <FormField label={t("validTo", language)}>
-            <Input
-              type="date"
-              value={formData.valid_to ?? ""}
-              onChange={(e) => setFormData({ ...formData, valid_to: e.target.value || undefined })}
-            />
+            <DateTimePicker mode="date" value={formData.valid_to ?? ""}
+              onChange={(val) => setFormData({ ...formData, valid_to: val || undefined })} />
           </FormField>
 
           <div className="flex gap-2 pt-4">

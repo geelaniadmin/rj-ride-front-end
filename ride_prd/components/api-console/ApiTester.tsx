@@ -1,308 +1,308 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { useTenantStore } from "@/stores/tenantStore";
-import { useCustomerStore } from "@/stores/customerStore";
-import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
-import { partnerApi, CreateTripFromPaxRequest, CreateTripFromVehicleCountRequest, ApiResponse } from "@/lib/api/partnerApi";
+import React, { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient, csrfFetch, keys } from "@ride/shared";
+import type { components } from "@ride/shared/api/schema.d";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { useToastStore } from "@/stores/toastStore";
 import { Copy, Send } from "lucide-react";
 
+type Customer = components["schemas"]["Customer"];
+type VehicleType = components["schemas"]["VehicleType"];
+
+type Method = "API_PAX" | "API_VEHICLE_COUNT";
+
+const ENDPOINT: Record<Method, string> = {
+  API_PAX: "/api/v1/trips/pax-payload/",
+  API_VEHICLE_COUNT: "/api/v1/trips/vehicle-count/",
+};
+
+interface PaxRow {
+  id: string;
+  name: string;
+  phone: string;
+}
+
+/** Local ISO (yyyy-MM-ddTHH:mm) -> absolute ISO the API expects. */
+function toIso(local: string): string {
+  return local ? new Date(local).toISOString() : new Date().toISOString();
+}
+
 export const ApiTester: React.FC = () => {
-  const activeTenantId = useTenantStore((s) => s.activeTenantId);
-  const allCustomers = useCustomerStore((s) => s.customers);
-  const allVehicleTypes = useVehicleTypeStore((s) => s.vehicleTypes);
   const addToast = useToastStore((s) => s.addToast);
 
-  const customers = useMemo(() => allCustomers?.filter((c) => c.tenantId === activeTenantId) || [], [allCustomers, activeTenantId]);
-  const vehicleTypes = useMemo(() => allVehicleTypes?.filter((v) => v.tenantId === activeTenantId) || [], [allVehicleTypes, activeTenantId]);
-
-  const [selectedMethod, setSelectedMethod] = useState<"API_PAX" | "API_VEHICLE_COUNT">("API_PAX");
-  const [response, setResponse] = useState<ApiResponse<{ tripId: string }> | null>(null);
+  const [method, setMethod] = useState<Method>("API_PAX");
   const [isLoading, setIsLoading] = useState(false);
+  const [response, setResponse] = useState<{ status: number; body: unknown } | null>(null);
 
-  const [paxRequest, setPaxRequest] = useState<CreateTripFromPaxRequest>({
-    customerId: customers[0]?.id || "",
-    pickupAddress: "Kempegowda International Airport, Bangalore",
-    pickupLat: 13.1979,
-    pickupLng: 77.7064,
-    dropAddress: "MG Road, Bangalore",
-    dropLat: 13.0331,
-    dropLng: 77.6456,
-    scheduleDate: "2025-06-10",
-    vehicleType: vehicleTypes[0]?.name || "Sedan",
-    reference: `PAX-${Date.now()}`,
-    pax: [
-      { id: "P1", name: "John Doe", phone: "9876543210", pnr: "AA1234" },
-      { id: "P2", name: "Jane Smith", phone: "9876543211", pnr: "AA1234" },
-      { id: "P3", name: "Bob Johnson", phone: "9876543212", pnr: "AA1234" },
-    ],
+  const [customerId, setCustomerId] = useState("");
+  const [vehicleTypeId, setVehicleTypeId] = useState("");
+  const [pickupAt, setPickupAt] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    d.setMinutes(0, 0, 0);
+    return d.toISOString().slice(0, 16);
+  });
+  const [pickupAddress, setPickupAddress] = useState("Kempegowda International Airport, Bangalore");
+  const [dropAddress, setDropAddress] = useState("MG Road, Bangalore");
+  const [distanceKm, setDistanceKm] = useState("35");
+  const [vehicleCount, setVehicleCount] = useState(2);
+  const [autoAssign, setAutoAssign] = useState(false);
+  const [pax, setPax] = useState<PaxRow[]>([
+    { id: "P1", name: "John Doe", phone: "9876543210" },
+    { id: "P2", name: "Jane Smith", phone: "9876543211" },
+  ]);
+
+  // Real tenant data — these dropdowns used to read from client-side mock stores.
+  const { data: customersData } = useQuery({
+    queryKey: keys.config.customers.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/customers", {});
+      if (err) throw err;
+      return res;
+    },
+  });
+  const { data: vehicleTypesData } = useQuery({
+    queryKey: keys.config.vehicleTypes.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/vehicle-types", {});
+      if (err) throw err;
+      return res;
+    },
   });
 
-  const [vehicleCountRequest, setVehicleCountRequest] = useState<CreateTripFromVehicleCountRequest>({
-    customerId: customers[0]?.id || "",
-    pickupAddress: "HAL Old Airport Road, Bangalore",
-    pickupLat: 13.1939,
-    pickupLng: 77.6425,
-    dropAddress: "Marathahalli, Bangalore",
-    dropLat: 13.0285,
-    dropLng: 77.7597,
-    scheduleDate: "2025-06-11",
-    vehicleCount: 3,
-    vehicleType: vehicleTypes[0]?.name || "Sedan",
-    autoAssign: true,
-    reference: `VEH-${Date.now()}`,
-  });
+  const customers = (customersData?.results ?? []) as Customer[];
+  const vehicleTypes = (vehicleTypesData?.results ?? []) as VehicleType[];
+
+  // Default to the first of each once loaded, so the console is usable immediately.
+  useEffect(() => {
+    if (!customerId && customers[0]) setCustomerId(customers[0].id);
+  }, [customers, customerId]);
+  useEffect(() => {
+    if (!vehicleTypeId && vehicleTypes[0]) setVehicleTypeId(vehicleTypes[0].id);
+  }, [vehicleTypes, vehicleTypeId]);
+
+  /** Exactly what will be POSTed — shown to the user and sent verbatim. */
+  const requestBody = useMemo(() => {
+    const stops = [
+      { kind: "PICKUP", address: pickupAddress, location_type: "AIRPORT" },
+      { kind: "DROP", address: dropAddress, location_type: "ADDRESS" },
+    ];
+    const base = {
+      customer_id: customerId,
+      vehicle_type_id: vehicleTypeId,
+      pickup_at: toIso(pickupAt),
+      stops,
+      distance_km: distanceKm || "0",
+    };
+    return method === "API_PAX"
+      ? { ...base, pax: pax.map((p) => ({ id: p.id, name: p.name, phone: p.phone })) }
+      : { ...base, count: vehicleCount, auto_assign: autoAssign };
+  }, [
+    method, customerId, vehicleTypeId, pickupAt, pickupAddress, dropAddress,
+    distanceKm, pax, vehicleCount, autoAssign,
+  ]);
 
   const handleTestApi = async () => {
-    if (selectedMethod === "API_PAX") {
-      if (!paxRequest.customerId || paxRequest.pax.length === 0) {
-        addToast("Please fill required fields", "error");
-        return;
+    if (!customerId || !vehicleTypeId) {
+      addToast("Pick a customer and a vehicle type.", "error");
+      return;
+    }
+    if (method === "API_PAX" && pax.length === 0) {
+      addToast("Add at least one passenger.", "error");
+      return;
+    }
+    setIsLoading(true);
+    setResponse(null);
+    try {
+      const resp = await csrfFetch(ENDPOINT[method], {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+      const body: unknown = await resp.json().catch(() => ({}));
+      setResponse({ status: resp.status, body });
+      if (resp.ok) {
+        const ref =
+          (body as { trip_reference?: string })?.trip_reference ??
+          (body as { trip_id?: string })?.trip_id ??
+          "created";
+        addToast(`Trip created: ${ref}`, "success");
+      } else {
+        const msg = (body as { error?: { message?: string } })?.error?.message;
+        addToast(msg ?? `Request failed (${resp.status})`, "error");
       }
-
-      setIsLoading(true);
-      try {
-        const result = partnerApi.createTripFromPax(activeTenantId, paxRequest);
-        setResponse(result);
-        if (result.error) {
-          addToast(`API Error: ${result.error.message}`, "error");
-        } else {
-          addToast(`Trip created: ${result.result?.tripId}`, "success");
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    } else {
-      if (!vehicleCountRequest.customerId || vehicleCountRequest.vehicleCount <= 0) {
-        addToast("Please fill required fields", "error");
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        const result = partnerApi.createTripFromVehicleCount(activeTenantId, vehicleCountRequest);
-        setResponse(result);
-        if (result.error) {
-          addToast(`API Error: ${result.error.message}`, "error");
-        } else {
-          addToast(`Trip created: ${result.result?.tripId}`, "success");
-        }
-      } finally {
-        setIsLoading(false);
-      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Request failed";
+      setResponse({ status: 0, body: { error: message } });
+      addToast(message, "error");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const payloadJson = selectedMethod === "API_PAX" ? JSON.stringify(paxRequest, null, 2) : JSON.stringify(vehicleCountRequest, null, 2);
+  const updatePax = (i: number, field: keyof PaxRow, val: string) =>
+    setPax((prev) => prev.map((p, idx) => (idx === i ? { ...p, [field]: val } : p)));
 
   return (
     <div className="space-y-4">
-      {/* Method Selector */}
-      <Card padding="lg" header={<h3 className="font-semibold text-text-primary">📋 API Method</h3>}>
-        <div className="flex gap-2">
-          {(["API_PAX", "API_VEHICLE_COUNT"] as const).map((method) => (
+      <Card padding="md">
+        <p className="text-xs text-text-secondary">
+          Sends a real request to{" "}
+          <code className="font-mono text-brand-blue">{ENDPOINT[method]}</code> as the signed-in
+          admin. This creates a real trip in your tenant.
+        </p>
+      </Card>
+
+      <div className="flex gap-2">
+        {(["API_PAX", "API_VEHICLE_COUNT"] as Method[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => {
+              setMethod(m);
+              setResponse(null);
+            }}
+            className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+              method === m
+                ? "bg-brand-blue text-white border-brand-blue"
+                : "border-border text-text-secondary hover:bg-brand-blue/10"
+            }`}
+          >
+            {m === "API_PAX" ? "Pax payload" : "Vehicle count"}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <FormField label="Customer" required>
+          <SearchableSelect
+            value={customerId}
+            onChange={setCustomerId}
+            options={customers.map((c) => ({ value: c.id, label: c.name }))}
+            placeholder="Search customer…"
+          />
+        </FormField>
+        <FormField label="Vehicle Type" required>
+          <SearchableSelect
+            value={vehicleTypeId}
+            onChange={setVehicleTypeId}
+            options={vehicleTypes.map((v) => ({ value: v.id, label: v.name }))}
+            placeholder="Search vehicle type…"
+          />
+        </FormField>
+        <FormField label="Pickup date & time">
+          <DateTimePicker mode="datetime" value={pickupAt} onChange={setPickupAt} />
+        </FormField>
+        <FormField label="Distance (km)">
+          <Input value={distanceKm} onChange={(e) => setDistanceKm(e.target.value)} />
+        </FormField>
+        <FormField label="Pickup address">
+          <Input value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} />
+        </FormField>
+        <FormField label="Drop address">
+          <Input value={dropAddress} onChange={(e) => setDropAddress(e.target.value)} />
+        </FormField>
+      </div>
+
+      {method === "API_PAX" ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-semibold text-text-primary">Passengers ({pax.length})</span>
             <button
-              key={method}
-              onClick={() => setSelectedMethod(method)}
-              className={`px-4 py-2 rounded text-sm font-medium transition-all ${
-                selectedMethod === method ? "bg-brand-blue text-white" : "bg-ops-bg text-text-primary border border-border hover:bg-ops-bg/80"
-              }`}
+              onClick={() =>
+                setPax((p) => [...p, { id: `P${p.length + 1}`, name: "", phone: "" }])
+              }
+              className="text-xs text-brand-blue hover:underline"
             >
-              {method === "API_PAX" ? "Create Trip from Pax (RISMA)" : "Create Trip from Vehicle Count (CLASS)"}
+              + Add passenger
             </button>
+          </div>
+          {pax.map((p, i) => (
+            <div key={i} className="flex gap-2">
+              <Input
+                placeholder="Name"
+                value={p.name}
+                onChange={(e) => updatePax(i, "name", e.target.value)}
+                className="flex-1"
+              />
+              <Input
+                placeholder="Phone"
+                value={p.phone}
+                onChange={(e) => updatePax(i, "phone", e.target.value)}
+                className="w-40"
+              />
+              <button
+                onClick={() => setPax((prev) => prev.filter((_, idx) => idx !== i))}
+                className="text-danger text-xs px-2"
+              >
+                Remove
+              </button>
+            </div>
           ))}
         </div>
-      </Card>
-
-      {/* Request Builder */}
-      <Card padding="lg" header={<h3 className="font-semibold text-text-primary">🔧 Request Builder</h3>}>
-        <div className="space-y-4">
-          {selectedMethod === "API_PAX" ? (
-            <>
-              <FormField label="Customer" required>
-                <Select
-                  options={customers.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
-                  value={paxRequest.customerId}
-                  onChange={(e) => setPaxRequest((prev) => ({ ...prev, customerId: e.target.value }))}
-                />
-              </FormField>
-
-              <FormField label="Vehicle Type" required>
-                <Select
-                  options={vehicleTypes.map((v) => ({ value: v.name, label: v.name }))}
-                  value={paxRequest.vehicleType}
-                  onChange={(e) => setPaxRequest((prev) => ({ ...prev, vehicleType: e.target.value }))}
-                />
-              </FormField>
-
-              <FormField label="Schedule Date" required>
-                <Input type="date" value={paxRequest.scheduleDate} onChange={(e) => setPaxRequest((prev) => ({ ...prev, scheduleDate: e.target.value }))} />
-              </FormField>
-
-              <FormField label="Pickup Address">
-                <Input value={paxRequest.pickupAddress} onChange={(e) => setPaxRequest((prev) => ({ ...prev, pickupAddress: e.target.value }))} />
-              </FormField>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Pickup Lat">
-                  <Input type="number" value={paxRequest.pickupLat} onChange={(e) => setPaxRequest((prev) => ({ ...prev, pickupLat: parseFloat(e.target.value) }))} />
-                </FormField>
-                <FormField label="Pickup Lng">
-                  <Input type="number" value={paxRequest.pickupLng} onChange={(e) => setPaxRequest((prev) => ({ ...prev, pickupLng: parseFloat(e.target.value) }))} />
-                </FormField>
-              </div>
-
-              <FormField label="Drop Address">
-                <Input value={paxRequest.dropAddress} onChange={(e) => setPaxRequest((prev) => ({ ...prev, dropAddress: e.target.value }))} />
-              </FormField>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Drop Lat">
-                  <Input type="number" value={paxRequest.dropLat} onChange={(e) => setPaxRequest((prev) => ({ ...prev, dropLat: parseFloat(e.target.value) }))} />
-                </FormField>
-                <FormField label="Drop Lng">
-                  <Input type="number" value={paxRequest.dropLng} onChange={(e) => setPaxRequest((prev) => ({ ...prev, dropLng: parseFloat(e.target.value) }))} />
-                </FormField>
-              </div>
-
-              <div className="bg-ops-sidebar rounded p-3 space-y-2 border border-ops-sidebar/80">
-                <p className="text-xs font-medium text-white/90">Passengers ({paxRequest.pax.length})</p>
-                <div className="space-y-1 text-xs text-white/70">
-                  {paxRequest.pax.map((p, idx) => (
-                    <div key={idx}>
-                      {p.name} | {p.phone} | PNR: {p.pnr}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <FormField label="Customer" required>
-                <Select
-                  options={customers.map((c) => ({ value: c.id, label: `${c.name} (${c.code})` }))}
-                  value={vehicleCountRequest.customerId}
-                  onChange={(e) => setVehicleCountRequest((prev) => ({ ...prev, customerId: e.target.value }))}
-                />
-              </FormField>
-
-              <FormField label="Vehicle Type" required>
-                <Select
-                  options={vehicleTypes.map((v) => ({ value: v.name, label: v.name }))}
-                  value={vehicleCountRequest.vehicleType}
-                  onChange={(e) => setVehicleCountRequest((prev) => ({ ...prev, vehicleType: e.target.value }))}
-                />
-              </FormField>
-
-              <FormField label="Vehicle Count" required>
-                <Input
-                  type="number"
-                  min="1"
-                  value={vehicleCountRequest.vehicleCount}
-                  onChange={(e) => setVehicleCountRequest((prev) => ({ ...prev, vehicleCount: parseInt(e.target.value) }))}
-                />
-              </FormField>
-
-              <FormField label="Auto Assign">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={vehicleCountRequest.autoAssign || false}
-                    onChange={(e) => setVehicleCountRequest((prev) => ({ ...prev, autoAssign: e.target.checked }))}
-                    className="w-4 h-4 rounded"
-                  />
-                  <span className="text-sm text-text-primary">Auto-assign vehicles to drivers</span>
-                </label>
-              </FormField>
-
-              <FormField label="Schedule Date" required>
-                <Input type="date" value={vehicleCountRequest.scheduleDate} onChange={(e) => setVehicleCountRequest((prev) => ({ ...prev, scheduleDate: e.target.value }))} />
-              </FormField>
-
-              <FormField label="Pickup Address">
-                <Input value={vehicleCountRequest.pickupAddress} onChange={(e) => setVehicleCountRequest((prev) => ({ ...prev, pickupAddress: e.target.value }))} />
-              </FormField>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Pickup Lat">
-                  <Input type="number" value={vehicleCountRequest.pickupLat} onChange={(e) => setVehicleCountRequest((prev) => ({ ...prev, pickupLat: parseFloat(e.target.value) }))} />
-                </FormField>
-                <FormField label="Pickup Lng">
-                  <Input type="number" value={vehicleCountRequest.pickupLng} onChange={(e) => setVehicleCountRequest((prev) => ({ ...prev, pickupLng: parseFloat(e.target.value) }))} />
-                </FormField>
-              </div>
-
-              <FormField label="Drop Address">
-                <Input value={vehicleCountRequest.dropAddress} onChange={(e) => setVehicleCountRequest((prev) => ({ ...prev, dropAddress: e.target.value }))} />
-              </FormField>
-
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Drop Lat">
-                  <Input type="number" value={vehicleCountRequest.dropLat} onChange={(e) => setVehicleCountRequest((prev) => ({ ...prev, dropLat: parseFloat(e.target.value) }))} />
-                </FormField>
-                <FormField label="Drop Lng">
-                  <Input type="number" value={vehicleCountRequest.dropLng} onChange={(e) => setVehicleCountRequest((prev) => ({ ...prev, dropLng: parseFloat(e.target.value) }))} />
-                </FormField>
-              </div>
-            </>
-          )}
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <FormField label="Vehicle count">
+            <Input
+              type="number"
+              value={String(vehicleCount)}
+              onChange={(e) => setVehicleCount(Math.max(1, Number(e.target.value) || 1))}
+            />
+          </FormField>
+          <FormField label="Auto-assign">
+            <label className="flex items-center gap-2 text-sm text-text-primary pt-2">
+              <input
+                type="checkbox"
+                checked={autoAssign}
+                onChange={(e) => setAutoAssign(e.target.checked)}
+              />
+              Assign nearest vehicle to each slot
+            </label>
+          </FormField>
         </div>
-      </Card>
+      )}
 
-      {/* JSON Payload */}
-      <Card padding="lg" header={<h3 className="font-semibold text-text-primary">📄 JSON Payload</h3>}>
-        <div className="relative">
-          <pre className="bg-ops-sidebar rounded p-3 text-xs text-white overflow-x-auto max-h-60 border border-ops-sidebar/80">{payloadJson}</pre>
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-semibold text-text-secondary">Request body</span>
           <button
             onClick={() => {
-              navigator.clipboard.writeText(payloadJson);
-              addToast("Payload copied", "success");
+              void navigator.clipboard.writeText(JSON.stringify(requestBody, null, 2));
+              addToast("Request copied", "success");
             }}
-            className="absolute top-2 right-2 bg-brand-blue hover:bg-brand-blue/90 p-2 rounded text-white transition-colors"
+            className="text-xs text-brand-blue hover:underline flex items-center gap-1"
           >
-            <Copy className="w-4 h-4" />
+            <Copy className="w-3 h-3" /> Copy
           </button>
         </div>
-      </Card>
+        <pre className="text-xs bg-ops-bg border border-border rounded-lg p-3 overflow-auto max-h-56 text-text-primary">
+          {JSON.stringify(requestBody, null, 2)}
+        </pre>
+      </div>
 
-      {/* Send Button */}
-      <Button onClick={handleTestApi} variant="primary" loading={isLoading} className="w-full">
+      <Button onClick={() => void handleTestApi()} variant="primary" loading={isLoading} className="w-full">
         <Send className="w-4 h-4 mr-2" /> Send Request
       </Button>
 
-      {/* Response */}
-      {response !== null && (
-        <Card padding="lg" header={<h3 className="font-semibold text-text-primary">✨ Response</h3>}>
-          <div className="space-y-2">
-            {response?.error ? (
-              <>
-                <div>
-                  <p className="text-xs text-text-secondary">Error Code</p>
-                  <Badge variant="red">{response.error.code}</Badge>
-                </div>
-                <div>
-                  <p className="text-xs text-text-secondary">Message</p>
-                  <p className="text-sm text-danger">{response.error.message}</p>
-                </div>
-              </>
-            ) : response?.result ? (
-              <>
-                <div>
-                  <p className="text-xs text-text-secondary">Trip ID</p>
-                  <Badge variant="green">{response.result.tripId}</Badge>
-                </div>
-                <p className="text-xs text-text-secondary">Trip created successfully. Check the Trips list to confirm.</p>
-              </>
-            ) : null}
-            <pre className="bg-ops-sidebar rounded p-3 text-xs text-text-primary overflow-x-auto max-h-40 mt-2">{JSON.stringify(response, null, 2)}</pre>
+      {response && (
+        <Card padding="md">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-semibold text-text-secondary">Response</span>
+            <Badge variant={response.status >= 200 && response.status < 300 ? "green" : "red"}>
+              HTTP {response.status || "network error"}
+            </Badge>
           </div>
+          <pre className="text-xs bg-ops-bg border border-border rounded-lg p-3 overflow-auto max-h-72 text-text-primary">
+            {JSON.stringify(response.body, null, 2)}
+          </pre>
         </Card>
       )}
     </div>

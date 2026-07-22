@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { getLocationRequiredFields, getLocationTypeLabel, calculateReverseScheduleTime } from "@/lib/tripHelpers";
 import { Trash2, Clock } from "lucide-react";
 
@@ -60,7 +61,7 @@ export const StopEditor: React.FC<StopEditorProps> = ({ stop, index, onUpdate, o
 
       {/* Scheduled Time (optional) */}
       <FormField label="Planned Time (optional)">
-        <Input type="datetime-local" value={stop.plannedTime || ""} onChange={(e) => onUpdate(index, { plannedTime: e.target.value || undefined })} />
+        <DateTimePicker mode="datetime" value={stop.plannedTime || ""} onChange={(val) => onUpdate(index, { plannedTime: val || undefined })} />
       </FormField>
 
       {/* Reverse Schedule Suggestion */}

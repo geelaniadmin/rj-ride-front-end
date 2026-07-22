@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { TripDetailView } from "@/components/trips/TripDetailView";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { ChevronRight, ChevronLeft, X } from "lucide-react";
 import type { TripStatus } from "@/lib/types";
 
@@ -146,11 +147,11 @@ export const TripsListTab: React.FC = () => {
         </div>
         <div>
           <label className="block text-xs text-text-secondary mb-1">Date from</label>
-          <Input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); resetPagination(); }} />
+          <DateTimePicker mode="date" value={dateFrom} onChange={(val) => { setDateFrom(val); resetPagination(); }} />
         </div>
         <div>
           <label className="block text-xs text-text-secondary mb-1">Date to</label>
-          <Input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); resetPagination(); }} />
+          <DateTimePicker mode="date" value={dateTo} onChange={(val) => { setDateTo(val); resetPagination(); }} />
         </div>
       </div>
 

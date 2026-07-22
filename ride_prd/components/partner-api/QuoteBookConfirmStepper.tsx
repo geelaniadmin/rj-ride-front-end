@@ -1,518 +1,368 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { useVendorStore } from "@/stores/vendorStore";
-import { useCustomerStore } from "@/stores/customerStore";
-import { useVehicleTypeStore } from "@/stores/vehicleTypeStore";
-import { useTripStore } from "@/stores/tripStore";
-import { useTenantStore } from "@/stores/tenantStore";
-import { useToastStore } from "@/stores/toastStore";
-import { useQuoteStore } from "@/stores/quoteStore";
-import { getOffers } from "@/lib/quote";
-import { checkTime } from "@/lib/preflight";
+import React, { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiClient, keys, formatMoney, csrfFetch } from "@ride/shared";
+import type { components } from "@ride/shared/api/schema.d";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
-import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
-import { Modal } from "@/components/ui/Modal";
-import { Offer, Stop, VehicleStatus } from "@/lib/types";
-import { ChevronRight, CheckCircle, AlertCircle, Lock } from "lucide-react";
+import { FormField } from "@/components/ui/FormField";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
+import { useToastStore } from "@/stores/toastStore";
+import { Check, ArrowRight, RotateCcw } from "lucide-react";
 
-interface StepperState {
-  step: 1 | 2 | 3 | 4;
-  quote: {
-    vendorId: string;
-    customerId: string;
-    vehicleTypeId: string;
-    distance: number;
-    hours: number;
-    quotedAt: string;
-  };
-  offers: Offer[];
-  selectedOfferIndex: number | null;
-  checkTimeResult: any;
-  order: {
-    priceId: string;
-    pickupLocation: string;
-    dropLocation: string;
-    pickupLat: number;
-    pickupLng: number;
-    dropLat: number;
-    dropLng: number;
-    paxName: string;
-    paxPhone: string;
-    paxEmail: string;
-    numberOfPassengers: number;
-  };
-  tripId: string | null;
+type Customer = components["schemas"]["Customer"];
+type VehicleType = components["schemas"]["VehicleType"];
+type Vendor = components["schemas"]["Vendor"];
+
+/** A priced offer as returned by POST /api/v1/pricing/offers. */
+interface QuoteOffer {
+  id: string;
+  vendor: string;
+  rate_card_version: number;
+  basis: string;
+  price_minor: number;
+  currency: string;
+  free_cancellation_hours: number;
+  min_lead_time_hours: number;
+  expires_at: string;
 }
 
+interface BookedTrip {
+  id: string;
+  reference: string;
+  status: string;
+}
+
+function idempotencyKey(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+const STEPS = ["Quote", "Check", "Book"] as const;
+
 export const QuoteBookConfirmStepper: React.FC = () => {
-  const activeTenantId = useTenantStore((s) => s.activeTenantId);
-  const vendors = useVendorStore((s) => s.vendors).filter((v) => v.tenantId === activeTenantId);
-  const customers = useCustomerStore((s) => s.customers).filter((c) => c.tenantId === activeTenantId);
-  const vehicleTypes = useVehicleTypeStore((s) => s.vehicleTypes).filter((v) => v.tenantId === activeTenantId);
-  const addTrip = useTripStore((s) => s.addTrip);
   const addToast = useToastStore((s) => s.addToast);
+  const qc = useQueryClient();
 
-  const todayDate = new Date().toISOString().split("T")[0] || "";
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [busy, setBusy] = useState(false);
 
-  const [state, setState] = useState<StepperState>({
-    step: 1,
-    quote: {
-      vendorId: vendors[0]?.id || "",
-      customerId: customers[0]?.id || "",
-      vehicleTypeId: vehicleTypes[0]?.id || "",
-      distance: 10,
-      hours: 1,
-      quotedAt: todayDate,
+  const [customerId, setCustomerId] = useState("");
+  const [vehicleTypeId, setVehicleTypeId] = useState("");
+  const [pickupAt, setPickupAt] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    d.setMinutes(0, 0, 0);
+    return d.toISOString().slice(0, 16);
+  });
+  const [pickupAddress, setPickupAddress] = useState("Kempegowda International Airport, Bangalore");
+  const [dropAddress, setDropAddress] = useState("MG Road, Bangalore");
+  // Per-km rate cards price at zero without a distance, so quote with one.
+  const [distanceKm, setDistanceKm] = useState("35");
+
+  const [offers, setOffers] = useState<QuoteOffer[]>([]);
+  const [selectedOfferId, setSelectedOfferId] = useState("");
+  const [booked, setBooked] = useState<BookedTrip | null>(null);
+
+  const { data: customersData } = useQuery({
+    queryKey: keys.config.customers.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/customers", {});
+      if (err) throw err;
+      return res;
     },
-    offers: [],
-    selectedOfferIndex: null,
-    checkTimeResult: null,
-    order: {
-      priceId: "",
-      pickupLocation: "Bengaluru Airport",
-      dropLocation: "Whitefield Tech Park",
-      pickupLat: 13.1979,
-      pickupLng: 77.7063,
-      dropLat: 12.9698,
-      dropLng: 77.7499,
-      paxName: "John Doe",
-      paxPhone: "+91-98765-43210",
-      paxEmail: "john@example.com",
-      numberOfPassengers: 1,
+  });
+  const { data: vehicleTypesData } = useQuery({
+    queryKey: keys.config.vehicleTypes.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/vehicle-types", {});
+      if (err) throw err;
+      return res;
     },
-    tripId: null,
+  });
+  const { data: vendorsData } = useQuery({
+    queryKey: keys.config.vendors.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/vendors", {});
+      if (err) throw err;
+      return res;
+    },
   });
 
-  // Step 1: Get Offers
-  const handleGetOffers = () => {
-    const offers = getOffers({
-      tenantId: activeTenantId,
-      vendorId: state.quote.vendorId,
-      customerId: state.quote.customerId,
-      vehicleTypeId: state.quote.vehicleTypeId,
-      quotedAt: state.quote.quotedAt,
-      currency: "INR",
-      distance: state.quote.distance,
-      hours: state.quote.hours,
-    });
+  const customers = (customersData?.results ?? []) as Customer[];
+  const vehicleTypes = (vehicleTypesData?.results ?? []) as VehicleType[];
+  const vendors = (vendorsData?.results ?? []) as Vendor[];
+  const vendorName = (id: string) => vendors.find((v) => v.id === id)?.name ?? id.slice(0, 8);
 
-    if (offers.length === 0) {
-      addToast("No applicable rate cards found", "error");
-      return;
-    }
+  const selectedOffer = useMemo(
+    () => offers.find((o) => o.id === selectedOfferId) ?? null,
+    [offers, selectedOfferId],
+  );
 
-    setState((s) => ({
-      ...s,
-      offers,
-      selectedOfferIndex: 0,
-      step: 2,
-    }));
-    addToast(`Got ${offers.length} offer(s)`, "success");
+  /** Real lead-time verdict, computed from the offer's own min_lead_time_hours. */
+  const leadTime = useMemo(() => {
+    if (!selectedOffer) return null;
+    const hours = (new Date(pickupAt).getTime() - Date.now()) / 3_600_000;
+    return {
+      hours,
+      required: selectedOffer.min_lead_time_hours,
+      ok: hours >= selectedOffer.min_lead_time_hours,
+      expired: new Date(selectedOffer.expires_at).getTime() <= Date.now(),
+    };
+  }, [selectedOffer, pickupAt]);
+
+  const reset = () => {
+    setStep(1);
+    setOffers([]);
+    setSelectedOfferId("");
+    setBooked(null);
   };
 
-  // Step 2: Check Time
-  const handleCheckTime = () => {
-    const selectedOffer = state.offers[state.selectedOfferIndex || 0];
-    if (!selectedOffer) {
-      addToast("No offer selected", "error");
+  // Step 1 — real quote
+  const handleGetOffers = async () => {
+    if (!customerId || !vehicleTypeId) {
+      addToast("Pick a customer and a vehicle type.", "error");
       return;
     }
-
-    const pickupTime = state.quote.quotedAt + "T" + (Math.random() > 0.5 ? "10:00" : "14:00");
-    const result = checkTime(selectedOffer, pickupTime);
-
-    setState((s) => ({
-      ...s,
-      checkTimeResult: result,
-    }));
-
-    if (result.allowBooking) {
-      setState((s) => ({ ...s, step: 3 }));
-      addToast("Pre-flight checks passed ✅", "success");
-    } else {
-      addToast(`Check failed: ${result.reasons[0]}`, "error");
+    setBusy(true);
+    try {
+      const resp = await csrfFetch("/api/v1/pricing/offers/", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer: customerId,
+          vehicle_type: vehicleTypeId,
+          when: new Date(pickupAt).toISOString(),
+          distance_km: distanceKm || "0",
+        }),
+      });
+      const body = (await resp.json().catch(() => ({}))) as {
+        result?: QuoteOffer[];
+        error?: { message?: string };
+      };
+      if (!resp.ok) throw new Error(body?.error?.message ?? `Quote failed (${resp.status})`);
+      const list = body.result ?? [];
+      if (list.length === 0) {
+        addToast("No rate card matches that customer × vehicle type.", "error");
+        return;
+      }
+      setOffers(list);
+      setSelectedOfferId(list[0]!.id);
+      setStep(2);
+      addToast(`${list.length} offer(s) returned`, "success");
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "Quote failed", "error");
+    } finally {
+      setBusy(false);
     }
   };
 
-  // Step 3: Create Order
-  const handleCreateOrder = () => {
-    const selectedOffer = state.offers[state.selectedOfferIndex || 0];
-    if (!selectedOffer) {
-      addToast("No offer selected", "error");
-      return;
-    }
-
-    setState((s) => ({
-      ...s,
-      order: {
-        ...s.order,
-        priceId: selectedOffer.priceId,
-      },
-      step: 4,
-    }));
-    addToast("Order created with price lock", "success");
-  };
-
-  // Step 4: Confirm & Create Trip
-  const handleConfirmTrip = () => {
-    const selectedOffer = state.offers[state.selectedOfferIndex || 0];
-    if (!selectedOffer) {
-      addToast("No offer selected", "error");
-      return;
-    }
-
-    const tripId = addTrip({
-      tenantId: activeTenantId,
-      customerId: state.quote.customerId,
-      createdVia: "API_PAX",
-      stops: [
-        {
-          seq: 1,
-          type: "PICKUP",
-          locationType: "CITY",
-          address: state.order.pickupLocation,
-          lat: state.order.pickupLat,
-          lng: state.order.pickupLng,
-          plannedTime: state.quote.quotedAt + "T10:00:00Z",
-        },
-        {
-          seq: 2,
-          type: "DROP",
-          locationType: "CITY",
-          address: state.order.dropLocation,
-          lat: state.order.dropLat,
-          lng: state.order.dropLng,
-        },
-      ],
-      vehicles: [
-        {
-          id: `V-${Date.now()}`,
-          requestedVehicleTypeId: state.quote.vehicleTypeId,
-          priceId: selectedOffer.priceId,
-          lockedPrice: selectedOffer.price,
-          lockedRateCardVersion: selectedOffer.rateCardVersion,
-          status: "PENDING" as VehicleStatus,
-          pax: [
-            {
-              id: `P-${Date.now()}`,
-              name: state.order.paxName,
-              phone: state.order.paxPhone,
-              email: state.order.paxEmail,
-            },
+  // Step 3 — real booking against the chosen offer
+  const handleBook = async () => {
+    if (!selectedOffer) return;
+    setBusy(true);
+    try {
+      const resp = await csrfFetch("/api/v1/trips/", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey() },
+        body: JSON.stringify({
+          customer_id: customerId,
+          pickup_at: new Date(pickupAt).toISOString(),
+          stops: [
+            { sequence: 0, kind: "PICKUP", location_type: "AIRPORT", address: pickupAddress },
+            { sequence: 1, kind: "DROP", location_type: "ADDRESS", address: dropAddress },
           ],
-        },
-      ],
-      schedule: { type: "ONE_OFF", when: state.quote.quotedAt + "T10:00:00Z" },
-      status: "CONFIRMED",
-      autoAssign: true,
-    });
-
-    setState((s) => ({ ...s, tripId }));
-    addToast(`Trip created: ${tripId}`, "success");
+          vehicles: [{ vehicle_type_id: vehicleTypeId, offer_id: selectedOffer.id }],
+        }),
+      });
+      const body = (await resp.json().catch(() => ({}))) as {
+        result?: BookedTrip;
+        error?: { message?: string };
+      };
+      if (!resp.ok) throw new Error(body?.error?.message ?? `Booking failed (${resp.status})`);
+      setBooked(body.result ?? null);
+      setStep(3);
+      void qc.invalidateQueries({ queryKey: keys.trips.all() });
+      addToast(`Trip ${body.result?.reference ?? ""} booked`, "success");
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "Booking failed", "error");
+    } finally {
+      setBusy(false);
+    }
   };
-
-  const selectedOffer = state.selectedOfferIndex !== null ? state.offers[state.selectedOfferIndex] : null;
-  const vendor = vendors.find((v) => v.id === state.quote.vendorId);
-  const customer = customers.find((c) => c.id === state.quote.customerId);
-  const vehicleType = vehicleTypes.find((v) => v.id === state.quote.vehicleTypeId);
-
-  const steps = [
-    { num: 1, label: "Get Quote", complete: state.offers.length > 0 },
-    { num: 2, label: "Check Time", complete: state.checkTimeResult?.allowBooking },
-    { num: 3, label: "Create Order", complete: state.order.priceId },
-    { num: 4, label: "Confirm & Book", complete: state.tripId },
-  ];
 
   return (
-    <div className="space-y-6">
-      {/* Stepper Progress */}
-      <div className="flex items-center gap-2 bg-ops-bg p-4 rounded-lg border border-border">
-        {steps.map((s, idx) => (
-          <React.Fragment key={s.num}>
-            <div
-              className={`flex items-center justify-center w-8 h-8 rounded-full font-semibold text-xs transition-colors ${
-                state.step === s.num
-                  ? "bg-brand-blue text-white"
-                  : s.complete
-                    ? "bg-success text-white"
-                    : "bg-border text-text-secondary"
-              }`}
-            >
-              {s.complete ? <CheckCircle className="w-4 h-4" /> : s.num}
-            </div>
-            <p className={`text-sm font-medium ${state.step >= s.num ? "text-text-primary" : "text-text-secondary"}`}>
-              {s.label}
-            </p>
-            {idx < steps.length - 1 && <div className={`flex-1 h-0.5 ${state.step > s.num ? "bg-success" : "bg-border"}`} />}
-          </React.Fragment>
-        ))}
+    <div className="space-y-4">
+      {/* Step rail */}
+      <div className="flex items-center gap-2">
+        {STEPS.map((label, i) => {
+          const n = (i + 1) as 1 | 2 | 3;
+          const done = step > n || (n === 3 && booked !== null);
+          return (
+            <React.Fragment key={label}>
+              <div className="flex items-center gap-1.5">
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+                    done
+                      ? "bg-success text-white"
+                      : step === n
+                        ? "bg-brand-blue text-white"
+                        : "bg-ops-bg text-text-tertiary border border-border"
+                  }`}
+                >
+                  {done ? <Check className="w-3 h-3" /> : n}
+                </div>
+                <span
+                  className={`text-sm ${
+                    step === n ? "font-semibold text-text-primary" : "text-text-secondary"
+                  }`}
+                >
+                  {label}
+                </span>
+              </div>
+              {i < STEPS.length - 1 && <div className="flex-1 h-px bg-border" />}
+            </React.Fragment>
+          );
+        })}
       </div>
 
-      {/* Step 1: Get Quote */}
-      {state.step === 1 && (
-        <Card padding="lg" header={<h3 className="font-semibold">Step 1: Request Quote</h3>}>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Vendor">
-                <Select
-                  value={state.quote.vendorId}
-                  onChange={(e) => setState((s) => ({ ...s, quote: { ...s.quote, vendorId: e.target.value } }))}
-                  options={vendors.map((v) => ({ value: v.id, label: v.name }))}
-                />
-              </FormField>
+      <Card padding="md">
+        <p className="text-xs text-text-secondary">
+          Runs the real quote → book flow against{" "}
+          <code className="font-mono text-brand-blue">/api/v1/pricing/offers</code> and{" "}
+          <code className="font-mono text-brand-blue">/api/v1/trips</code>. Booking creates a real
+          trip and locks the price from the offer you pick.
+        </p>
+      </Card>
 
-              <FormField label="Customer">
-                <Select
-                  value={state.quote.customerId}
-                  onChange={(e) => setState((s) => ({ ...s, quote: { ...s.quote, customerId: e.target.value } }))}
-                  options={customers.map((c) => ({ value: c.id, label: c.name }))}
-                />
-              </FormField>
-
-              <FormField label="Vehicle Type">
-                <Select
-                  value={state.quote.vehicleTypeId}
-                  onChange={(e) => setState((s) => ({ ...s, quote: { ...s.quote, vehicleTypeId: e.target.value } }))}
-                  options={vehicleTypes.map((v) => ({ value: v.id, label: v.name }))}
-                />
-              </FormField>
-
-              <FormField label="Quote Date">
-                <Input
-                  type="date"
-                  value={state.quote.quotedAt}
-                  onChange={(e) => setState((s) => ({ ...s, quote: { ...s.quote, quotedAt: e.target.value } }))}
-                />
-              </FormField>
-
-              <FormField label="Distance (KM)">
-                <Input
-                  type="number"
-                  value={state.quote.distance}
-                  onChange={(e) => setState((s) => ({ ...s, quote: { ...s.quote, distance: parseFloat(e.target.value) || 0 } }))}
-                />
-              </FormField>
-
-              <FormField label="Duration (Hours)">
-                <Input
-                  type="number"
-                  value={state.quote.hours}
-                  step="0.5"
-                  onChange={(e) => setState((s) => ({ ...s, quote: { ...s.quote, hours: parseFloat(e.target.value) || 0 } }))}
-                />
-              </FormField>
-            </div>
-
-            <Button onClick={handleGetOffers} variant="primary" className="w-full">
-              <ChevronRight className="w-4 h-4 mr-2" /> Get Offers
-            </Button>
+      {/* Step 1 — quote inputs */}
+      {step === 1 && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label="Customer" required>
+              <SearchableSelect
+                value={customerId}
+                onChange={setCustomerId}
+                options={customers.map((c) => ({ value: c.id, label: c.name }))}
+                placeholder="Search customer…"
+              />
+            </FormField>
+            <FormField label="Vehicle Type" required>
+              <SearchableSelect
+                value={vehicleTypeId}
+                onChange={setVehicleTypeId}
+                options={vehicleTypes.map((v) => ({ value: v.id, label: v.name }))}
+                placeholder="Search vehicle type…"
+              />
+            </FormField>
+            <FormField label="Pickup date & time">
+              <DateTimePicker mode="datetime" value={pickupAt} onChange={setPickupAt} />
+            </FormField>
+            <FormField label="Distance (km)">
+              <Input value={distanceKm} onChange={(e) => setDistanceKm(e.target.value)} />
+            </FormField>
+            <FormField label="Pickup address">
+              <Input value={pickupAddress} onChange={(e) => setPickupAddress(e.target.value)} />
+            </FormField>
+            <FormField label="Drop address">
+              <Input value={dropAddress} onChange={(e) => setDropAddress(e.target.value)} />
+            </FormField>
           </div>
-        </Card>
+          <Button onClick={() => void handleGetOffers()} loading={busy} className="w-full">
+            Get Offers <ArrowRight className="w-4 h-4 ml-1" />
+          </Button>
+        </div>
       )}
 
-      {/* Step 2: Check Time */}
-      {state.step === 2 && selectedOffer && (
-        <Card padding="lg" header={<h3 className="font-semibold">Step 2: Pre-flight Check</h3>}>
-          <div className="space-y-4">
-            <div className="p-4 bg-ops-bg rounded border border-border">
-              <p className="text-sm font-medium text-text-primary mb-2">Selected Offer</p>
-              <div className="grid grid-cols-2 gap-2 text-sm text-text-secondary">
-                <div>
-                  <span className="text-text-tertiary">Price:</span> ₹{selectedOffer.price}
-                </div>
-                <div>
-                  <span className="text-text-tertiary">Version:</span> v{selectedOffer.rateCardVersion}
-                </div>
-                <div>
-                  <span className="text-text-tertiary">Expires:</span> {new Date(selectedOffer.expiresAt).toLocaleString()}
-                </div>
-                <div>
-                  <span className="text-text-tertiary">Free Cancel:</span> {selectedOffer.freeCancellationHours}h
-                </div>
-              </div>
-            </div>
-
-            {state.checkTimeResult && (
-              <div
-                className={`p-4 rounded border ${
-                  state.checkTimeResult.allowBooking
-                    ? "bg-success/10 border-success/20"
-                    : "bg-danger/10 border-danger/20"
+      {/* Step 2 — pick an offer, see the real terms */}
+      {step === 2 && (
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-text-primary">
+            {offers.length} offer(s) — pick one
+          </p>
+          <div className="space-y-2">
+            {offers.map((o) => (
+              <button
+                key={o.id}
+                onClick={() => setSelectedOfferId(o.id)}
+                className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  o.id === selectedOfferId
+                    ? "border-brand-blue bg-brand-blue/5"
+                    : "border-border hover:bg-brand-blue/5"
                 }`}
               >
-                <p className={`text-sm font-medium ${state.checkTimeResult.allowBooking ? "text-success" : "text-danger"}`}>
-                  {state.checkTimeResult.allowBooking ? "✅ Checks Passed" : "❌ Checks Failed"}
-                </p>
-                <ul className="text-xs text-text-secondary mt-2 space-y-1">
-                  {state.checkTimeResult.reasons.map((r: string, i: number) => (
-                    <li key={i}>• {r}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">{vendorName(o.vendor)}</p>
+                    <p className="text-xs text-text-secondary">
+                      {o.basis} · rate card v{o.rate_card_version} · free cancel{" "}
+                      {o.free_cancellation_hours}h · min lead {o.min_lead_time_hours}h
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold text-brand-blue">
+                    {formatMoney(o.price_minor, o.currency)}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
 
-            <Button onClick={handleCheckTime} variant="primary" className="w-full">
-              <Lock className="w-4 h-4 mr-2" /> Validate & Lock Price
+          {leadTime && (
+            <Card padding="md" className={leadTime.ok ? "" : "border-danger/40 bg-danger/5"}>
+              <div className="flex items-center gap-2">
+                <Badge variant={leadTime.ok ? "green" : "red"}>
+                  {leadTime.ok ? "Lead time OK" : "Too soon"}
+                </Badge>
+                <span className="text-xs text-text-secondary">
+                  Pickup is {leadTime.hours.toFixed(1)}h away; this offer needs {leadTime.required}h.
+                </span>
+              </div>
+              {leadTime.expired && (
+                <p className="text-xs text-danger mt-1">
+                  This offer has expired — re-quote to get a fresh price.
+                </p>
+              )}
+            </Card>
+          )}
+
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={reset} className="flex-1">
+              <RotateCcw className="w-4 h-4 mr-1" /> Start over
+            </Button>
+            <Button
+              onClick={() => void handleBook()}
+              loading={busy}
+              disabled={!selectedOffer || !leadTime?.ok || leadTime?.expired}
+              className="flex-1"
+            >
+              Book this offer <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* Step 3: Create Order */}
-      {state.step === 3 && (
-        <Card padding="lg" header={<h3 className="font-semibold">Step 3: Create Order</h3>}>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField label="Pickup Location">
-                <Input
-                  value={state.order.pickupLocation}
-                  onChange={(e) => setState((s) => ({ ...s, order: { ...s.order, pickupLocation: e.target.value } }))}
-                />
-              </FormField>
-
-              <FormField label="Drop Location">
-                <Input
-                  value={state.order.dropLocation}
-                  onChange={(e) => setState((s) => ({ ...s, order: { ...s.order, dropLocation: e.target.value } }))}
-                />
-              </FormField>
-
-              <FormField label="Passenger Name">
-                <Input
-                  value={state.order.paxName}
-                  onChange={(e) => setState((s) => ({ ...s, order: { ...s.order, paxName: e.target.value } }))}
-                />
-              </FormField>
-
-              <FormField label="Passenger Phone">
-                <Input
-                  value={state.order.paxPhone}
-                  onChange={(e) => setState((s) => ({ ...s, order: { ...s.order, paxPhone: e.target.value } }))}
-                />
-              </FormField>
-
-              <FormField label="Passenger Email">
-                <Input
-                  value={state.order.paxEmail}
-                  onChange={(e) => setState((s) => ({ ...s, order: { ...s.order, paxEmail: e.target.value } }))}
-                />
-              </FormField>
-
-              <FormField label="Number of Passengers">
-                <Input
-                  type="number"
-                  min="1"
-                  value={state.order.numberOfPassengers}
-                  onChange={(e) => setState((s) => ({ ...s, order: { ...s.order, numberOfPassengers: parseInt(e.target.value) || 1 } }))}
-                />
-              </FormField>
-            </div>
-
-            <div className="p-4 bg-brand-blue/10 border border-brand-blue/20 rounded">
-              <p className="text-xs text-text-primary font-medium flex items-center gap-2">
-                <Lock className="w-4 h-4" />
-                Price locked at ₹{selectedOffer?.price || "—"}
-              </p>
-            </div>
-
-            <Button onClick={handleCreateOrder} variant="primary" className="w-full">
-              <ChevronRight className="w-4 h-4 mr-2" /> Create Order
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {/* Step 4: Confirm & Book */}
-      {state.step === 4 && (
-        <Card padding="lg" header={<h3 className="font-semibold">Step 4: Confirm Booking</h3>}>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 p-4 bg-ops-bg rounded border border-border text-sm">
-              <div>
-                <p className="text-text-tertiary">Vendor</p>
-                <p className="text-text-primary font-medium">{vendor?.name}</p>
-              </div>
-              <div>
-                <p className="text-text-tertiary">Customer</p>
-                <p className="text-text-primary font-medium">{customer?.name}</p>
-              </div>
-              <div>
-                <p className="text-text-tertiary">Vehicle Type</p>
-                <p className="text-text-primary font-medium">{vehicleType?.name}</p>
-              </div>
-              <div>
-                <p className="text-text-tertiary">Locked Price</p>
-                <p className="text-text-primary font-medium">₹{selectedOffer?.price}</p>
-              </div>
-              <div>
-                <p className="text-text-tertiary">Passenger</p>
-                <p className="text-text-primary font-medium">{state.order.paxName}</p>
-              </div>
-              <div>
-                <p className="text-text-tertiary">Pickup</p>
-                <p className="text-text-primary font-medium">{state.order.pickupLocation}</p>
-              </div>
-            </div>
-
-            {state.tripId && (
-              <div className="p-4 bg-success/10 border border-success/20 rounded">
-                <p className="text-sm text-success font-medium flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4" />
-                  Trip Created Successfully
-                </p>
-                <p className="text-xs text-text-secondary mt-2">Trip ID: {state.tripId}</p>
-              </div>
-            )}
-
-            {!state.tripId && (
-              <Button onClick={handleConfirmTrip} variant="primary" className="w-full">
-                <CheckCircle className="w-4 h-4 mr-2" /> Confirm & Create Trip
-              </Button>
-            )}
-
-            {state.tripId && (
-              <Button
-                onClick={() =>
-                  setState({
-                    step: 1,
-                    quote: {
-                      vendorId: vendors[0]?.id || "",
-                      customerId: customers[0]?.id || "",
-                      vehicleTypeId: vehicleTypes[0]?.id || "",
-                      distance: 10,
-                      hours: 1,
-                      quotedAt: todayDate,
-                    },
-                    offers: [],
-                    selectedOfferIndex: null,
-                    checkTimeResult: null,
-                    order: {
-                      priceId: "",
-                      pickupLocation: "Bengaluru Airport",
-                      dropLocation: "Whitefield Tech Park",
-                      pickupLat: 13.1979,
-                      pickupLng: 77.7063,
-                      dropLat: 12.9698,
-                      dropLng: 77.7499,
-                      paxName: "John Doe",
-                      paxPhone: "+91-98765-43210",
-                      paxEmail: "john@example.com",
-                      numberOfPassengers: 1,
-                    },
-                    tripId: null,
-                  })
-                }
-                variant="secondary"
-                className="w-full"
-              >
-                Start New Quote
-              </Button>
-            )}
-          </div>
+      {/* Step 3 — booked */}
+      {step === 3 && booked && (
+        <Card padding="lg" className="text-center space-y-2">
+          <Check className="w-8 h-8 mx-auto text-success" />
+          <p className="text-sm text-text-primary">
+            Trip <span className="font-mono font-semibold">{booked.reference}</span> booked
+          </p>
+          <Badge variant="green">{booked.status}</Badge>
+          {selectedOffer && (
+            <p className="text-xs text-text-secondary">
+              Locked at {formatMoney(selectedOffer.price_minor, selectedOffer.currency)} with{" "}
+              {vendorName(selectedOffer.vendor)}
+            </p>
+          )}
+          <Button variant="secondary" onClick={reset} className="mt-2">
+            <RotateCcw className="w-4 h-4 mr-1" /> Run another
+          </Button>
         </Card>
       )}
     </div>

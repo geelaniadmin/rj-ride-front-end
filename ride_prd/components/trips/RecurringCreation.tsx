@@ -9,8 +9,10 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { FormField } from "@/components/ui/FormField";
 import { Drawer } from "@/components/ui/Drawer";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
 
 type RecurringRule = components["schemas"]["RecurringRule"];
@@ -208,10 +210,11 @@ export const RecurringCreation: React.FC<{ onDone?: () => void }> = () => {
       >
         <div className="space-y-4 p-4">
           <FormField label="Customer">
-            <Select
+            <SearchableSelect
               value={form.customer_id}
-              onChange={(e) => setForm((f) => ({ ...f, customer_id: e.target.value }))}
+              onChange={(val) => setForm((f) => ({ ...f, customer_id: val }))}
               options={(customers ?? []).map((c) => ({ value: c.id, label: c.name }))}
+              placeholder="Search customer…"
             />
           </FormField>
 
@@ -243,35 +246,27 @@ export const RecurringCreation: React.FC<{ onDone?: () => void }> = () => {
           )}
 
           <FormField label="Time">
-            <Input
-              type="time"
-              value={form.time}
-              onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
-            />
+            <DateTimePicker mode="time" value={form.time}
+              onChange={(val) => setForm((f) => ({ ...f, time: val }))} />
           </FormField>
 
           <div className="grid grid-cols-2 gap-2">
             <FormField label="Start Date">
-              <Input
-                type="date"
-                value={form.start_date}
-                onChange={(e) => setForm((f) => ({ ...f, start_date: e.target.value }))}
-              />
+              <DateTimePicker mode="date" value={form.start_date}
+                onChange={(val) => setForm((f) => ({ ...f, start_date: val }))} />
             </FormField>
             <FormField label="End Date">
-              <Input
-                type="date"
-                value={form.end_date ?? ""}
-                onChange={(e) => setForm((f) => ({ ...f, end_date: e.target.value || undefined }))}
-              />
+              <DateTimePicker mode="date" value={form.end_date ?? ""}
+                onChange={(val) => setForm((f) => ({ ...f, end_date: val || undefined }))} />
             </FormField>
           </div>
 
           <FormField label="Vehicle Type">
-            <Select
+            <SearchableSelect
               value={form.vehicle_type_id ?? ""}
-              onChange={(e) => setForm((f) => ({ ...f, vehicle_type_id: e.target.value || undefined }))}
+              onChange={(val) => setForm((f) => ({ ...f, vehicle_type_id: val || undefined }))}
               options={(vehicleTypes ?? []).map((v) => ({ value: v.id, label: v.name }))}
+              placeholder="Search vehicle type…"
             />
           </FormField>
 

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
 import { PII } from "@/components/ui/PII";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { Calendar, Clock, History, Trash2, CalendarDays } from "lucide-react";
 
 export const RosterListTab: React.FC = () => {
@@ -148,12 +149,8 @@ export const RosterListTab: React.FC = () => {
             Roster Entries ({filteredRoster.length})
           </h3>
           <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-1.5 bg-white border border-border rounded-lg text-sm text-text-primary"
-            />
+            <DateTimePicker mode="date" value={selectedDate}
+              onChange={(val) => setSelectedDate(val)} />
             <Button size="sm" variant="ghost" onClick={() => setSelectedDate("")}>
               Clear
             </Button>

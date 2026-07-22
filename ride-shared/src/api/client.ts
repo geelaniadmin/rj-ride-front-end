@@ -34,11 +34,25 @@ export function getErrorCode(err: unknown): string | undefined {
   return isApiError(err) ? err.code : undefined;
 }
 
+// Must mirror the backend's opt-ins: IdempotencyMixin / idempotency_required = True, plus the
+// billing actions that call _require_idempotency_key() directly. A path missing here fails at
+// runtime with "This endpoint requires an Idempotency-Key header" — which is how `/adjustments`
+// (plural) hid the fact that the real endpoint is `/adjust` (singular).
+//
+// `\b` matters: /\/offer\b/ matches `/trips/vehicles/{id}/offer` but NOT `/pricing/offers`,
+// which is a plain quote call and needs no key.
 const IDEMPOTENT_PATH_PATTERNS = [
-  /\/book\b/,
+  /\/book\b/, // partner book, ritmo/book
   /\/cancel\b/,
-  /\/adjustments\b/,
-  /\/approve\b/,
+  /\/adjust\b/, // billing adjust (also covers /adjustments)
+  /\/void\b/, // billing line void
+  /\/approve\b/, // payout approve
+  /\/mark-paid\b/, // payout mark-paid
+  /\/run\b/, // payout run
+  /\/offer\b/, // ops offers a slot to a vendor
+  /\/accept\b/, // vendor accepts an offer
+  /\/withdraw\b/, // ops withdraws an offer
+  /\/bulk\/commit\b/,
 ];
 
 function needsIdempotencyKey(url: string): boolean {

@@ -15,6 +15,7 @@ import {
   Code2,
   ClipboardList,
   GitBranch,
+  Inbox,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { labelKey: "configuration" as const, icon: Settings2, href: "/configuration" },
   { labelKey: "pricingAndQuotes" as const, icon: Tags, href: "/pricing" },
   { labelKey: "tripRequests" as const, icon: Route, href: "/trips" },
+  { labelKey: "ritmo" as const, icon: Inbox, href: "/ritmo" },
   { labelKey: "dispatch" as const, icon: Radio, href: "/dispatch" },
   { labelKey: "tracking" as const, icon: MapPin, href: "/tracking" },
 { labelKey: "rosters" as const, icon: ClipboardList, href: "/rosters" },

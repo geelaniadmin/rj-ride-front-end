@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { useToastStore } from "@/stores/toastStore";
 import { Download, Printer } from "lucide-react";
 
@@ -106,10 +107,10 @@ export const CustomerStatement: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <FormField label="From Date" required>
-              <Input type="date" value={filters.dateFrom} onChange={(e) => setFilters((p) => ({ ...p, dateFrom: e.target.value }))} />
+              <DateTimePicker mode="date" value={filters.dateFrom} onChange={(val) => setFilters((p) => ({ ...p, dateFrom: val }))} />
             </FormField>
             <FormField label="To Date" required>
-              <Input type="date" value={filters.dateTo} onChange={(e) => setFilters((p) => ({ ...p, dateTo: e.target.value }))} />
+              <DateTimePicker mode="date" value={filters.dateTo} onChange={(val) => setFilters((p) => ({ ...p, dateTo: val }))} />
             </FormField>
           </div>
 

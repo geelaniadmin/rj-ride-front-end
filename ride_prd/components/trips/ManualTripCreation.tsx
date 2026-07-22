@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/Input";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
-import { Plus, Minus, ArrowRight, Clock } from "lucide-react";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
+import { Plus, Minus, ArrowRight, Clock, Users } from "lucide-react";
 
 type Customer = components["schemas"]["Customer"];
 type VehicleType = components["schemas"]["VehicleType"];
@@ -48,9 +49,16 @@ interface StopEntry {
   flight_number: string;
 }
 
+interface PaxEntry {
+  name: string;
+  phone: string;
+}
+
 interface SlotEntry {
   vehicle_type_id: string;
   slot_ref: string;
+  /** Passengers riding in this vehicle. Optional — 0 up to the car type's seat capacity. */
+  pax: PaxEntry[];
 }
 
 const DEFAULT_STOP: StopEntry = {
@@ -80,7 +88,7 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
     { ...DEFAULT_STOP, kind: "PICKUP" },
     { ...DEFAULT_STOP, kind: "DROP" },
   ]);
-  const [slots, setSlots] = useState<SlotEntry[]>([{ vehicle_type_id: "", slot_ref: "slot-1" }]);
+  const [slots, setSlots] = useState<SlotEntry[]>([{ vehicle_type_id: "", slot_ref: "slot-1", pax: [] }]);
   const [bookedTripId, setBookedTripId] = useState<string | null>(null);
 
   const { data: customersData } = useQuery({
@@ -169,6 +177,10 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
           vehicles: chosen.map(({ slot, offer }) => ({
             vehicle_type_id: slot.vehicle_type_id,
             offer_id: offer.id,
+            // Blank rows are ignored so an untouched passenger row never books an empty pax.
+            pax: slot.pax
+              .filter((p) => p.name.trim() || p.phone.trim())
+              .map((p) => ({ name: p.name.trim(), phone: p.phone.trim() })),
           })),
         }),
       });
@@ -202,7 +214,36 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
   };
 
   const addSlot = () => {
-    setSlots((prev) => [...prev, { vehicle_type_id: "", slot_ref: `slot-${prev.length + 1}` }]);
+    setSlots((prev) => [...prev, { vehicle_type_id: "", slot_ref: `slot-${prev.length + 1}`, pax: [] }]);
+  };
+
+  /** Seats on the chosen car type — the cap on how many passengers this slot can hold. */
+  const seatsFor = (vehicleTypeId: string): number | null => {
+    const vt = vehicleTypes.find((v) => v.id === vehicleTypeId);
+    return typeof vt?.capacity === "number" ? vt.capacity : null;
+  };
+
+  const updateSlotPax = (slotIdx: number, pax: PaxEntry[]) =>
+    setSlots((prev) => prev.map((s, i) => (i === slotIdx ? { ...s, pax } : s)));
+
+  const addPax = (slotIdx: number) => {
+    const slot = slots[slotIdx];
+    if (!slot) return;
+    const seats = seatsFor(slot.vehicle_type_id);
+    if (seats !== null && slot.pax.length >= seats) return; // never exceed the car's seats
+    updateSlotPax(slotIdx, [...slot.pax, { name: "", phone: "" }]);
+  };
+
+  const removePax = (slotIdx: number, paxIdx: number) => {
+    const slot = slots[slotIdx];
+    if (!slot) return;
+    updateSlotPax(slotIdx, slot.pax.filter((_, i) => i !== paxIdx));
+  };
+
+  const updatePax = (slotIdx: number, paxIdx: number, field: keyof PaxEntry, val: string) => {
+    const slot = slots[slotIdx];
+    if (!slot) return;
+    updateSlotPax(slotIdx, slot.pax.map((p, i) => (i === paxIdx ? { ...p, [field]: val } : p)));
   };
 
   const removeSlot = (idx: number) => {
@@ -250,11 +291,8 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
       </FormField>
 
       <FormField label="Pickup Date & Time">
-        <Input
-          type="datetime-local"
-          value={pickupAt}
-          onChange={(e) => setPickupAt(e.target.value)}
-        />
+        <DateTimePicker mode="datetime" value={pickupAt}
+          onChange={(val) => setPickupAt(val)} />
       </FormField>
 
       <div className="space-y-3">
@@ -295,12 +333,9 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
                   ))}
                 </select>
               </div>
-              <Input
-                placeholder="Time (optional)"
-                type="datetime-local"
-                value={stop.planned_time}
-                onChange={(e) => updateStop(idx, "planned_time", e.target.value)}
-              />
+              <DateTimePicker placeholder="Time (optional)"
+                mode="datetime" value={stop.planned_time}
+                onChange={(val) => updateStop(idx, "planned_time", val)} />
             </div>
             {stop.location_type === "AIRPORT" && (
               <Input
@@ -321,22 +356,85 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
           </Button>
         </div>
 
-        {slots.map((slot, idx) => (
-          <div key={slot.slot_ref} className="flex items-center gap-2">
-            <SearchableSelect
-              value={slot.vehicle_type_id}
-              onChange={(val) => setSlots((prev) => prev.map((s, i) => i === idx ? { ...s, vehicle_type_id: val } : s))}
-              options={vehicleTypes.map((v) => ({ value: v.id, label: v.name }))}
-              placeholder="Search vehicle type…"
-              className="flex-1"
-            />
-            {slots.length > 1 && (
-              <button onClick={() => removeSlot(idx)} className="text-danger">
-                <Minus className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        ))}
+        {slots.map((slot, idx) => {
+          const seats = seatsFor(slot.vehicle_type_id);
+          const full = seats !== null && slot.pax.length >= seats;
+          return (
+            <div key={slot.slot_ref} className="rounded-lg border border-border p-2.5 space-y-2">
+              <div className="flex items-center gap-2">
+                <SearchableSelect
+                  value={slot.vehicle_type_id}
+                  onChange={(val) => setSlots((prev) => prev.map((s, i) => i === idx ? { ...s, vehicle_type_id: val } : s))}
+                  options={vehicleTypes.map((v) => ({
+                    value: v.id,
+                    label: typeof v.capacity === "number" ? `${v.name} (${v.capacity} seats)` : v.name,
+                  }))}
+                  placeholder="Search vehicle type…"
+                  className="flex-1"
+                />
+                {slots.length > 1 && (
+                  <button onClick={() => removeSlot(idx)} className="text-danger" title="Remove vehicle">
+                    <Minus className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Passengers — optional, from none up to the car type's seat capacity. */}
+              {slot.vehicle_type_id && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-text-secondary flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5" />
+                      Passengers{" "}
+                      <span className="text-text-tertiary">
+                        {slot.pax.length}
+                        {seats !== null ? ` / ${seats}` : ""}
+                      </span>
+                    </span>
+                    <button
+                      onClick={() => addPax(idx)}
+                      disabled={full}
+                      title={full ? `That car type seats only ${seats}` : "Add a passenger"}
+                      className="text-xs text-brand-blue hover:underline disabled:text-text-tertiary disabled:no-underline disabled:cursor-not-allowed"
+                    >
+                      + Add passenger
+                    </button>
+                  </div>
+
+                  {slot.pax.map((p, pi) => (
+                    <div key={pi} className="flex items-center gap-2">
+                      <Input
+                        placeholder={`Passenger ${pi + 1} name`}
+                        value={p.name}
+                        onChange={(e) => updatePax(idx, pi, "name", e.target.value)}
+                        className="flex-1"
+                      />
+                      <Input
+                        placeholder="Phone (optional)"
+                        value={p.phone}
+                        onChange={(e) => updatePax(idx, pi, "phone", e.target.value)}
+                        className="w-40"
+                      />
+                      <button
+                        onClick={() => removePax(idx, pi)}
+                        className="text-danger"
+                        title="Remove passenger"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {full && (
+                    <p className="text-[11px] text-text-tertiary">
+                      Seat capacity reached — add another vehicle for more passengers.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <Button

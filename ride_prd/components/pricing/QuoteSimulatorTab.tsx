@@ -8,9 +8,10 @@ import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
+import { DateTimePicker } from "@/components/ui/DateTimePicker";
 
 type Offer = {
   id: string;
@@ -107,24 +108,30 @@ export const QuoteSimulatorTab: React.FC<QuoteSimulatorTabProps> = () => {
     <div className="space-y-6">
       <Card padding="lg" header={<h3 className="font-semibold">Quote Parameters</h3>}>
         <div className="grid grid-cols-2 gap-4">
-          <FormField label="Customer">
-            <Select
+          {/* SearchableSelect, not a bare <Select>: a native select with no option matching the
+              empty initial value *displays* the first customer while state stays "", so the form
+              looked filled in but failed validation. The combobox shows a real placeholder and
+              only sets state on an explicit pick, so what you see is what's submitted. */}
+          <FormField label="Customer" required>
+            <SearchableSelect
               value={customer_id}
-              onChange={(e) => setCustomerId(e.target.value)}
+              onChange={setCustomerId}
               options={customers.map((c) => ({ value: c.id, label: c.name }))}
+              placeholder="Search customer…"
             />
           </FormField>
 
-          <FormField label="Vehicle Type">
-            <Select
+          <FormField label="Vehicle Type" required>
+            <SearchableSelect
               value={vehicle_type_id}
-              onChange={(e) => setVehicleTypeId(e.target.value)}
+              onChange={setVehicleTypeId}
               options={vts.map((v) => ({ value: v.id, label: v.name }))}
+              placeholder="Search vehicle type…"
             />
           </FormField>
 
           <FormField label="When">
-            <Input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
+            <DateTimePicker mode="datetime" value={when} onChange={(val) => setWhen(val)} />
           </FormField>
 
           <FormField label="Distance (KM)">
