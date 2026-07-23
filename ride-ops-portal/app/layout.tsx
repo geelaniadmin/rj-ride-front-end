@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { RootLayoutContent } from './layout-content';
-import { ApiProviders } from '@ride/shared/api';
+import { ApiProviders } from '@/lib/shared/api';
 
 export const metadata: Metadata = {
   title: 'Ops Portal',

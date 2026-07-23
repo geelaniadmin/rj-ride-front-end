@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, formatMoney, isApiError } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { apiClient, keys, formatMoney, isApiError } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,10 @@ import { Input } from "@/components/ui/Input";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
+import { Pagination } from "@/components/ui/Pagination";
+import { ListFilterBar, EMPTY_FILTERS, type ListFilters } from "@/components/ui/ListFilterBar";
+import { useCursorPagination } from "@/hooks/useCursorPagination";
+import { useDebounced } from "@/hooks/useDebounced";
 import { BarChart3, FileText, Receipt, CreditCard, ExternalLink, CheckCircle, DollarSign, XCircle } from "lucide-react";
 
 type BillableTrip = components["schemas"]["BillableTrip"];
@@ -70,6 +74,42 @@ export default function BillingPage() {
   );
 }
 
+/**
+ * The billing total, with the arithmetic that produced it.
+ *
+ * The price ops see at allotment is the vehicle's `locked_price` (frozen from the Offer at
+ * booking). Billing then adds the tenant's operator fee, so the number legitimately differs and
+ * looked like an unexplained increase. Adjustments are included because the backend computes
+ * total = subtotal + operator_fee + adjustments — leaving them out would print a bracket that
+ * does not add up to the total beside it.
+ */
+function TotalBreakdown({ trip }: { trip: BillableTrip }) {
+  if (trip.total_minor == null) return null;
+  const currency = trip.lines?.[0]?.currency ?? "INR";
+  const subtotal = trip.subtotal_minor ?? 0;
+  const fee = trip.operator_fee_minor ?? 0;
+  const adjustments = (trip.adjustments ?? []).reduce(
+    (sum, a) => sum + ((a as { amount_minor?: number }).amount_minor ?? 0),
+    0,
+  );
+  const bps = (trip.fee_config_snapshot as { bps?: number } | null | undefined)?.bps;
+  const feeLabel = typeof bps === "number" ? `operator fee ${bps / 100}%` : "operator fee";
+
+  return (
+    <>
+      <span className="font-medium text-text-primary mr-2">
+        {formatMoney(trip.total_minor, currency)}
+      </span>
+      <span className="text-text-tertiary mr-2">
+        ({formatMoney(subtotal, currency)} locked + {formatMoney(fee, currency)} {feeLabel}
+        {adjustments !== 0 &&
+          ` ${adjustments > 0 ? "+" : "−"} ${formatMoney(Math.abs(adjustments), currency)} adjustments`}
+        )
+      </span>
+    </>
+  );
+}
+
 function BillableTripsTab() {
   const addToast = useToastStore((s) => s.addToast);
   const qc = useQueryClient();
@@ -81,16 +121,41 @@ function BillableTripsTab() {
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustReason, setAdjustReason] = useState("");
 
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [filters, setFilters] = useState<ListFilters>(EMPTY_FILTERS);
+  // Debounced so typing doesn't fire a request per keystroke.
+  const search = useDebounced(filters.search, 300);
+
+  const query = {
+    ...(search ? { search } : {}),
+    ...(filters.dateFrom ? { date_from: filters.dateFrom } : {}),
+    ...(filters.dateTo ? { date_to: filters.dateTo } : {}),
+  };
+  const isFiltered = Object.keys(query).length > 0;
+
   const { data, isLoading } = useQuery({
-    queryKey: keys.billing.invoices.list({}),
+    // Cursor and filters are part of the key: without them every page/filter overwrites the same
+    // cache entry and React Query serves stale rows while the new request is in flight.
+    queryKey: keys.billing.invoices.list({ cursor, ...query }),
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/billing/billable-trips", {
-        params: { query: {} },
+        params: { query: { ...query, ...(cursor ? { cursor } : {}) } },
       });
       if (err) throw err;
       return res;
     },
+    placeholderData: (prev) => prev,
   });
+
+  const page = useCursorPagination((data as { next?: string | null } | undefined)?.next);
+  useEffect(() => setCursor(page.cursor), [page.cursor]);
+
+  // Changing a filter must send you back to page 1 — page 3's cursor is meaningless against a
+  // different result set.
+  const applyFilters = (next: ListFilters) => {
+    setFilters(next);
+    page.reset();
+  };
 
   const { data: detail } = useQuery<BillableTrip | null>({
     queryKey: keys.billing.invoices.detail(selectedId ?? ""),
@@ -144,14 +209,26 @@ function BillableTripsTab() {
     },
   });
 
+  // Derived once for the expanded detail panel's itemised total.
+  const detailCurrency = detail?.lines?.[0]?.currency ?? "INR";
+  const detailBps = (detail?.fee_config_snapshot as { bps?: number } | null | undefined)?.bps;
+  const detailAdjustments = (detail?.adjustments ?? []).reduce(
+    (sum, a) => sum + ((a as { amount_minor?: number }).amount_minor ?? 0),
+    0,
+  );
+
   const trips = ((data as { results?: BillableTrip[] } | undefined)?.results ?? (data as BillableTrip[] | undefined) ?? []);
 
   return (
     <div className="space-y-4">
+      <ListFilterBar value={filters} onChange={applyFilters} searchPlaceholder="Search by trip reference…" />
+
       {isLoading ? (
         <p className="text-sm text-text-secondary text-center py-8">Loading billable trips…</p>
       ) : trips.length === 0 ? (
-        <Card padding="lg" className="text-center py-8 text-text-secondary">No billable trips yet.</Card>
+        <Card padding="lg" className="text-center py-8 text-text-secondary">
+          {isFiltered ? "No billable trips match these filters." : "No billable trips yet."}
+        </Card>
       ) : (
         <div className="space-y-2">
           {trips.map((trip) => (
@@ -160,9 +237,7 @@ function BillableTripsTab() {
                 <div>
                   <p className="text-sm font-medium text-text-primary font-mono">{trip.trip_reference}</p>
                   <p className="text-xs text-text-secondary mt-0.5">
-                    {trip.lines?.[0]?.currency && trip.total_minor != null && (
-                      <span className="font-medium text-text-primary mr-2">{formatMoney(trip.total_minor, trip.lines[0].currency)}</span>
-                    )}
+                    <TotalBreakdown trip={trip} />
                     <span>{new Date(trip.created_at).toLocaleDateString()}</span>
                   </p>
                 </div>
@@ -206,13 +281,37 @@ function BillableTripsTab() {
                       </div>
                     </div>
                   ))}
-                  <div className="flex justify-between text-sm font-semibold pt-1 border-t border-border">
-                    <span>Total</span>
-                    <span>
-                      {detail.lines?.[0]?.currency && detail.total_minor != null
-                        ? formatMoney(detail.total_minor, detail.lines[0].currency)
-                        : "—"}
-                    </span>
+                  <div className="pt-1 border-t border-border space-y-1">
+                    {/* Itemised so the gap between the allotment price and the billed total is
+                        explicit rather than something ops has to work out. */}
+                    <div className="flex justify-between text-xs text-text-secondary">
+                      <span>Locked price (allotment)</span>
+                      <span>{formatMoney(detail.subtotal_minor ?? 0, detailCurrency)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-text-secondary">
+                      <span>
+                        Operator fee
+                        {typeof detailBps === "number" ? ` (${detailBps / 100}%)` : ""}
+                      </span>
+                      <span>+ {formatMoney(detail.operator_fee_minor ?? 0, detailCurrency)}</span>
+                    </div>
+                    {detailAdjustments !== 0 && (
+                      <div className="flex justify-between text-xs text-text-secondary">
+                        <span>Adjustments</span>
+                        <span>
+                          {detailAdjustments > 0 ? "+" : "−"}{" "}
+                          {formatMoney(Math.abs(detailAdjustments), detailCurrency)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm font-semibold pt-1 border-t border-border">
+                      <span>Total</span>
+                      <span>
+                        {detail.total_minor != null
+                          ? formatMoney(detail.total_minor, detailCurrency)
+                          : "—"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -283,6 +382,8 @@ function BillableTripsTab() {
           </div>
         </Modal>
       )}
+
+      <Pagination page={page} count={trips.length} itemLabel="trip" />
     </div>
   );
 }
@@ -290,16 +391,41 @@ function BillableTripsTab() {
 function StatementsTab() {
   const addToast = useToastStore((s) => s.addToast);
 
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [filters, setFilters] = useState<ListFilters>(EMPTY_FILTERS);
+  // Debounced so typing doesn't fire a request per keystroke.
+  const search = useDebounced(filters.search, 300);
+
+  const query = {
+    ...(search ? { search } : {}),
+    ...(filters.dateFrom ? { date_from: filters.dateFrom } : {}),
+    ...(filters.dateTo ? { date_to: filters.dateTo } : {}),
+  };
+  const isFiltered = Object.keys(query).length > 0;
+
   const { data, isLoading } = useQuery({
-    queryKey: keys.billing.statements.list({}),
+    // Cursor and filters are part of the key: without them every page/filter overwrites the same
+    // cache entry and React Query serves stale rows while the new request is in flight.
+    queryKey: keys.billing.statements.list({ cursor, ...query }),
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/billing/statements", {
-        params: { query: {} },
+        params: { query: { ...query, ...(cursor ? { cursor } : {}) } },
       });
       if (err) throw err;
       return res;
     },
+    placeholderData: (prev) => prev,
   });
+
+  const page = useCursorPagination((data as { next?: string | null } | undefined)?.next);
+  useEffect(() => setCursor(page.cursor), [page.cursor]);
+
+  // Changing a filter must send you back to page 1 — page 3's cursor is meaningless against a
+  // different result set.
+  const applyFilters = (next: ListFilters) => {
+    setFilters(next);
+    page.reset();
+  };
 
   const downloadMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -321,10 +447,14 @@ function StatementsTab() {
 
   return (
     <div className="space-y-2">
+      <ListFilterBar value={filters} onChange={applyFilters} searchPlaceholder="Search by vendor or customer…" />
+
       {isLoading ? (
         <p className="text-sm text-text-secondary text-center py-8">Loading statements…</p>
       ) : statements.length === 0 ? (
-        <Card padding="lg" className="text-center py-8 text-text-secondary">No statements yet.</Card>
+        <Card padding="lg" className="text-center py-8 text-text-secondary">
+          {isFiltered ? "No statements match these filters." : "No statements yet."}
+        </Card>
       ) : (
         statements.map((stmt) => (
           <Card key={stmt.id} padding="md">
@@ -357,6 +487,8 @@ function StatementsTab() {
           </Card>
         ))
       )}
+
+      <Pagination page={page} count={statements.length} itemLabel="statement" />
     </div>
   );
 }
@@ -365,16 +497,41 @@ function PayoutsTab() {
   const addToast = useToastStore((s) => s.addToast);
   const qc = useQueryClient();
 
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [filters, setFilters] = useState<ListFilters>(EMPTY_FILTERS);
+  // Debounced so typing doesn't fire a request per keystroke.
+  const search = useDebounced(filters.search, 300);
+
+  const query = {
+    ...(search ? { search } : {}),
+    ...(filters.dateFrom ? { date_from: filters.dateFrom } : {}),
+    ...(filters.dateTo ? { date_to: filters.dateTo } : {}),
+  };
+  const isFiltered = Object.keys(query).length > 0;
+
   const { data, isLoading } = useQuery({
-    queryKey: keys.billing.payouts.list({}),
+    // Cursor and filters are part of the key: without them every page/filter overwrites the same
+    // cache entry and React Query serves stale rows while the new request is in flight.
+    queryKey: keys.billing.payouts.list({ cursor, ...query }),
     queryFn: async () => {
       const { data: res, error: err } = await apiClient.GET("/v1/billing/payouts", {
-        params: { query: {} },
+        params: { query: { ...query, ...(cursor ? { cursor } : {}) } },
       });
       if (err) throw err;
       return res;
     },
+    placeholderData: (prev) => prev,
   });
+
+  const page = useCursorPagination((data as { next?: string | null } | undefined)?.next);
+  useEffect(() => setCursor(page.cursor), [page.cursor]);
+
+  // Changing a filter must send you back to page 1 — page 3's cursor is meaningless against a
+  // different result set.
+  const applyFilters = (next: ListFilters) => {
+    setFilters(next);
+    page.reset();
+  };
 
   const approveMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -414,10 +571,14 @@ function PayoutsTab() {
 
   return (
     <div className="space-y-2">
+      <ListFilterBar value={filters} onChange={applyFilters} searchPlaceholder="Search by vendor…" />
+
       {isLoading ? (
         <p className="text-sm text-text-secondary text-center py-8">Loading payouts…</p>
       ) : payouts.length === 0 ? (
-        <Card padding="lg" className="text-center py-8 text-text-secondary">No payouts yet.</Card>
+        <Card padding="lg" className="text-center py-8 text-text-secondary">
+          {isFiltered ? "No payouts match these filters." : "No payouts yet."}
+        </Card>
       ) : (
         payouts.map((payout) => (
           <Card key={payout.id} padding="md">
@@ -468,6 +629,8 @@ function PayoutsTab() {
           </Card>
         ))
       )}
+
+      <Pagination page={page} count={payouts.length} itemLabel="payout" />
     </div>
   );
 }

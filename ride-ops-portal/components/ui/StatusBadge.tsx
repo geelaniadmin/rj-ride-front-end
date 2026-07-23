@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Badge, BadgeVariant } from './Badge';
-import { VehicleStatus, TripStatus } from '@ride/shared';
+import { VehicleStatus, TripStatus } from '@/lib/shared';
 
 function getTripStatusVariant(status: TripStatus): BadgeVariant {
   switch (status) {

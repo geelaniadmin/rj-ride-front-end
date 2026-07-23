@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, isApiError, csrfFetch } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { apiClient, keys, isApiError, csrfFetch } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { TripDetailView } from "@/components/trips/TripDetailView";
+import { cursorFromUrl } from "@/hooks/useCursorPagination";
 import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { ChevronRight, ChevronLeft, X } from "lucide-react";
 import type { TripStatus } from "@/lib/types";
@@ -54,7 +55,9 @@ export const TripsListTab: React.FC = () => {
   });
 
   const trips: TripRequest[] = (data?.results ?? []) as TripRequest[];
-  const nextCursor = data?.next ?? null;
+  // DRF returns `next` as a full URL; the API expects a bare `cursor` value. Feeding the
+  // URL straight back made Next silently re-serve page 1.
+  const nextCursor = cursorFromUrl(data?.next);
   const hasPrev = pageIdx > 0;
   const hasNext = !!nextCursor;
 

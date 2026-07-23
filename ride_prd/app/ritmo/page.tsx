@@ -2,13 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, csrfFetch, isApiError } from "@ride/shared";
+import { apiClient, csrfFetch, isApiError, uuidv4 } from "@/lib/shared";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { BellRing, Car, Inbox, MapPin, RefreshCw, Search, Send, User } from "lucide-react";
+import { BellRing, Car, CheckCircle, Inbox, MapPin, RefreshCw, Search, Send, User } from "lucide-react";
 import type { TripStatus } from "@/lib/types";
 
 // The RITMO endpoints are not in the committed OpenAPI schema, so we type them locally and
@@ -53,16 +53,35 @@ interface Vendor {
   name: string;
 }
 
-function genIdempotencyKey(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
-  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+/**
+ * Vehicle states that mean a vendor has taken the job — they accepted the offer by assigning a
+ * vehicle and driver, and everything after that is the trip actually running. Anything earlier
+ * (PENDING, VENDOR_OFFERED) is still ops' problem and must stay visually live.
+ */
+const ACCEPTED_VEHICLE_STATUSES = new Set([
+  "ASSIGNED",
+  "DRIVER_ACCEPTED",
+  "EN_ROUTE_PICKUP",
+  "AT_PICKUP",
+  "PAX_PICKED",
+  "IN_TRANSIT",
+  "AT_DROP",
+  "PAX_DROPPED",
+  "COMPLETED",
+]);
+
+/**
+ * True once every vehicle slot on the request has been accepted by a vendor.
+ *
+ * Deliberately `every`, not `some`: a two-vehicle request with one slot still unallotted is
+ * only half done and has to keep drawing the eye. A request with no vehicle rows at all is not
+ * "settled" either — that would grey out a request nobody can act on yet.
+ */
+function isFullyAccepted(trip: RitmoTrip): boolean {
+  return (
+    trip.vehicles.length > 0 &&
+    trip.vehicles.every((v) => ACCEPTED_VEHICLE_STATUSES.has(v.status))
+  );
 }
 
 function countdown(iso: string, now: number): string {
@@ -157,7 +176,7 @@ export default function RitmoPage() {
       const resp = await csrfFetch(`/api/v1/trips/vehicles/${vehicleId}/offer/`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": genIdempotencyKey() },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": uuidv4() },
         body: JSON.stringify({ vendor_id: vendorId }),
       });
       if (!resp.ok) {
@@ -334,12 +353,28 @@ export default function RitmoPage() {
               <p>No requests match “{search}”.</p>
             </Card>
           ) : null}
-          {visibleTrips.map((trip) => (
-            <Card key={trip.id} padding="md">
+          {visibleTrips.map((trip) => {
+            const accepted = isFullyAccepted(trip);
+            return (
+            <Card
+              key={trip.id}
+              padding="md"
+              // Greyed out once a vendor has taken every slot: the request needs nothing more
+              // from ops, so it recedes and only the ones still awaiting action read as live.
+              // No hover restore — bringing it back to full colour on mouseover made a settled
+              // request look active again, which defeats the point of muting it.
+              className={accepted ? "opacity-50 grayscale" : ""}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <StatusBadge status={trip.status as TripStatus} />
+                    {accepted && (
+                      <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">
+                        <CheckCircle className="w-3 h-3" />
+                        Vendor accepted
+                      </span>
+                    )}
                     <span className="font-mono text-sm text-text-primary">{trip.reference}</span>
                     <span className="text-xs px-1.5 py-0.5 rounded bg-brand-blue/10 text-brand-blue font-medium">
                       RITMO: {trip.ritmo_ref}
@@ -451,7 +486,8 @@ export default function RitmoPage() {
                 ))}
               </div>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

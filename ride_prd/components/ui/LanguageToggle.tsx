@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useLanguageStore, t } from "@ride/shared";
+import { useLanguageStore, t } from "@/lib/shared";
 import { Globe } from "lucide-react";
 
 export function LanguageToggle() {

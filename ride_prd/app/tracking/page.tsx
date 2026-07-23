@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { keys } from "@ride/shared";
-import { useRideEvents } from "@ride/shared/realtime/ws";
-import type { TrackingEvent } from "@ride/shared/realtime/ws";
+import { keys } from "@/lib/shared";
+import { useRideEvents } from "@/lib/shared/realtime/ws";
+import type { TrackingEvent } from "@/lib/shared/realtime/ws";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { StatusBadge } from "@/components/ui/StatusBadge";

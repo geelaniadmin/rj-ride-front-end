@@ -2,9 +2,10 @@
 
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, QueryBoundary } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { apiClient, keys, QueryBoundary, csrfFetch } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
 import { Input } from "@/components/ui/Input";
@@ -79,18 +80,48 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error: err } = await apiClient.DELETE("/v1/config/vehicle-types/{id}", { params: { path: { id } } });
-      if (err) throw err;
+    mutationFn: async ({ id, cascade }: { id: string; cascade?: boolean }) => {
+      // `cascade` is opt-in and only ever set after the user confirms the prompt below, so a
+      // plain click can never retire a vehicle type's dependents by surprise.
+      // csrfFetch, not apiClient: `?cascade=` is not in the committed OpenAPI schema, so the
+      // generated types reject the query param. Errors are unwrapped by hand to keep the
+      // status code, which is what tells us a 409 is retryable with cascade.
+      const qs = cascade ? "?cascade=true" : "";
+      const resp = await csrfFetch(`/api/v1/config/vehicle-types/${id}/${qs}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!resp.ok) {
+        const body = (await resp.json().catch(() => null)) as
+          | { error?: { message?: string } }
+          | null;
+        const failure = new Error(
+          body?.error?.message ?? `Failed to retire vehicle type (${resp.status})`,
+        ) as Error & { status?: number };
+        failure.status = resp.status;
+        throw failure;
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.config.vehicleTypes.list() });
       addToast("Vehicle type deactivated", "success");
     },
-    onError: (err: unknown) => {
+    onError: (err: unknown, variables) => {
+      // A 409 is not a failure the user can do nothing about: the record still has live
+      // dependents. Offer to retire them in the same action rather than dead-ending on a toast.
+      const status = (err as { status?: number } | undefined)?.status;
+      const message = err instanceof Error ? err.message : "";
+      if (status === 409 && !variables.cascade) {
+        setPendingCascade({ id: variables.id, reason: message });
+        return;
+      }
       addToast(err instanceof Error ? err.message : "Failed to delete vehicle type", "error");
     },
   });
+
+  // Set when the server refuses because dependents are still live (409). Holds the id to retry
+  // with cascade plus the server's own explanation, which already names the count.
+  const [pendingCascade, setPendingCascade] = useState<{ id: string; reason: string } | null>(null);
 
   const emptyForm: VehicleTypeWriteInput = { name: "", capacity: 4, ac: true };
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -221,7 +252,7 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => deleteMutation.mutate(vt.id)}
+              onClick={() => deleteMutation.mutate({ id: vt.id })}
               disabled={deleteMutation.isPending}
             >
               Deactivate
@@ -229,6 +260,24 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={pendingCascade !== null}
+        title="Retire vehicle type?"
+        message={
+          pendingCascade
+            ? `${pendingCascade.reason} Retire them together with this vehicle type?`
+            : ""
+        }
+        confirmLabel="Retire all"
+        destructive
+        busy={deleteMutation.isPending}
+        onConfirm={() => {
+          if (pendingCascade) deleteMutation.mutate({ id: pendingCascade.id, cascade: true });
+          setPendingCascade(null);
+        }}
+        onCancel={() => setPendingCascade(null)}
+      />
     </div>
   );
 };

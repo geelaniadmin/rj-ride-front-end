@@ -2,8 +2,8 @@
 
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiClient, keys, useLanguageStore, t } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { apiClient, keys, useLanguageStore, t } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 import { useVendorTrips } from "@/hooks/useVendorTrips";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Tabs } from "@/components/ui/Tabs";
@@ -58,15 +58,104 @@ function FleetStatusBadge({ isActive, onTrip }: { isActive: boolean; onTrip: boo
   return <StatusBadge status={onTrip ? "ON_TRIP" : "AVAILABLE"} />;
 }
 
+/**
+ * Every vehicle, following the cursor to the end.
+ *
+ * The list endpoint is cursor-paginated at 25/page, so a single GET would make the per-type
+ * counts below silently mean "of the first 25" for any vendor with a larger fleet. `next` is a
+ * full URL, so the cursor has to be pulled back out of it — passing the URL itself as `cursor`
+ * 404s. The page cap is a runaway guard, not an expected limit.
+ */
+async function fetchAllVehicles(): Promise<Vehicle[]> {
+  const all: Vehicle[] = [];
+  let cursor: string | undefined;
+
+  for (let page = 0; page < 40; page++) {
+    const { data: res, error: err } = await apiClient.GET("/v1/fleet/vehicles", {
+      params: { query: cursor ? { cursor } : {} },
+    });
+    if (err) throw err;
+    all.push(...((res?.results ?? []) as Vehicle[]));
+
+    const next = res?.next;
+    if (!next) break;
+    cursor = new URL(next, window.location.origin).searchParams.get("cursor") ?? undefined;
+    if (!cursor) break;
+  }
+  return all;
+}
+
+type TypeCount = {
+  name: string;
+  total: number;
+  available: number;
+  onTrip: number;
+  offline: number;
+};
+
+/** Per-vehicle-type tallies, biggest group first. */
+function countByType(vehicles: Vehicle[], onTripIds: Set<string>): TypeCount[] {
+  const byType = new Map<string, TypeCount>();
+
+  for (const v of vehicles) {
+    const name = v.vehicle_type_name || "Unspecified";
+    let row = byType.get(name);
+    if (!row) {
+      row = { name, total: 0, available: 0, onTrip: 0, offline: 0 };
+      byType.set(name, row);
+    }
+    row.total += 1;
+    // Mirrors FleetStatusBadge exactly, so the cards and the list can never disagree:
+    // inactive wins over on-trip.
+    if (v.is_active === false) row.offline += 1;
+    else if (onTripIds.has(v.id)) row.onTrip += 1;
+    else row.available += 1;
+  }
+
+  return [...byType.values()].sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+}
+
+function VehicleTypeSummary({ counts }: { counts: TypeCount[] }) {
+  if (counts.length === 0) return null;
+  const fleetTotal = counts.reduce((n, c) => n + c.total, 0);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-sm font-semibold text-text-primary">By vehicle type</h3>
+        <span className="text-xs text-text-muted">
+          {fleetTotal} vehicle{fleetTotal === 1 ? "" : "s"} · {counts.length} type
+          {counts.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {counts.map((c) => (
+          <div key={c.name} className="bg-card-bg border border-card-border rounded-xl p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-text-primary truncate" title={c.name}>
+                {c.name}
+              </span>
+              <span className="text-xl font-bold text-brand-blue tabular-nums">{c.total}</span>
+            </div>
+            <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-text-muted">
+              <span className="text-success">{c.available} available</span>
+              {c.onTrip > 0 && <span>· {c.onTrip} on trip</span>}
+              {c.offline > 0 && <span>· {c.offline} offline</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function VehiclesTab({ onTripIds }: { onTripIds: Set<string> }) {
   const { data: vehicles = [], isLoading } = useQuery({
-    queryKey: keys.fleet.vehicles.list({}),
-    queryFn: async () => {
-      const { data: res, error: err } = await apiClient.GET("/v1/fleet/vehicles", {});
-      if (err) throw err;
-      return (res?.results ?? []) as Vehicle[];
-    },
+    queryKey: keys.fleet.vehicles.list({ all: true }),
+    queryFn: fetchAllVehicles,
   });
+
+  const typeCounts = useMemo(() => countByType(vehicles, onTripIds), [vehicles, onTripIds]);
 
   if (isLoading) return <div className="text-center py-8 text-text-muted text-sm">Loading vehicles…</div>;
   if (vehicles.length === 0) return (
@@ -77,7 +166,10 @@ function VehiclesTab({ onTripIds }: { onTripIds: Set<string> }) {
   );
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
+      <VehicleTypeSummary counts={typeCounts} />
+
+      <div className="space-y-3">
       {vehicles.map((vehicle) => (
         <div key={vehicle.id} className="bg-card-bg border border-card-border rounded-xl p-4">
           <div className="flex items-start justify-between gap-4">
@@ -99,6 +191,7 @@ function VehiclesTab({ onTripIds }: { onTripIds: Set<string> }) {
           </div>
         </div>
       ))}
+      </div>
     </div>
   );
 }

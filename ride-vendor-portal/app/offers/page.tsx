@@ -2,8 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, csrfFetch, isApiError, formatMoney } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { apiClient, csrfFetch, isApiError, formatMoney, uuidv4 } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 import { useToast } from "@/components/ui/Toast";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
@@ -41,18 +41,6 @@ interface OfferRow {
   alerted_at: string | null;
   expires_alert_at: string;
   expires_at: string;
-}
-
-function genIdempotencyKey(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
-  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
-  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function countdown(iso: string, now: number): string {
@@ -137,7 +125,7 @@ export default function OffersPage() {
       const resp = await csrfFetch(`/api/v1/offers/${accepting.id}/accept/`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json", "Idempotency-Key": genIdempotencyKey() },
+        headers: { "Content-Type": "application/json", "Idempotency-Key": uuidv4() },
         body: JSON.stringify({ vehicle_id: vehicleId, driver_id: driverId }),
       });
       if (!resp.ok) {

@@ -3,8 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient, keys, useLanguageStore, t } from '@ride/shared';
-import type { components } from '@ride/shared/api/schema.d';
+import { apiClient, keys, useLanguageStore, t } from '@/lib/shared';
+import type { components } from '@/lib/shared/api/schema.d';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { KpiCardSkeleton } from '@/components/ui/Skeleton';
 import { Card } from '@/components/ui/Card';

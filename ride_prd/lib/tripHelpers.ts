@@ -1,6 +1,6 @@
 import { Stop, LocationType, TripVehicle, Pax } from "@/lib/types";
 import { getLocationTypeFromAddress } from "@/lib/location";
-import { id } from "@/lib/mock";
+import { uuidv4 as id } from "@/lib/shared";
 
 export function createStop(
   seq: number,

@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { uuidv4 } from "@/lib/shared";
 
 export type RateBasis = 'PER_KM' | 'FIXED_LOCATION_PAIR' | 'HOURLY' | 'PACKAGE';
 export type TollHandling = 'INCLUDED' | 'EXTRA';
@@ -86,7 +87,7 @@ export const useRateCardStore = create<RateCardStore>()(
       auditLog: [],
 
       addRateCard: (rc) => {
-        const id = crypto.randomUUID();
+        const id = uuidv4();
         set((state) => ({
           rateCards: [...state.rateCards, { ...rc, id, createdAt: new Date().toISOString() }],
         }));
@@ -98,7 +99,7 @@ export const useRateCardStore = create<RateCardStore>()(
         if (!original) return '';
 
         const newVersion = original.version + 1;
-        const newId = crypto.randomUUID();
+        const newId = uuidv4();
         const today = new Date().toISOString().split('T')[0] || '';
 
         const newRateCard: RateCard = {
@@ -179,7 +180,7 @@ export const useRateCardStore = create<RateCardStore>()(
 
       addAuditEntry: (entry) => {
         set((state) => ({
-          auditLog: [...state.auditLog, { ...entry, id: crypto.randomUUID() }],
+          auditLog: [...state.auditLog, { ...entry, id: uuidv4() }],
         }));
       },
 

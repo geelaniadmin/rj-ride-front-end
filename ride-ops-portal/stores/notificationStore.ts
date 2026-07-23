@@ -2,6 +2,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { uuidv4 } from "@/lib/shared";
 
 export type NotificationType =
   | 'SOS_RAISED'
@@ -46,7 +47,7 @@ export const useNotificationStore = create<NotificationStore>()(
       addNotification: (notification) => {
         set((state) => ({
           notifications: [
-            { ...notification, id: crypto.randomUUID(), createdAt: new Date().toISOString() },
+            { ...notification, id: uuidv4(), createdAt: new Date().toISOString() },
             ...state.notifications,
           ],
         }));

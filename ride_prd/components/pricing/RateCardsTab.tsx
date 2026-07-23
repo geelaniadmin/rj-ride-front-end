@@ -2,19 +2,19 @@
 
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLanguageStore, t, apiClient, keys, QueryBoundary, formatMoney } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { useLanguageStore, t, apiClient, keys, QueryBoundary, formatMoney, toMinor, csrfFetch } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
 import { Input } from "@/components/ui/Input";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Select } from "@/components/ui/Select";
 import { FormField } from "@/components/ui/FormField";
 import { Badge } from "@/components/ui/Badge";
 import { DateTimePicker } from "@/components/ui/DateTimePicker";
 import { useToastStore } from "@/stores/toastStore";
-import { useConfigFiltersStore } from "@/stores/configFiltersStore";
 
 type RateCard = components["schemas"]["RateCard"];
 type BasisEnum = components["schemas"]["BasisEnum"];
@@ -57,7 +57,12 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
   const language = useLanguageStore((s) => s.language);
   const addToast = useToastStore((s) => s.addToast);
   const queryClient = useQueryClient();
-  const { rateCardVendorId, rateCardCustomerId, rateCardVehicleTypeId, setRateCardVendorId, setRateCardCustomerId, setRateCardVehicleTypeId } = useConfigFiltersStore();
+  // Local component state — these three only ever narrowed this one table, so a cross-app
+  // store bought nothing. Resets when you leave the tab, which is the expected behaviour for
+  // a filter row anyway.
+  const [rateCardVendorId, setRateCardVendorId] = useState("");
+  const [rateCardCustomerId, setRateCardCustomerId] = useState("");
+  const [rateCardVehicleTypeId, setRateCardVehicleTypeId] = useState("");
 
   const { data, isLoading, error } = useQuery({
     queryKey: keys.config.rateCards.list(),
@@ -124,6 +129,37 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, input }: { id: string; input: RateCardInput }) => {
+      // PATCH edits this version in place — the version number does not move. Only the
+      // supersede action publishes v+1.
+      //
+      // csrfFetch, not apiClient: PATCH on this path is not in the committed OpenAPI schema
+      // (schema.yaml is stale), so the generated types reject it.
+      const resp = await csrfFetch(`/api/v1/config/pricing/rate-cards/${id}/`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(toWire(input)),
+      });
+      if (!resp.ok) {
+        const body = (await resp.json().catch(() => null)) as
+          | { error?: { message?: string } }
+          | null;
+        throw new Error(body?.error?.message ?? `Failed to update rate card (${resp.status})`);
+      }
+      return (await resp.json()) as unknown;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.config.rateCards.list() });
+      addToast("Rate card updated", "success");
+      setDrawerOpen(false);
+    },
+    onError: (err: unknown) => {
+      addToast(err instanceof Error ? err.message : "Failed to update rate card", "error");
+    },
+  });
+
   const supersedeMutation = useMutation({
     mutationFn: async ({ id, input }: { id: string; input: RateCardInput }) => {
       const { data: res, error: err } = await apiClient.POST("/v1/config/pricing/rate-cards/{id}/supersede", {
@@ -157,16 +193,54 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [supersedingId, setSupersedingId] = useState<string | null>(null);
+  // "edit"      -> PATCH the card, version unchanged.
+  // "supersede" -> publish version + 1 and close the old one.
+  const [drawerMode, setDrawerMode] = useState<"create" | "edit" | "supersede">("create");
   const [formData, setFormData] = useState<RateCardInput>(emptyForm);
 
+  /**
+   * The rate inputs are held as text in *rupees*, not as numbers in the `_minor` fields.
+   *
+   * Two reasons. First, typing 22 used to be written straight into `rate_per_km_minor`, which
+   * the API and the table both read as 22 *paise* — the card came back as ₹0.22. Second, a
+   * number input backed by `minor / 100` cannot be typed into: after "22." parseFloat yields
+   * 22, the field snaps back to "22", and the next keystroke gives 225 instead of 22.5.
+   * Keeping the raw string until save fixes both.
+   */
+  const [rateText, setRateText] = useState<{ perKm: string; perHour: string }>({
+    perKm: "",
+    perHour: "",
+  });
+
+  /** Minor units → an editable rupee string. Blank for "not set", so the field starts empty. */
+  const minorToRupeeText = (minor?: number | null): string =>
+    minor == null ? "" : String(minor / 100);
+
   const openCreate = () => {
+    setDrawerMode("create");
     setSupersedingId(null);
     setFormData({ ...emptyForm, vendor_id: vendors[0]?.id ?? "", customer_id: customers[0]?.id ?? "", vehicle_type_id: vts[0]?.id ?? "" });
+    setRateText({
+      perKm: minorToRupeeText(emptyForm.rate_per_km_minor),
+      perHour: minorToRupeeText(emptyForm.rate_per_hour_minor),
+    });
     setDrawerOpen(true);
   };
 
-  const openSupersede = (rc: RateCard) => {
+  const openEdit = (rc: RateCard) => {
+    setDrawerMode("edit");
     setSupersedingId(rc.id);
+    seedForm(rc);
+  };
+
+  const openSupersede = (rc: RateCard) => {
+    setDrawerMode("supersede");
+    setSupersedingId(rc.id);
+    seedForm(rc);
+    setFormData((prev) => ({ ...prev, valid_from: today }));
+  };
+
+  const seedForm = (rc: RateCard) => {
     setFormData({
       vendor_id: rc.vendor,
       customer_id: rc.customer,
@@ -175,9 +249,15 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
       rate_per_km_minor: rc.rate_per_km_minor,
       rate_per_hour_minor: rc.rate_per_hour_minor,
       modifiers: rc.modifiers as Record<string, unknown> | undefined,
-      valid_from: today,
+      // Edit keeps the card's own start date; a supersede overrides it to today below,
+      // because a new version starts when it is published.
+      valid_from: rc.valid_from,
       valid_to: rc.valid_to,
       currency: rc.currency,
+    });
+    setRateText({
+      perKm: minorToRupeeText(rc.rate_per_km_minor),
+      perHour: minorToRupeeText(rc.rate_per_hour_minor),
     });
     setDrawerOpen(true);
   };
@@ -187,10 +267,41 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
       addToast(t("vendorCustomerVehicleRequired", language), "error");
       return;
     }
-    if (supersedingId) {
-      supersedeMutation.mutate({ id: supersedingId, input: formData });
+
+    const currency = formData.currency ?? "INR";
+    // Convert at the boundary: what the operator typed is rupees, what the API stores is paise.
+    const toMinorOrUndefined = (text: string): number | undefined => {
+      const trimmed = text.trim();
+      if (!trimmed) return undefined;
+      const value = Number(trimmed);
+      if (!Number.isFinite(value) || value < 0) return undefined;
+      return toMinor(value, currency);
+    };
+
+    const perKm = toMinorOrUndefined(rateText.perKm);
+    const perHour = toMinorOrUndefined(rateText.perHour);
+
+    if (formData.basis === "PER_KM" && perKm === undefined) {
+      addToast("Enter a per-km rate.", "error");
+      return;
+    }
+    if (formData.basis === "HOURLY" && perHour === undefined) {
+      addToast("Enter an hourly rate.", "error");
+      return;
+    }
+
+    const input: RateCardInput = {
+      ...formData,
+      rate_per_km_minor: perKm,
+      rate_per_hour_minor: perHour,
+    };
+
+    if (drawerMode === "edit" && supersedingId) {
+      updateMutation.mutate({ id: supersedingId, input });
+    } else if (drawerMode === "supersede" && supersedingId) {
+      supersedeMutation.mutate({ id: supersedingId, input });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate(input);
     }
   };
 
@@ -231,31 +342,41 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
         </Button>
       </div>
 
+      {/* Comboboxes rather than native <select>: these lists grow with the tenant (every vendor,
+          every customer), and scrolling a 60-row native dropdown to find one name is the slow
+          part of building a rate card. The leading "All …" entry has value "" so the filter can
+          be cleared from inside the same list. */}
       <div className="flex gap-3 flex-wrap">
-        <select
+        <SearchableSelect
+          className="w-48"
           value={rateCardVendorId}
-          onChange={(e) => setRateCardVendorId(e.target.value)}
-          className="text-xs px-2 py-1 border border-border rounded bg-white text-text-primary"
-        >
-          <option value="">All vendors</option>
-          {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-        </select>
-        <select
+          onChange={setRateCardVendorId}
+          placeholder="Search vendor…"
+          options={[
+            { value: "", label: "All vendors" },
+            ...vendors.map((v) => ({ value: v.id, label: v.name })),
+          ]}
+        />
+        <SearchableSelect
+          className="w-48"
           value={rateCardCustomerId}
-          onChange={(e) => setRateCardCustomerId(e.target.value)}
-          className="text-xs px-2 py-1 border border-border rounded bg-white text-text-primary"
-        >
-          <option value="">All customers</option>
-          {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select
+          onChange={setRateCardCustomerId}
+          placeholder="Search customer…"
+          options={[
+            { value: "", label: "All customers" },
+            ...customers.map((c) => ({ value: c.id, label: c.name })),
+          ]}
+        />
+        <SearchableSelect
+          className="w-48"
           value={rateCardVehicleTypeId}
-          onChange={(e) => setRateCardVehicleTypeId(e.target.value)}
-          className="text-xs px-2 py-1 border border-border rounded bg-white text-text-primary"
-        >
-          <option value="">All types</option>
-          {vts.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
-        </select>
+          onChange={setRateCardVehicleTypeId}
+          placeholder="Search vehicle type…"
+          options={[
+            { value: "", label: "All types" },
+            ...vts.map((v) => ({ value: v.id, label: v.name })),
+          ]}
+        />
       </div>
 
       <QueryBoundary isLoading={isLoading} error={error} isEmpty={filteredRateCards.length === 0} emptyFallback={<p className="text-sm text-text-secondary py-4">{t("noRateCards", language)}</p>}>
@@ -270,32 +391,68 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title={supersedingId ? t("newVersion", language) : t("newRateCard", language)}
+        title={
+          drawerMode === "edit"
+            ? "Edit this version (version number unchanged)"
+            : drawerMode === "supersede"
+              ? t("newVersion", language)
+              : t("newRateCard", language)
+        }
         width="lg"
       >
         <div className="space-y-4">
           <FormField label={t("vendor", language)} required>
-            <Select
-              value={formData.vendor_id}
-              onChange={(e) => setFormData({ ...formData, vendor_id: e.target.value })}
-              options={vendors.map((v) => ({ value: v.id, label: v.name }))}
-            />
+            {supersedingId ? (
+              // Locked while superseding: changing these would be a different deal, not a new
+              // version of this one, and supersede_rate_card rejects it with a 400.
+              <div className="px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-secondary">
+                {vendors.find((o) => o.id === formData.vendor_id)?.name ?? "—"}
+                <span className="ml-2 text-xs text-text-muted">(cannot change in a new version)</span>
+              </div>
+            ) : (
+              <SearchableSelect
+                value={formData.vendor_id}
+                onChange={(value) => setFormData({ ...formData, vendor_id: value })}
+                options={vendors.map((v) => ({ value: v.id, label: v.name }))}
+                placeholder="Search vendor…"
+              />
+            )}
           </FormField>
 
           <FormField label={t("customer", language)} required>
-            <Select
-              value={formData.customer_id}
-              onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-              options={customers.map((c) => ({ value: c.id, label: c.name }))}
-            />
+            {supersedingId ? (
+              // Locked while superseding: changing these would be a different deal, not a new
+              // version of this one, and supersede_rate_card rejects it with a 400.
+              <div className="px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-secondary">
+                {customers.find((o) => o.id === formData.customer_id)?.name ?? "—"}
+                <span className="ml-2 text-xs text-text-muted">(cannot change in a new version)</span>
+              </div>
+            ) : (
+              <SearchableSelect
+                value={formData.customer_id}
+                onChange={(value) => setFormData({ ...formData, customer_id: value })}
+                options={customers.map((c) => ({ value: c.id, label: c.name }))}
+                placeholder="Search customer…"
+              />
+            )}
           </FormField>
 
           <FormField label={t("vehicleType", language)} required>
-            <Select
-              value={formData.vehicle_type_id}
-              onChange={(e) => setFormData({ ...formData, vehicle_type_id: e.target.value })}
-              options={vts.map((v) => ({ value: v.id, label: v.name }))}
-            />
+            {supersedingId ? (
+              // Locked while superseding: changing these would be a different deal, not a new
+              // version of this one, and supersede_rate_card rejects it with a 400.
+              <div className="px-3 py-2 bg-page-bg border border-border rounded-lg text-sm text-text-secondary">
+                {vts.find((o) => o.id === formData.vehicle_type_id)?.name ?? "—"}
+                <span className="ml-2 text-xs text-text-muted">(cannot change in a new version)</span>
+              </div>
+            ) : (
+              <SearchableSelect
+                value={formData.vehicle_type_id}
+                onChange={(value) => setFormData({ ...formData, vehicle_type_id: value })}
+                options={vts.map((v) => ({ value: v.id, label: v.name }))}
+                placeholder="Search vehicle type…"
+              />
+            )}
           </FormField>
 
           <FormField label={t("basis", language)}>
@@ -312,21 +469,27 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
           </FormField>
 
           {formData.basis === "PER_KM" && (
-            <FormField label={t("ratePerKm", language)}>
+            <FormField label={`${t("ratePerKm", language)} (₹)`}>
               <Input
                 type="number"
-                value={formData.rate_per_km_minor ?? 0}
-                onChange={(e) => setFormData({ ...formData, rate_per_km_minor: parseFloat(e.target.value) || 0 })}
+                min="0"
+                step="0.01"
+                placeholder="e.g. 22.50"
+                value={rateText.perKm}
+                onChange={(e) => setRateText((prev) => ({ ...prev, perKm: e.target.value }))}
               />
             </FormField>
           )}
 
           {formData.basis === "HOURLY" && (
-            <FormField label={t("hourlyRate", language)}>
+            <FormField label={`${t("hourlyRate", language)} (₹)`}>
               <Input
                 type="number"
-                value={formData.rate_per_hour_minor ?? 0}
-                onChange={(e) => setFormData({ ...formData, rate_per_hour_minor: parseFloat(e.target.value) || 0 })}
+                min="0"
+                step="0.01"
+                placeholder="e.g. 450.00"
+                value={rateText.perHour}
+                onChange={(e) => setRateText((prev) => ({ ...prev, perHour: e.target.value }))}
               />
             </FormField>
           )}
@@ -345,9 +508,13 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
             <Button
               onClick={handleSave}
               variant="primary"
-              disabled={createMutation.isPending || supersedeMutation.isPending}
+              disabled={createMutation.isPending || supersedeMutation.isPending || updateMutation.isPending}
             >
-              {supersedingId ? t("createVersion", language) : t("create", language)}
+              {drawerMode === "edit"
+                ? "Save changes"
+                : drawerMode === "supersede"
+                  ? t("createVersion", language)
+                  : t("create", language)}
             </Button>
             <Button onClick={() => setDrawerOpen(false)} variant="secondary">
               {t("cancel", language)}
@@ -373,13 +540,29 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
                 <p className="text-ops-sidebar">
                   {rc.valid_from} → {rc.valid_to ?? "∞"}
                 </p>
-                <Button
-                  size="sm"
-                  className="bg-ops-sidebar text-white border-ops-sidebar shadow-sm hover:bg-ops-sidebar"
-                  onClick={() => openSupersede(rc)}
-                >
-                  {t("newVersion", language)}
-                </Button>
+                {/* Both open the same drawer. Rate cards are copy-on-write in the backend
+                    (apps/pricing/services.supersede_rate_card): a card that has priced an Offer
+                    is evidence of what someone was quoted, so editing in place would rewrite
+                    history and break the price-lock chain. "Edit rates" therefore means
+                    "correct the numbers", and saving publishes the next version. */}
+                <div className="flex gap-2 justify-end mt-1">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => openEdit(rc)}
+                    title={`Edit v${rc.version} in place — the version number does not change`}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-ops-sidebar text-white border-ops-sidebar shadow-sm hover:bg-ops-sidebar"
+                    onClick={() => openSupersede(rc)}
+                    title={`Publish v${rc.version + 1} based on this card`}
+                  >
+                    {t("newVersion", language)}
+                  </Button>
+                </div>
               </div>
             </div>
           </Card>

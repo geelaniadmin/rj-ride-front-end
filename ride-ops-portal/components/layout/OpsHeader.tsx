@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useLanguageStore, t, useSession, useAuth } from '@ride/shared';
+import { useLanguageStore, t, useSession, useAuth } from '@/lib/shared';
 import { Bell, LogOut, Menu } from 'lucide-react';
 import { NotificationDrawer } from '@/components/notifications/NotificationDrawer';
 import { useRouter } from 'next/navigation';

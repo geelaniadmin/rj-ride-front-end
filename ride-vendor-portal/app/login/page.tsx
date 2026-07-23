@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, useLanguageStore, t } from "@ride/shared";
+import { useAuth, useLanguageStore, t } from "@/lib/shared";
 import { Truck, Globe } from "lucide-react";
 
 export default function LoginPage() {
@@ -14,10 +14,18 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  if (isAuthenticated) {
-    router.push("/");
-    return null;
-  }
+  // Redirect from an effect, never from the render body. Calling router.push() while this
+  // component renders updates the Router mid-render, which React reports as
+  // "Cannot update a component (Router) while rendering a different component (LoginPage)".
+  // `replace` (not `push`) so /login isn't left in history for the back button.
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.replace("/");
+    }
+  }, [isAuthenticated, router]);
+
+  // The effect above is navigating; render nothing rather than flashing the login form.
+  if (isAuthenticated) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,7 +33,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      router.push("/");
+      // replace, not push — otherwise the back button returns to the login form post-login.
+      router.replace("/");
     } catch {
       setError("Invalid credentials. Please try again.");
     } finally {

@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@ride/shared";
-import { isApiError } from "@ride/shared";
+import { useAuth } from "@/lib/shared";
+import { isApiError } from "@/lib/shared";
 
 export default function LoginPage() {
   const { login } = useAuth();

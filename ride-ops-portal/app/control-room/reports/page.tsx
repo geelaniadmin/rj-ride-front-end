@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient, keys, useLanguageStore, t } from '@ride/shared';
-import type { components } from '@ride/shared/api/schema.d';
+import { apiClient, keys, useLanguageStore, t } from '@/lib/shared';
+import type { components } from '@/lib/shared/api/schema.d';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card } from '@/components/ui/Card';
 import { KpiCard } from '@/components/ui/KpiCard';

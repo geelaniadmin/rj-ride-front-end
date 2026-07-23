@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, wsInvalidationMap, isApiError } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
-import { useRideEvents } from "@ride/shared/realtime/ws";
+import { apiClient, keys, wsInvalidationMap, isApiError } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
+import { useRideEvents } from "@/lib/shared/realtime/ws";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";

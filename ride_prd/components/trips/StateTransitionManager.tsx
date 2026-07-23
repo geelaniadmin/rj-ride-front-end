@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, isApiError } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { apiClient, keys, isApiError } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 
 type TripRequest = components["schemas"]["TripRequest"];
 import { useToastStore } from "@/stores/toastStore";

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useLanguageStore, t } from "@ride/shared";
+import { useLanguageStore, t } from "@/lib/shared";
 
 const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-gray-100 text-gray-700",

@@ -5,8 +5,6 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { Toaster } from "@/components/ui/Toaster";
-import { SeedInitializer } from "./SeedInitializer";
-import { CrossTabSync } from "./CrossTabSync";
 import { RouteGuard } from "./RouteGuard";
 
 const AUTH_PATHS = ["/login"];
@@ -26,8 +24,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <RouteGuard>
-      <CrossTabSync />
-      <SeedInitializer />
       <div className="flex h-screen bg-ops-bg">
         <Sidebar />
         <div className="flex-1 flex flex-col">

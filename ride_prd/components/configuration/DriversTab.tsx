@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLanguageStore, t, apiClient, keys, QueryBoundary } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { useLanguageStore, t, apiClient, keys, QueryBoundary, csrfFetch } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
@@ -13,6 +13,7 @@ import { Select } from "@/components/ui/Select";
 import { Badge } from "@/components/ui/Badge";
 import { PII } from "@/components/ui/PII";
 import { HealthStrip } from "@/components/configuration/HealthStrip";
+import { MultiSelectFilter } from "@/components/ui/MultiSelectFilter";
 import { useToastStore } from "@/stores/toastStore";
 
 type ApiDriver = components["schemas"]["Driver"];
@@ -43,12 +44,18 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
   const addToast = useToastStore((s) => s.addToast);
   const queryClient = useQueryClient();
 
+  // Vendor ids to narrow the roster to. Empty = no filter (show every vendor's drivers).
+  const [vendorFilter, setVendorFilter] = useState<string[]>([]);
+
   const { data, isLoading, error } = useQuery({
-    queryKey: keys.fleet.drivers.list(),
+    queryKey: keys.fleet.drivers.list({ vendor_in: vendorFilter.join(",") }),
     queryFn: async () => {
-      const { data: res, error: err } = await apiClient.GET("/v1/fleet/drivers");
-      if (err) throw err;
-      return res;
+      // Server-side via ?vendor_in=<id>,<id> — the list is cursor-paginated, so filtering in
+      // the browser would only ever search the rows already fetched.
+      const qs = vendorFilter.length ? `?vendor_in=${vendorFilter.join(",")}` : "";
+      const resp = await csrfFetch(`/api/v1/fleet/drivers/${qs}`, { credentials: "include" });
+      if (!resp.ok) throw new Error(`Failed to load drivers (${resp.status})`);
+      return (await resp.json()) as { results?: ApiDriver[] };
     },
   });
 
@@ -62,6 +69,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
     },
   });
   const vendors = (vendorsData?.results ?? []) as ApiVendor[];
+  const vendorFilterOptions = vendors.map((v) => ({ value: v.id, label: v.name }));
 
   const allDrivers: ApiDriver[] = (data as { results?: ApiDriver[] } | undefined)?.results ?? (data as ApiDriver[] | undefined) ?? [];
   const drivers = searchQuery.trim()
@@ -228,6 +236,18 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
       </div>
 
       <HealthStrip expiredCount={0} expiringCount={0} />
+
+      {/* Narrow the roster to one or more vendors — filtered server-side, so it spans every
+          driver rather than just the current page. */}
+      <div className="w-72">
+        <MultiSelectFilter
+          options={vendorFilterOptions}
+          selected={vendorFilter}
+          onChange={setVendorFilter}
+          placeholder="All vendors"
+          searchPlaceholder="Search vendors…"
+        />
+      </div>
 
       <QueryBoundary
         isLoading={isLoading}

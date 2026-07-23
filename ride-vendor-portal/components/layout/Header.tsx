@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Bell, Menu } from "lucide-react";
-import { useAuth } from "@ride/shared";
+import { useAuth } from "@/lib/shared";
 import { NotificationDrawer } from "@/components/notifications/NotificationDrawer";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 

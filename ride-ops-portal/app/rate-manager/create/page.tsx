@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import React, { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient, keys, useLanguageStore, t } from '@ride/shared';
+import { apiClient, keys, useLanguageStore, t } from '@/lib/shared';
 import { useToastStore } from '@/components/ui/Toast';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';

@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { apiClient, useLanguageStore, t } from '@ride/shared';
+import { apiClient, useLanguageStore, t } from '@/lib/shared';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { useToastStore } from '@/components/ui/Toast';

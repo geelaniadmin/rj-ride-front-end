@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { csrfFetch, isApiError } from "@ride/shared";
+import { csrfFetch, isApiError } from "@/lib/shared";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";

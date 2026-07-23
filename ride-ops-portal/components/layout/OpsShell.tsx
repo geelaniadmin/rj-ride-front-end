@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useSession } from '@ride/shared';
+import { useSession } from '@/lib/shared';
 import { useLanguageStore } from '@/stores/languageStore';
 import { OpsHeader } from './OpsHeader';
 import {

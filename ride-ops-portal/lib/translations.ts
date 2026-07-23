@@ -1,8 +1,8 @@
 /**
- * Ops-portal-specific translations (extending shared translations from @ride/shared).
+ * Ops-portal-specific translations (extending the shared translations in lib/shared).
  * Re-exports the shared `t()` helper so existing ops components continue to work.
  */
-export { t } from '@ride/shared';
+export { t } from '@/lib/shared';
 
 /**
  * Ops-portal-specific translation keys that aren't in the shared dictionary.

@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { apiClient, keys } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { apiClient, keys } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 
 // The schema exposes a single trip shape (list + detail both return TripRequest).
 export type TripSummary = components["schemas"]["TripRequest"];

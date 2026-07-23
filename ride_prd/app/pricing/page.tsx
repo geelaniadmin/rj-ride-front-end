@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useLanguageStore, t } from "@ride/shared";
+import { useLanguageStore, t } from "@/lib/shared";
 import { Search } from "lucide-react";
 import { Tabs } from "@/components/ui/Tabs";
 import { Card } from "@/components/ui/Card";

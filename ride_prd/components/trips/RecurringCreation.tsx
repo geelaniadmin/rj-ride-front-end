@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, isApiError } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { apiClient, keys, isApiError } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";

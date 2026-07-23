@@ -2,11 +2,12 @@
 
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLanguageStore, t, apiClient, keys, QueryBoundary } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { useLanguageStore, t, apiClient, keys, QueryBoundary, csrfFetch } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
+import { MultiSelectFilter } from "@/components/ui/MultiSelectFilter";
 import { Input } from "@/components/ui/Input";
 import { FormField } from "@/components/ui/FormField";
 import { Select } from "@/components/ui/Select";
@@ -36,12 +37,21 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
   const addToast = useToastStore((s) => s.addToast);
   const queryClient = useQueryClient();
 
+  // Vendor ids to narrow the fleet to. Empty = no filter (show every vendor's vehicles).
+  const [vendorFilter, setVendorFilter] = useState<string[]>([]);
+
   const { data: vehiclesData, isLoading, error } = useQuery({
-    queryKey: keys.fleet.vehicles.list(),
+    // The filter is part of the key, so each vendor combination is cached separately and
+    // switching back to a previous selection is instant.
+    queryKey: keys.fleet.vehicles.list({ vendor_in: vendorFilter.join(",") }),
     queryFn: async () => {
-      const { data: res, error: err } = await apiClient.GET("/v1/fleet/vehicles");
-      if (err) throw err;
-      return res;
+      // Filtered server-side via ?vendor_in=<id>,<id> rather than in the browser: the list is
+      // cursor-paginated, so filtering the current page would only ever search the first 25
+      // rows and silently miss the rest.
+      const qs = vendorFilter.length ? `?vendor_in=${vendorFilter.join(",")}` : "";
+      const resp = await csrfFetch(`/api/v1/fleet/vehicles/${qs}`, { credentials: "include" });
+      if (!resp.ok) throw new Error(`Failed to load vehicles (${resp.status})`);
+      return (await resp.json()) as { results?: ApiVehicle[] };
     },
   });
 
@@ -65,6 +75,8 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
   });
   const vendors = (vendorsData?.results ?? []) as ApiVendor[];
   const vehicleTypes = (vtData?.results ?? []) as ApiVehicleType[];
+
+  const vendorFilterOptions = vendors.map((v) => ({ value: v.id, label: v.name }));
 
   const allVehicles: ApiVehicle[] = (vehiclesData as { results?: ApiVehicle[] } | undefined)?.results ?? (vehiclesData as ApiVehicle[] | undefined) ?? [];
 
@@ -212,6 +224,18 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
       </div>
 
       <HealthStrip expiredCount={0} expiringCount={0} />
+
+      {/* Narrow the fleet to one or more vendors. Filtering happens server-side, so it spans
+          the whole fleet rather than just the rows already fetched. */}
+      <div className="w-72">
+        <MultiSelectFilter
+          options={vendorFilterOptions}
+          selected={vendorFilter}
+          onChange={setVendorFilter}
+          placeholder="All vendors"
+          searchPlaceholder="Search vendors…"
+        />
+      </div>
 
       <QueryBoundary isLoading={isLoading} error={error} isEmpty={vehicles.length === 0} emptyFallback={<p className="text-sm text-text-secondary py-4">{t("noVehicles", language)}</p>}>
         <DataTable

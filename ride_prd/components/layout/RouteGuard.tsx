@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "@ride/shared";
+import { useSession } from "@/lib/shared";
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useSession();

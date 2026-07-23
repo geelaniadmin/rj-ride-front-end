@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, useLanguageStore } from '@ride/shared';
+import { useAuth, useLanguageStore } from '@/lib/shared';
 import { Globe } from 'lucide-react';
 
 export default function LoginPage() {

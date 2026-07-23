@@ -4,7 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, ListOrdered, Inbox, Truck, CircleDollarSign, Bell, LogOut, X } from "lucide-react";
-import { useAuth, useLanguageStore, t } from "@ride/shared";
+import { useAuth, useLanguageStore, t, csrfFetch } from "@/lib/shared";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 
 export const NAV_ITEMS = [
@@ -23,6 +24,21 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileClose }) => {
   const pathname = usePathname();
+
+  // Offer count for the nav badge, so a new/alerted offer is visible from any page — not only
+  // while the Offers screen happens to be open. Shares the ["vendor","offers"] cache key with
+  // that screen and with the WS invalidation in app/layout.tsx, so it updates instantly too.
+  const { data: pendingOffers = 0 } = useQuery({
+    queryKey: ["vendor", "offers"],
+    queryFn: async (): Promise<{ status?: string }[]> => {
+      const resp = await csrfFetch("/api/v1/vendor/offers/", { credentials: "include" });
+      if (!resp.ok) throw new Error(`Failed to load offers (${resp.status})`);
+      const body = (await resp.json()) as { results?: { status?: string }[] };
+      return body.results ?? [];
+    },
+    refetchInterval: 15_000,
+    select: (rows) => rows.filter((r) => r.status === "OFFERED" || r.status === "ALERTED").length,
+  });
   const router = useRouter();
   const language = useLanguageStore((s) => s.language);
   const { logout } = useAuth();
@@ -79,6 +95,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
             >
               <Icon className="w-4 h-4 shrink-0" />
               <span className="flex-1">{t(item.labelKey, language)}</span>
+              {item.href === "/offers" && pendingOffers > 0 && (
+                <span
+                  className="min-w-[18px] h-[18px] px-1 rounded-full bg-brand-blue text-white text-[10px] font-bold flex items-center justify-center"
+                  title={`${pendingOffers} offer${pendingOffers === 1 ? "" : "s"} awaiting your response`}
+                >
+                  {pendingOffers}
+                </span>
+              )}
               <span className="text-[10px] text-white/30 font-mono hidden lg:inline">{item.shortcut}</span>
             </Link>
           );

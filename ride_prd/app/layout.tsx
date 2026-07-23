@@ -1,6 +1,6 @@
 import React from "react";
 import type { Metadata } from "next";
-import { ApiProviders } from "@ride/shared/api";
+import { ApiProviders } from "@/lib/shared/api";
 import { AppShell } from "@/components/layout/AppShell";
 import "./globals.css";
 

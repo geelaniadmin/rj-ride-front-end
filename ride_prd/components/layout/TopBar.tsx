@@ -2,7 +2,7 @@
 
 import React from "react";
 import { LogOut } from "lucide-react";
-import { useAuth, useLanguageStore, t } from "@ride/shared";
+import { useAuth, useLanguageStore, t } from "@/lib/shared";
 import { PII } from "@/components/ui/PII";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
 

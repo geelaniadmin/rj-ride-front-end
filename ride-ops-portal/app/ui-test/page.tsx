@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useLanguageStore, t } from '@ride/shared';
+import { useLanguageStore, t } from '@/lib/shared';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
@@ -40,7 +40,7 @@ export default function UITestPage() {
 
   const columns: Column<TestRow>[] = [
     { key: 'name', label: 'Trip Name', sortable: true },
-    { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val as import('@ride/shared').TripStatus} /> },
+    { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val as import('@/lib/shared').TripStatus} /> },
     { key: 'value', label: 'Amount (₹)', sortable: true, render: (val) => `₹${val}` },
   ];
 

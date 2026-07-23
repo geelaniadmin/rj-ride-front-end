@@ -2,8 +2,8 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useSession, useRideEvents, keys } from '@ride/shared';
-import type { components } from '@ride/shared/api/schema.d';
+import { useSession, useRideEvents, keys } from '@/lib/shared';
+import type { components } from '@/lib/shared/api/schema.d';
 import { useQueryClient } from '@tanstack/react-query';
 import { OpsShell } from '@/components/layout/OpsShell';
 import { ToastProvider, useToastStore } from '@/components/ui/Toast';

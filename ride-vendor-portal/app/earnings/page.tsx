@@ -2,8 +2,8 @@
 
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiClient, keys, formatMoney, useLanguageStore, t } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { apiClient, keys, formatMoney, useLanguageStore, t } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Tabs } from "@/components/ui/Tabs";
 import { DollarSign, FileText, Download, CircleDollarSign } from "lucide-react";

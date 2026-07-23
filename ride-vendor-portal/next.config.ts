@@ -9,12 +9,19 @@ const nextConfig: NextConfig = {
   // so Next's dev server treats its own _next/HMR resources as cross-origin and blocks
   // them, which prevents the client bundle from hydrating (login form goes dead / native
   // submit). Allow the LAN host(s) explicitly. Extend this list for other dev hostnames.
-  allowedDevOrigins: ["192.168.1.39", "localhost", "127.0.0.1"],
+  allowedDevOrigins: [
+    "192.168.1.39",
+    "ride.local",
+    "vendor.local",
+    "ride.192.168.1.39.nip.io",
+    "vendor.192.168.1.39.nip.io",
+    "localhost",
+    "127.0.0.1",
+  ],
   // /api/* is proxied to Django by middleware.ts (preserves trailing slash); see there.
-  // NOTE: react-query must be a single copy shared with @ride/shared or you get
-  // "No QueryClient set". That dedupe is done at the package level (ride-shared's
-  // @tanstack/react-query is symlinked to this portal's copy) because Turbopack's
-  // resolveAlias does not accept absolute paths.
+  // The shared client library now lives in ./lib/shared rather than a separate package, so the
+  // old @tanstack/react-query dedupe is no
+  // longer needed — there is only ever one copy, this portal's.
 };
 
 export default nextConfig;

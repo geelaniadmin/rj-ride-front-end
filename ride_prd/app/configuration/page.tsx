@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useLanguageStore, t } from "@ride/shared";
+import { useLanguageStore, t } from "@/lib/shared";
 import { Search } from "lucide-react";
 import { Tabs } from "@/components/ui/Tabs";
 import { VendorsTab } from "@/components/configuration/VendorsTab";
@@ -9,7 +9,6 @@ import { CustomersTab } from "@/components/configuration/CustomersTab";
 import { VehicleTypesTab } from "@/components/configuration/VehicleTypesTab";
 import { VehiclesTab } from "@/components/configuration/VehiclesTab";
 import { DriversTab } from "@/components/configuration/DriversTab";
-import { AddonsTab } from "@/components/configuration/AddonsTab";
 
 const TABS = [
   { id: "vendors", labelKey: "vendors" as const },
@@ -17,7 +16,6 @@ const TABS = [
   { id: "vehicle-types", labelKey: "vehicleTypes" as const },
   { id: "vehicles", labelKey: "vehiclesTab" as const },
   { id: "drivers", labelKey: "driversTab" as const },
-  { id: "addons", labelKey: "addons" as const },
 ];
 
 export default function ConfigurationPage() {
@@ -49,7 +47,6 @@ export default function ConfigurationPage() {
         {activeTab === "vehicle-types" && <VehicleTypesTab searchQuery={searchQuery} />}
         {activeTab === "vehicles" && <VehiclesTab searchQuery={searchQuery} />}
         {activeTab === "drivers" && <DriversTab searchQuery={searchQuery} />}
-        {activeTab === "addons" && <AddonsTab searchQuery={searchQuery} />}
       </Tabs>
     </div>
   );

@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, isApiError, useLanguageStore, t, formatMoney } from "@ride/shared";
-import type { components } from "@ride/shared/api/schema.d";
+import { apiClient, keys, isApiError, useLanguageStore, t, formatMoney } from "@/lib/shared";
+import type { components } from "@/lib/shared/api/schema.d";
 import { useVendorTrips, useVendorTripDetail } from "@/hooks/useVendorTrips";
 import { useToast } from "@/components/ui/Toast";
 import { StatusBadge } from "@/components/ui/StatusBadge";

@@ -2,9 +2,9 @@
 
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { apiClient, keys, wsInvalidationMap } from "@ride/shared";
-import { useRideEvents } from "@ride/shared/realtime/ws";
-import type { components } from "@ride/shared/api/schema.d";
+import { apiClient, keys, wsInvalidationMap } from "@/lib/shared";
+import { useRideEvents } from "@/lib/shared/realtime/ws";
+import type { components } from "@/lib/shared/api/schema.d";
 import { Card } from "@/components/ui/Card";
 import { TrendingUp, Truck, Users, Calendar, AlertCircle, CheckCircle2, Clock, Zap } from "lucide-react";
 

@@ -3,8 +3,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ApiProviders, useRideEvents, keys } from "@ride/shared";
-import { useSession } from "@ride/shared";
+import { ApiProviders, useRideEvents, keys } from "@/lib/shared";
+import { useSession, useAuth } from "@/lib/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -31,8 +31,13 @@ const PAGE_TITLES: Record<string, string> = {
 // so every real vendor user was wrongly rejected with "Access Denied".
 const VENDOR_ROLES = ["VENDOR_MANAGER", "DRIVER"] as const;
 
+/** Query key for the vendor's live offer queue — shared with the Offers page and the sidebar badge. */
+export const VENDOR_OFFERS_KEY = ["vendor", "offers"] as const;
+
 function RealtimeSync() {
   const qc = useQueryClient();
+  const { addToast } = useToast();
+
   useRideEvents({
     invalidationMap: {
       "trip.created": keys.trips.all(),
@@ -40,12 +45,35 @@ function RealtimeSync() {
       "trip.cancelled": keys.trips.all(),
       "trip.completed": keys.trips.all(),
       "trip.assigned": keys.trips.all(),
+      // The vendor-offer lifecycle. The server already forwards these WS-side and filters them
+      // by payload.vendor_id, but the portal was not listening — so a new or alerted offer only
+      // surfaced via the Offers page's 15s poll, and not at all from any other page.
+      "trip.offer_made": VENDOR_OFFERS_KEY,
+      "trip.offer_alerted": VENDOR_OFFERS_KEY,
+      "trip.offer_expired": VENDOR_OFFERS_KEY,
+      "trip.offer_withdrawn": VENDOR_OFFERS_KEY,
       "billing.invoice_created": keys.billing.all(),
       "billing.invoice_updated": keys.billing.all(),
     },
     handler: (event) => {
       if (event.type === "document.expiry_warning") {
         void qc.invalidateQueries({ queryKey: keys.fleet.all() });
+        return;
+      }
+      // The alert is also recorded as an in-app notification (notifications/routing.py), so pull
+      // the Alerts feed forward too rather than leaving it to its 30s poll.
+      if (event.type.startsWith("trip.offer_")) {
+        void qc.invalidateQueries({ queryKey: ["notifications", "mine"] });
+      }
+
+      // Offers expire on a timer, so a silent cache refresh is not enough — say it out loud.
+      const ref = (event as { payload?: { reference?: string } }).payload?.reference;
+      if (event.type === "trip.offer_made") {
+        addToast(`New trip offer${ref ? ` ${ref}` : ""} — accept before it expires.`, "info");
+      } else if (event.type === "trip.offer_alerted") {
+        addToast(`Reminder: offer${ref ? ` ${ref}` : ""} is still awaiting your response.`, "error");
+      } else if (event.type === "trip.offer_expired") {
+        addToast(`Offer${ref ? ` ${ref}` : ""} expired and went back to the agency.`, "info");
       }
     },
   });
@@ -56,6 +84,7 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isLoading } = useSession();
+  const { logout } = useAuth();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { addToast } = useToast();
 
@@ -101,12 +130,31 @@ function LayoutInner({ children }: { children: React.ReactNode }) {
 
   const isVendor = VENDOR_ROLES.includes(user.role as typeof VENDOR_ROLES[number]);
   if (!isVendor) {
+    // Almost always a session bleed rather than a real permission problem: cookies are not
+    // scoped by port (RFC 6265), so signing into the agency portal on :3000 puts an
+    // AGENCY_ADMIN session on the same host that this portal reads on :3001. Without a way
+    // out this screen is a dead end — the login form is unreachable because the effect above
+    // treats you as already signed in.
     return (
-      <div className="min-h-screen bg-page-bg flex items-center justify-center">
-        <div className="text-center space-y-2">
-          <p className="text-lg font-semibold text-text-primary">Access Denied</p>
-          <p className="text-sm text-text-muted">This portal is for vendor accounts only.</p>
-          <p className="text-xs text-text-muted">Role: {user.role}</p>
+      <div className="min-h-screen bg-page-bg flex items-center justify-center p-6">
+        <div className="text-center space-y-3 max-w-sm">
+          <p className="text-lg font-semibold text-text-primary">Signed in as the wrong account</p>
+          <p className="text-sm text-text-muted">
+            This portal is for vendor accounts. You are signed in as{" "}
+            <span className="font-medium text-text-primary">{user.email}</span> ({user.role}).
+          </p>
+          <p className="text-xs text-text-muted">
+            Browsers share cookies across ports, so an agency session on another port signs you
+            in here too.
+          </p>
+          <button
+            onClick={() => {
+              void logout().then(() => router.replace("/login"));
+            }}
+            className="mt-2 px-4 py-2 rounded-lg bg-brand-blue text-white text-sm font-medium hover:opacity-90"
+          >
+            Sign out and use a vendor account
+          </button>
         </div>
       </div>
     );

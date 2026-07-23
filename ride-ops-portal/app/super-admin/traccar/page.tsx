@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { traccarService, useLanguageStore, t } from '@ride/shared';
+import { traccarService, useLanguageStore, t } from '@/lib/shared';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { AlertBanner } from '@/components/ui/AlertBanner';

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useLanguageStore, t } from "@ride/shared";
+import { useLanguageStore, t } from "@/lib/shared";
 import { Tabs } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -9,8 +9,6 @@ import { Drawer } from "@/components/ui/Drawer";
 import { TripsListTab } from "@/components/trips/TripsListTab";
 import { ManualTripCreation } from "@/components/trips/ManualTripCreation";
 import { BulkUploadCreation } from "@/components/trips/BulkUploadCreation";
-import { ApiPaxCreation } from "@/components/trips/ApiPaxCreation";
-import { ApiVehicleCountCreation } from "@/components/trips/ApiVehicleCountCreation";
 import { RecurringCreation } from "@/components/trips/RecurringCreation";
 import { CloneCreation } from "@/components/trips/CloneCreation";
 
@@ -20,7 +18,7 @@ export default function TripsPage() {
   const language = useLanguageStore((s) => s.language);
   const [activeTab, setActiveTab] = useState("list");
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [creationMethod, setCreationMethod] = useState<"MANUAL" | "BULK_UPLOAD" | "API_PAX" | "API_VEHICLE_COUNT" | "RECURRING" | "CLONE" | null>(null);
+  const [creationMethod, setCreationMethod] = useState<"MANUAL" | "BULK_UPLOAD" | "RECURRING" | "CLONE" | null>(null);
 
   const handleTripCreated = () => {
     setShowCreateModal(false);
@@ -59,12 +57,6 @@ export default function TripsPage() {
             <Button onClick={() => setCreationMethod("BULK_UPLOAD")} variant="secondary" className="w-full justify-start py-3">
               {t("bulkUploadCSV", language)}
             </Button>
-            <Button onClick={() => setCreationMethod("API_PAX")} variant="secondary" className="w-full justify-start py-3">
-              {t("apiPaxBased", language)}
-            </Button>
-            <Button onClick={() => setCreationMethod("API_VEHICLE_COUNT")} variant="secondary" className="w-full justify-start py-3">
-              {t("apiVehicleCount", language)}
-            </Button>
             <Button onClick={() => setCreationMethod("RECURRING")} variant="secondary" className="w-full justify-start py-3">
               {t("recurringGenerator", language)}
             </Button>
@@ -83,8 +75,6 @@ export default function TripsPage() {
             <div className="flex-1 overflow-y-auto -mx-4 px-4">
               {creationMethod === "MANUAL" && <ManualTripCreation onDone={handleTripCreated} />}
               {creationMethod === "BULK_UPLOAD" && <BulkUploadCreation onDone={handleTripCreated} />}
-              {creationMethod === "API_PAX" && <ApiPaxCreation onCreated={handleTripCreated} />}
-              {creationMethod === "API_VEHICLE_COUNT" && <ApiVehicleCountCreation onCreated={handleTripCreated} />}
               {creationMethod === "RECURRING" && <RecurringCreation />}
               {creationMethod === "CLONE" && <CloneCreation onDone={handleTripCreated} />}
             </div>

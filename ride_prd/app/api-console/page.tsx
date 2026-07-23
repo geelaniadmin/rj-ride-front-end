@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useLanguageStore, t } from "@ride/shared";
+import { useLanguageStore, t } from "@/lib/shared";
 import { WebhookConfig } from "@/components/api-console/WebhookConfig";
 import { ApiTester } from "@/components/api-console/ApiTester";
 import { WebhookLogs } from "@/components/api-console/WebhookLogs";

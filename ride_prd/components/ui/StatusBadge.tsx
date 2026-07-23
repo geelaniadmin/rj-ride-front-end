@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useLanguageStore, t } from "@ride/shared";
+import { useLanguageStore, t } from "@/lib/shared";
 import { TripStatus, VehicleStatus } from "@/lib/types";
 import { Badge } from "./Badge";
 

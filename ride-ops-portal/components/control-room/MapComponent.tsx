@@ -4,8 +4,8 @@ import React, { useEffect, useRef, useCallback, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useQuery } from '@tanstack/react-query';
-import { apiClient, keys, traccarService } from '@ride/shared';
-import type { components } from '@ride/shared/api/schema.d';
+import { apiClient, keys, traccarService } from '@/lib/shared';
+import type { components } from '@/lib/shared/api/schema.d';
 
 type SosEvent = components['schemas']['SosEvent'];
 
