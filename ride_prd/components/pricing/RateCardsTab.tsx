@@ -49,7 +49,10 @@ function toWire(input: RateCardInput): Record<string, unknown> {
     currency: input.currency || undefined,
     modifiers: input.modifiers,
     valid_from: input.valid_from,
-    valid_to: input.valid_to || undefined,
+    // Explicit null, not undefined: on a PATCH edit an omitted key leaves valid_to unchanged,
+    // so clearing an end date has to send null to reset the card back to open-ended. The date
+    // picker yields a string or undefined (never ""), so `?? null` gives a date or null.
+    valid_to: input.valid_to ?? null,
   };
 }
 
