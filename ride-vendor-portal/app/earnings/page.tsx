@@ -33,7 +33,7 @@ function PayoutsTab() {
 
   const totalPending = payouts.filter((p) => p.status === "PENDING").reduce((sum, p) => sum + p.net_minor, 0);
   const totalPaid = payouts.filter((p) => p.status === "PAID").reduce((sum, p) => sum + p.net_minor, 0);
-  const currency = payouts[0]?.currency ?? "INR";
+  const currency = payouts[0]?.currency ?? "USD";
 
   if (isLoading) return <div className="text-center py-8 text-text-muted text-sm">Loading payouts…</div>;
 

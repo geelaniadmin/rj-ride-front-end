@@ -161,6 +161,34 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ searchQuery = "" }) 
       header: "Address",
       render: (val): React.ReactNode => (val ? <span className="text-text-secondary">{val as string}</span> : "-"),
     },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (_, row): React.ReactNode => {
+        const customer = row as unknown as Customer;
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-brand-wine/10! hover:text-brand-wine!"
+              onClick={() => openEdit(customer)}
+            >
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-danger/10! hover:text-danger!"
+              onClick={() => deleteMutation.mutate(customer.id)}
+              disabled={deleteMutation.isPending}
+            >
+              Deactivate
+            </Button>
+          </div>
+        );
+      },
+    },
   ];
 
   return (
@@ -243,30 +271,6 @@ export const CustomersTab: React.FC<CustomersTabProps> = ({ searchQuery = "" }) 
           </div>
         </div>
       </Drawer>
-
-      <div className="flex flex-wrap gap-2 pt-4">
-        {filtered.map((customer) => (
-          <div key={customer.id} className="p-3 bg-ops-bg rounded border border-border text-sm flex items-center gap-3">
-            <div>
-              <p className="font-medium text-ops-sidebar">{customer.name}</p>
-              {customer.contact_name && (
-                <p className="text-xs text-text-secondary">{customer.contact_name}</p>
-              )}
-            </div>
-            <Button size="sm" variant="ghost" onClick={() => openEdit(customer)}>
-              Edit
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => deleteMutation.mutate(customer.id)}
-              disabled={deleteMutation.isPending}
-            >
-              Deactivate
-            </Button>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };

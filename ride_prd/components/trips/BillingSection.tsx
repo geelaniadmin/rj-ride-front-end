@@ -69,12 +69,12 @@ export const BillingSection: React.FC<BillingSectionProps> = ({ trip, onMarkBill
             {trip.vehicles.map((vehicle, idx) => (
               <div key={vehicle.id} className="flex items-center justify-between text-xs">
                 <span className="text-text-secondary">Vehicle {idx + 1}</span>
-                <span className="text-text-primary">₹{vehicle.lockedPrice || "—"}</span>
+                <span className="text-text-primary">${vehicle.lockedPrice || "—"}</span>
               </div>
             ))}
             <div className="border-t border-border pt-2 flex items-center justify-between font-medium">
               <span className="text-text-primary">Total</span>
-              <span className="text-green-400">₹{totalPrice}</span>
+              <span className="text-green-400">${totalPrice}</span>
             </div>
           </div>
         </div>

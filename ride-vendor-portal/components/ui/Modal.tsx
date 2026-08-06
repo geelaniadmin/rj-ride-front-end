@@ -40,7 +40,7 @@ export const Modal: React.FC<ModalProps> = ({ open, onClose, title, children, si
           <div className="flex items-center justify-between px-6 py-4 border-b border-border">
             <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
             {!confirmModal && (
-              <button onClick={onClose} className="p-1 hover:bg-ops-bg rounded-lg transition-colors">
+              <button onClick={onClose} className="p-1 hover:bg-table-header rounded-lg transition-colors">
                 <X className="w-5 h-5 text-text-muted" />
               </button>
             )}

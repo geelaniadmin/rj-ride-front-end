@@ -229,7 +229,7 @@ export const BulkUploadCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
             onChange={(e) => { void handleFile(e); }}
             disabled={validating}
           />
-          <span className={`inline-flex items-center px-4 py-2 rounded text-sm font-medium border border-border bg-white text-text-primary cursor-pointer ${validating ? "opacity-50 pointer-events-none" : "hover:bg-ops-bg"}`}>
+          <span className={`inline-flex items-center px-4 py-2 rounded text-sm font-medium border border-border bg-white text-text-primary cursor-pointer ${validating ? "opacity-50 pointer-events-none" : "hover:bg-ops-card2"}`}>
             {validating ? "Validating…" : "Choose CSV File"}
           </span>
         </label>

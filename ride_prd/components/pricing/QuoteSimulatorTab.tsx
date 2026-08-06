@@ -125,7 +125,10 @@ export const QuoteSimulatorTab: React.FC<QuoteSimulatorTabProps> = () => {
             <SearchableSelect
               value={vehicle_type_id}
               onChange={setVehicleTypeId}
-              options={vts.map((v) => ({ value: v.id, label: v.name }))}
+              options={vts.map((v) => ({
+                value: v.id,
+                label: `${v.name} (${v.capacity} seats · ${v.luggage_capacity ?? 0} bags)`,
+              }))}
               placeholder="Search vehicle type…"
             />
           </FormField>

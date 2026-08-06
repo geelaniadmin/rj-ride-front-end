@@ -104,7 +104,7 @@ export function DataTable<T extends Record<string, any>>({
             {paged.map((item, idx) => (
               <tr
                 key={(item as Record<string, unknown>).id as string || (item as Record<string, unknown>).tripId as string || idx}
-                className={`border-b border-border/50 last:border-0 hover:bg-ops-bg/50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
+                className={`border-b border-border/50 last:border-0 hover:bg-table-header/50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
                 onClick={() => onRowClick?.(item)}
               >
                 {columns.map((col) => (
@@ -127,7 +127,7 @@ export function DataTable<T extends Record<string, any>>({
             <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={safePage === 0}
-              className="p-1.5 rounded hover:bg-ops-bg disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1.5 rounded hover:bg-table-header disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -135,7 +135,7 @@ export function DataTable<T extends Record<string, any>>({
             <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={safePage >= totalPages - 1}
-              className="p-1.5 rounded hover:bg-ops-bg disabled:opacity-30 disabled:cursor-not-allowed"
+              className="p-1.5 rounded hover:bg-table-header disabled:opacity-30 disabled:cursor-not-allowed"
             >
               <ChevronRight className="w-4 h-4" />
             </button>

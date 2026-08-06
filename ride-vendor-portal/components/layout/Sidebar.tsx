@@ -56,29 +56,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
   if (pathname === "/login") return null;
 
   const sidebarContent = (
-    <aside className="w-60 min-h-screen bg-sidebar-bg flex flex-col">
+    // FL8 (c.fl8.in) editorial shell: light card rail with a hairline right border, muted nav
+    // labels that darken on hover, wine primary for the active route.
+    <aside className="w-60 min-h-screen bg-card-bg border-r border-border flex flex-col">
       {/* Logo */}
-      <div className="px-6 py-5 border-b border-white/10 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-brand-blue rounded-lg flex items-center justify-center">
-            <Truck className="w-4 h-4 text-white" />
-          </div>
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-brand-wine flex-shrink-0" />
           <div>
-            <p className="text-white font-semibold text-sm">{t('rideTM', language)}</p>
-            <p className="text-white/50 text-xs">{t('vendorPortal', language)}</p>
+            <p className="display-serif text-text-primary text-lg leading-none">{t('rideTM', language)}</p>
+            <p className="text-text-tertiary text-[10px] uppercase tracking-[0.16em] mt-1">{t('vendorPortal', language)}</p>
           </div>
         </div>
         {/* Mobile close button */}
         <button
           onClick={onMobileClose}
-          className="lg:hidden p-1 text-white/40 hover:text-white transition-colors"
+          className="lg:hidden p-1 text-text-tertiary hover:text-text-primary transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 px-3 space-y-1">
+      <nav className="flex-1 py-3 px-3 space-y-0.5">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
@@ -87,34 +87,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
               key={item.href}
               href={item.href}
               onClick={handleNavClick}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`group relative flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
                 isActive
-                  ? "text-white bg-white/10 border-l-2 border-brand-blue"
-                  : "text-white/60 hover:text-white hover:bg-white/5 border-l-2 border-transparent"
+                  ? "text-brand-wine font-medium bg-brand-wine/[0.08]"
+                  : "text-text-secondary hover:text-text-primary hover:bg-table-header"
               }`}
             >
-              <Icon className="w-4 h-4 shrink-0" />
+              {isActive && (
+                <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-brand-wine" />
+              )}
+              <Icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? "text-brand-wine" : "text-text-tertiary group-hover:text-text-primary"}`} />
               <span className="flex-1">{t(item.labelKey, language)}</span>
               {item.href === "/offers" && pendingOffers > 0 && (
                 <span
-                  className="min-w-[18px] h-[18px] px-1 rounded-full bg-brand-blue text-white text-[10px] font-bold flex items-center justify-center"
+                  className="min-w-[18px] h-[18px] px-1 rounded-full bg-brand-wine text-white text-[10px] font-bold flex items-center justify-center"
                   title={`${pendingOffers} offer${pendingOffers === 1 ? "" : "s"} awaiting your response`}
                 >
                   {pendingOffers}
                 </span>
               )}
-              <span className="text-[10px] text-white/30 font-mono hidden lg:inline">{item.shortcut}</span>
+              <span className="text-[10px] text-text-tertiary font-mono hidden lg:inline">{item.shortcut}</span>
             </Link>
           );
         })}
       </nav>
 
       {/* Logout */}
-      <div className="px-3 pb-4">          <button
+      <div className="px-3 pb-4 border-t border-border pt-3">          <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/40 hover:text-white hover:bg-white/5 transition-all w-full"
+          className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-text-secondary hover:text-danger hover:bg-table-header transition-colors w-full"
         >
-          <LogOut className="w-4 h-4 shrink-0" />
+          <LogOut className="w-[18px] h-[18px] shrink-0" />
           {t('logout', language)}
         </button>
       </div>

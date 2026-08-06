@@ -10,7 +10,7 @@ export function LanguageToggle() {
   return (
     <button
       onClick={toggleLanguage}
-      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-ops-bg transition-colors text-sm font-medium text-text-primary"
+      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-table-header transition-colors text-sm font-medium text-text-primary"
       title={t("toggleLanguage", language)}
     >
       <Globe className="w-4 h-4 text-text-secondary" />

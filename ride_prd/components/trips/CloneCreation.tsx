@@ -109,7 +109,7 @@ export const CloneCreation: React.FC<{ onDone?: () => void }> = ({ onDone }) => 
       {selectedId && (
         <div>
           <label className="block text-xs text-text-secondary mb-1">New schedule (optional)</label>
-          <DateTimePicker mode="datetime" value={scheduleWhen}
+          <DateTimePicker mode="datetime" disablePast value={scheduleWhen}
             onChange={(val) => setScheduleWhen(val)} />
         </div>
       )}

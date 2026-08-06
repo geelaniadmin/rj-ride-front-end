@@ -61,7 +61,7 @@ export const StopEditor: React.FC<StopEditorProps> = ({ stop, index, onUpdate, o
 
       {/* Scheduled Time (optional) */}
       <FormField label="Planned Time (optional)">
-        <DateTimePicker mode="datetime" value={stop.plannedTime || ""} onChange={(val) => onUpdate(index, { plannedTime: val || undefined })} />
+        <DateTimePicker mode="datetime" disablePast value={stop.plannedTime || ""} onChange={(val) => onUpdate(index, { plannedTime: val || undefined })} />
       </FormField>
 
       {/* Reverse Schedule Suggestion */}

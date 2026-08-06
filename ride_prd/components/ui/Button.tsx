@@ -13,10 +13,15 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const baseClasses = "font-medium rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2";
 
     const variantClasses = {
-      primary: "bg-brand-blue text-white hover:bg-[#4A5ABF] shadow-sm hover:shadow",
-      secondary: "border border-border text-text-primary hover:bg-ops-bg",
-      ghost: "text-text-primary hover:bg-ops-bg",
-      danger: "bg-danger text-white hover:bg-[#d03030]",
+      primary: "bg-brand-blue text-white hover:bg-[#962C4A] shadow-sm hover:shadow",
+      secondary: "border border-border text-text-primary hover:bg-ops-card2",
+      // The ghost hover is a warm panel tint (ops-card2 = #F1EEE9, the FL8 "muted" tone). The
+      // table Actions columns (configuration + pricing tabs) override it with explicit IMPORTANT
+      // hovers — hover:bg-brand-wine/10! / hover:bg-danger/10! — because this utility sorts AFTER
+      // them in the emitted CSS and would otherwise win the cascade. The trailing `!` is
+      // Tailwind v4 important syntax; don't strip it when restyling these buttons.
+      ghost: "text-text-primary hover:bg-ops-card2",
+      danger: "bg-danger text-white hover:bg-[#A3371F]",
     };
 
     const sizeClasses = {

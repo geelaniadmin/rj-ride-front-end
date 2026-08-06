@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, csrfFetch, isApiError, uuidv4 } from "@/lib/shared";
 import { useToastStore } from "@/stores/toastStore";
@@ -40,6 +40,7 @@ interface RitmoTrip {
   id: string;
   reference: string;
   ritmo_ref: string;
+  city: string | null;
   status: string;
   pickup_at: string | null;
   created_at: string;
@@ -146,6 +147,20 @@ export default function RitmoPage() {
     [vendors],
   );
 
+  // Vendors are city-scoped (Vendor.city): a RITMO request carries its operating city, and a slot
+  // may only be allotted to vendors that operate in that city. `city` isn't in the generated Vendor
+  // type yet, so read it defensively. A request with no city falls back to every vendor.
+  const vendorOptionsForCity = useCallback(
+    (city: string | null | undefined) => {
+      const c = (city ?? "").trim().toLowerCase();
+      if (!c) return vendorOptions;
+      return vendors
+        .filter((v) => ((v as { city?: string }).city ?? "").trim().toLowerCase() === c)
+        .map((v) => ({ value: v.id, label: v.name }));
+    },
+    [vendors, vendorOptions],
+  );
+
   const visibleTrips = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return trips;
@@ -153,6 +168,7 @@ export default function RitmoPage() {
       [
         t.reference,
         t.ritmo_ref,
+        t.city,
         t.customer_name,
         t.status,
         ...t.stops.map((s) => s.address),
@@ -379,6 +395,12 @@ export default function RitmoPage() {
                     <span className="text-xs px-1.5 py-0.5 rounded bg-brand-blue/10 text-brand-blue font-medium">
                       RITMO: {trip.ritmo_ref}
                     </span>
+                    {trip.city && (
+                      <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-accent-gold/15 text-text-primary font-medium">
+                        <MapPin className="w-3 h-3 text-accent-gold" />
+                        {trip.city}
+                      </span>
+                    )}
                     {trip.customer_name && (
                       <span className="text-sm text-text-secondary">{trip.customer_name}</span>
                     )}
@@ -456,26 +478,39 @@ export default function RitmoPage() {
                           )}
                         </div>
                       ) : v.allottable ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-56">
-                            <SearchableSelect
-                              options={vendorOptions}
-                              value={selectedVendor[v.id] ?? ""}
-                              placeholder="Search vendor…"
-                              onChange={(val) =>
-                                setSelectedVendor((prev) => ({ ...prev, [v.id]: val }))
-                              }
-                            />
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="primary"
-                            disabled={allotting === v.id || !selectedVendor[v.id]}
-                            onClick={() => void allot(v.id)}
-                          >
-                            {allotting === v.id ? "Allotting…" : "Allot"}
-                          </Button>
-                        </div>
+                        (() => {
+                          // Only vendors operating in this request's city are offered.
+                          const cityOptions = vendorOptionsForCity(trip.city);
+                          if (trip.city && cityOptions.length === 0) {
+                            return (
+                              <span className="text-xs text-danger">
+                                No vendors operating in {trip.city} — add one in Configuration.
+                              </span>
+                            );
+                          }
+                          return (
+                            <div className="flex items-center gap-2">
+                              <div className="w-56">
+                                <SearchableSelect
+                                  options={cityOptions}
+                                  value={selectedVendor[v.id] ?? ""}
+                                  placeholder={trip.city ? `Vendors in ${trip.city}…` : "Search vendor…"}
+                                  onChange={(val) =>
+                                    setSelectedVendor((prev) => ({ ...prev, [v.id]: val }))
+                                  }
+                                />
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="primary"
+                                disabled={allotting === v.id || !selectedVendor[v.id]}
+                                onClick={() => void allot(v.id)}
+                              >
+                                {allotting === v.id ? "Allotting…" : "Allot"}
+                              </Button>
+                            </div>
+                          );
+                        })()
                       ) : (
                         <span className="text-sm text-text-secondary">
                           {v.vendor_name ? `Assigned · ${v.vendor_name}` : v.status}

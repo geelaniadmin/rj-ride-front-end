@@ -127,13 +127,13 @@ export default function SimulatePage() {
                 {result.breakdown && Object.entries(result.breakdown).map(([key, val]) => (
                   <div key={key} className="flex justify-between text-sm">
                     <span className="text-[#8B8FA8] capitalize">{key.replace(/_/g, ' ')}</span>
-                    <span className="font-medium">₹{(Number(val) / 100).toFixed(2)}</span>
+                    <span className="font-medium">${(Number(val) / 100).toFixed(2)}</span>
                   </div>
                 ))}
                 {result.total !== undefined && (
                   <div className="flex justify-between text-2xl font-bold border-t pt-3">
                     <span>{t('total', language)}</span>
-                    <span className="text-[#2563EB]">₹{(result.total / 100).toFixed(2)}</span>
+                    <span className="text-[#2563EB]">${(result.total / 100).toFixed(2)}</span>
                   </div>
                 )}
                 <p className="text-xs text-[#8B8FA8] italic pt-2 border-t">{t('simulationDisclaimer', language)}</p>

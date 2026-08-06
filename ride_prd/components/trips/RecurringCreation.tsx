@@ -184,13 +184,18 @@ export const RecurringCreation: React.FC<{ onDone?: () => void }> = () => {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => openEdit(rule)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="hover:bg-brand-wine/10! hover:text-brand-wine!"
+                    onClick={() => openEdit(rule)}
+                  >
                     <Pencil className="w-3 h-3" />
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="text-danger"
+                    className="text-danger hover:bg-danger/10!"
                     onClick={() => deactivateMutation.mutate(rule.id)}
                     disabled={deactivateMutation.isPending || !rule.is_active}
                   >
@@ -252,11 +257,11 @@ export const RecurringCreation: React.FC<{ onDone?: () => void }> = () => {
 
           <div className="grid grid-cols-2 gap-2">
             <FormField label="Start Date">
-              <DateTimePicker mode="date" value={form.start_date}
+              <DateTimePicker mode="date" disablePast value={form.start_date}
                 onChange={(val) => setForm((f) => ({ ...f, start_date: val }))} />
             </FormField>
             <FormField label="End Date">
-              <DateTimePicker mode="date" value={form.end_date ?? ""}
+              <DateTimePicker mode="date" disablePast value={form.end_date ?? ""}
                 onChange={(val) => setForm((f) => ({ ...f, end_date: val || undefined }))} />
             </FormField>
           </div>
@@ -265,7 +270,10 @@ export const RecurringCreation: React.FC<{ onDone?: () => void }> = () => {
             <SearchableSelect
               value={form.vehicle_type_id ?? ""}
               onChange={(val) => setForm((f) => ({ ...f, vehicle_type_id: val || undefined }))}
-              options={(vehicleTypes ?? []).map((v) => ({ value: v.id, label: v.name }))}
+              options={(vehicleTypes ?? []).map((v) => ({
+                value: v.id,
+                label: `${v.name} (${v.capacity} seats · ${v.luggage_capacity ?? 0} bags)`,
+              }))}
               placeholder="Search vehicle type…"
             />
           </FormField>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient, keys, formatMoney, isApiError, csrfFetch } from "@/lib/shared";
 import type { components } from "@/lib/shared/api/schema.d";
@@ -17,6 +17,7 @@ import { Plus, Minus, ArrowRight, Clock, Users } from "lucide-react";
 type Customer = components["schemas"]["Customer"];
 type VehicleType = components["schemas"]["VehicleType"];
 type Vendor = components["schemas"]["Vendor"];
+type RateCard = components["schemas"]["RateCard"];
 
 type QuoteOffer = {
   id: string;
@@ -80,9 +81,13 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
   const [vendorId, setVendorId] = useState("");
   const [reference, setReference] = useState("");
   const [pickupAt, setPickupAt] = useState<string>(() => {
+    // Default to one hour from now, as a LOCAL "YYYY-MM-DDTHH:mm" — DateTimePicker reads/writes
+    // local wall-clock, so slicing toISOString() (UTC) here shifted the shown time by the zone
+    // offset (e.g. −5:30 in IST), which could look like it was already in the past.
     const d = new Date();
     d.setMinutes(d.getMinutes() + 60);
-    return d.toISOString().slice(0, 16);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   });
   const [stops, setStops] = useState<StopEntry[]>([
     { ...DEFAULT_STOP, kind: "PICKUP" },
@@ -118,9 +123,60 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
     },
   });
 
+  // Rate cards are the (vendor × customer × vehicle type) versioned price list. The vehicle
+  // type dropdown must only offer types that have an active card for the chosen customer +
+  // vendor — otherwise Create fails at quote time with "No rate card for X × Y".
+  const { data: rateCardsData } = useQuery({
+    queryKey: keys.config.rateCards.list(),
+    queryFn: async () => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/pricing/rate-cards", {
+        params: { query: { page_size: 100 } },
+      });
+      if (err) throw err;
+      return res;
+    },
+  });
+
   const customers = (customersData?.results ?? []) as Customer[];
   const vehicleTypes = (vehicleTypesData?.results ?? []) as VehicleType[];
   const vendors = (vendorsData?.results ?? []) as Vendor[];
+  const rateCards = (rateCardsData?.results ?? []) as RateCard[];
+
+  // Vehicle types covered by an ACTIVE, currently-valid rate card for the selected pair.
+  // null while customer/vendor aren't both chosen — the dropdown stays unfiltered then.
+  const eligibleVehicleTypeIds = useMemo(() => {
+    if (!customerId || !vendorId) return null;
+    const today = new Date().toISOString().slice(0, 10);
+    const ids = new Set<string>();
+    for (const rc of rateCards) {
+      if (rc.vendor !== vendorId || rc.customer !== customerId) continue;
+      if (!rc.is_active) continue;
+      // A superseded card is not what the backend quotes from — exclude it so the dropdown
+      // exactly matches the offers Create will actually find.
+      if (rc.superseded_by) continue;
+      if (rc.valid_from && rc.valid_from > today) continue;
+      if (rc.valid_to && rc.valid_to < today) continue;
+      ids.add(rc.vehicle_type);
+    }
+    return ids;
+  }, [rateCards, customerId, vendorId]);
+
+  const visibleVehicleTypes = eligibleVehicleTypeIds
+    ? vehicleTypes.filter((v) => eligibleVehicleTypeIds.has(v.id))
+    : vehicleTypes;
+
+  // Changing customer/vendor can remove a previously-chosen car type from the rate-card set;
+  // clear those slots rather than let Create fail on a stale selection.
+  useEffect(() => {
+    if (!eligibleVehicleTypeIds) return;
+    setSlots((prev) =>
+      prev.map((s) =>
+        s.vehicle_type_id && !eligibleVehicleTypeIds.has(s.vehicle_type_id)
+          ? { ...s, vehicle_type_id: "" }
+          : s
+      )
+    );
+  }, [eligibleVehicleTypeIds]);
 
   // One-click create: for each vehicle slot, fetch the priced offer for the SELECTED vendor
   // (offers are per vendor×customer×vehicle-type via rate cards), then book citing those
@@ -291,7 +347,7 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
       </FormField>
 
       <FormField label="Pickup Date & Time">
-        <DateTimePicker mode="datetime" value={pickupAt}
+        <DateTimePicker mode="datetime" value={pickupAt} disablePast
           onChange={(val) => setPickupAt(val)} />
       </FormField>
 
@@ -333,7 +389,7 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
                   ))}
                 </select>
               </div>
-              <DateTimePicker placeholder="Time (optional)"
+              <DateTimePicker placeholder="Time (optional)" disablePast
                 mode="datetime" value={stop.planned_time}
                 onChange={(val) => updateStop(idx, "planned_time", val)} />
             </div>
@@ -356,6 +412,15 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
           </Button>
         </div>
 
+        {customerId && vendorId && (
+          <p className="text-xs text-text-secondary">
+            Showing {visibleVehicleTypes.length} vehicle type(s) with an active rate card for
+            the selected customer + vendor.
+            {visibleVehicleTypes.length === 0 &&
+              " Add one under Pricing & Quotes before creating."}
+          </p>
+        )}
+
         {slots.map((slot, idx) => {
           const seats = seatsFor(slot.vehicle_type_id);
           const full = seats !== null && slot.pax.length >= seats;
@@ -365,11 +430,17 @@ export const ManualTripCreation: React.FC<{ onDone?: () => void }> = ({ onDone }
                 <SearchableSelect
                   value={slot.vehicle_type_id}
                   onChange={(val) => setSlots((prev) => prev.map((s, i) => i === idx ? { ...s, vehicle_type_id: val } : s))}
-                  options={vehicleTypes.map((v) => ({
+                  options={visibleVehicleTypes.map((v) => ({
                     value: v.id,
-                    label: typeof v.capacity === "number" ? `${v.name} (${v.capacity} seats)` : v.name,
+                    label: typeof v.capacity === "number"
+                      ? `${v.name} (${v.capacity} seats · ${v.luggage_capacity ?? 0} bags)`
+                      : v.name,
                   }))}
-                  placeholder="Search vehicle type…"
+                  placeholder={
+                    customerId && vendorId
+                      ? "Search vehicle type (rate-card covered)…"
+                      : "Search vehicle type…"
+                  }
                   className="flex-1"
                 />
                 {slots.length > 1 && (

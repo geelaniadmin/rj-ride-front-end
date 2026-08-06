@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Drawer } from "@/components/ui/Drawer";
 import { TripsListTab } from "@/components/trips/TripsListTab";
+import { FleetFilterPanel } from "@/components/trips/FleetFilterPanel";
 import { ManualTripCreation } from "@/components/trips/ManualTripCreation";
 import { BulkUploadCreation } from "@/components/trips/BulkUploadCreation";
 import { RecurringCreation } from "@/components/trips/RecurringCreation";
@@ -32,9 +33,12 @@ export default function TripsPage() {
           <h1 className="text-3xl font-bold text-text-primary">{t("tripRequests", language)}</h1>
           <p className="text-sm text-text-secondary mt-1">{t("manageConvoyBasedRequests", language)}</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)} variant="primary">
-          {t("newTripRequest", language)}
-        </Button>
+        <div className="flex items-center gap-3">
+          <FleetFilterPanel />
+          <Button onClick={() => setShowCreateModal(true)} variant="primary">
+            {t("newTripRequest", language)}
+          </Button>
+        </div>
       </div>
 
       <Card padding="md" className="bg-brand-blue/5 border-brand-blue/20">

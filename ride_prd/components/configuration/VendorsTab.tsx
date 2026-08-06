@@ -4,14 +4,12 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguageStore, t, apiClient, keys, QueryBoundary, csrfFetch } from "@/lib/shared";
 import type { components } from "@/lib/shared/api/schema.d";
-import { Card } from "@/components/ui/Card";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
 import { Input } from "@/components/ui/Input";
 import { FormField } from "@/components/ui/FormField";
-import { Badge } from "@/components/ui/Badge";
 import { PII } from "@/components/ui/PII";
 import { useToastStore } from "@/stores/toastStore";
 
@@ -23,6 +21,7 @@ interface VendorWriteInput {
   contact_name?: string;
   contact_phone?: string;
   contact_email?: string;
+  city?: string;
   address?: string;
 }
 
@@ -130,25 +129,30 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
   // with cascade plus the server's own explanation, which already names the count.
   const [pendingCascade, setPendingCascade] = useState<{ id: string; reason: string } | null>(null);
 
-  const emptyForm: VendorWriteInput = { name: "", contact_name: "", contact_phone: "", contact_email: "", address: "" };
+  const emptyForm: VendorWriteInput = { name: "", contact_name: "", contact_phone: "", contact_email: "", city: "" };
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<VendorWriteInput>(emptyForm);
+  // True when the vendor already has its own city — its legacy address must be left untouched.
+  const [preserveAddress, setPreserveAddress] = useState(false);
 
   const openCreate = () => {
     setEditingId(null);
+    setPreserveAddress(false);
     setFormData(emptyForm);
     setDrawerOpen(true);
   };
 
   const openEdit = (vendor: Vendor) => {
     setEditingId(vendor.id);
+    setPreserveAddress(Boolean(vendor.city));
     setFormData({
       name: vendor.name,
       contact_name: vendor.contact_name ?? "",
       contact_phone: vendor.contact_phone ?? "",
       contact_email: vendor.contact_email ?? "",
-      address: vendor.address ?? "",
+      // Legacy rows carry the city inside the address field — show it so editing never wipes it.
+      city: vendor.city || vendor.address || "",
     });
     setDrawerOpen(true);
   };
@@ -164,12 +168,17 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
       addToast("A valid contact email is required — it becomes the vendor's login.", "error");
       return;
     }
+    const city = (formData.city ?? "").trim();
     const input: VendorWriteInput = {
       name: formData.name,
       contact_name: formData.contact_name || undefined,
       contact_phone: formData.contact_phone || undefined,
       contact_email: email,
-      address: formData.address || undefined,
+      city: city || undefined,
+      // Sync the legacy address field only on create or when migrating a legacy row (its city
+      // was empty). When editing a vendor that already had a city, leave its address untouched
+      // so a real street address is never clobbered by a name-only edit.
+      address: preserveAddress ? undefined : (city || undefined),
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, input });
@@ -201,9 +210,38 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
       render: (val): React.ReactNode => (val ? <PII value={val as string} type="email" /> : t("dash", language)),
     },
     {
-      key: "address",
-      header: "Address",
+      key: "city",
+      header: "City",
+      sortable: true,
       render: (val): React.ReactNode => (val ? <span className="text-text-secondary">{val as string}</span> : t("dash", language)),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (_, row): React.ReactNode => {
+        const vendor = row as unknown as Vendor;
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-brand-wine/10! hover:text-brand-wine!"
+              onClick={() => openEdit(vendor)}
+            >
+              {t("edit", language)}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-danger/10! hover:text-danger!"
+              onClick={() => deleteMutation.mutate({ id: vendor.id })}
+              disabled={deleteMutation.isPending}
+            >
+              {t("deactivate", language)}
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -268,12 +306,15 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
             <p className="text-xs text-text-secondary mt-1">Becomes the vendor&apos;s portal login (password: Vendor@12345).</p>
           </FormField>
 
-          <FormField label="Address">
+          <FormField label="City">
             <Input
-              value={formData.address ?? ""}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value || undefined })}
-              placeholder="123 Main St, City"
+              value={formData.city ?? ""}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value || undefined })}
+              placeholder="e.g., Boston"
             />
+            <p className="text-xs text-text-secondary mt-1">
+              Operating city — feeds the fleet filter and RITMO availability.
+            </p>
           </FormField>
 
           <div className="flex gap-2 pt-4">
@@ -286,31 +327,6 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
           </div>
         </div>
       </Drawer>
-
-      <div className="flex flex-wrap gap-2 pt-4">
-        {filtered.map((vendor) => (
-          <Card key={vendor.id} padding="sm" className="flex items-center justify-between min-w-fit">
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-medium text-ops-sidebar">{vendor.name}</p>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => openEdit(vendor)}>
-                    {t("edit", language)}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => deleteMutation.mutate({ id: vendor.id })}
-                    disabled={deleteMutation.isPending}
-                  >
-                    {t("deactivate", language)}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
 
       <ConfirmDialog
         open={pendingCascade !== null}

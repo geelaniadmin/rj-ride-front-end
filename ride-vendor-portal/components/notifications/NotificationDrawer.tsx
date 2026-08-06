@@ -20,7 +20,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({ open, on
             <Bell className="w-5 h-5 text-text-primary" />
             <h3 className="text-lg font-semibold text-text-primary">Notifications</h3>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-ops-bg rounded-lg transition-colors">
+          <button onClick={onClose} className="p-1 hover:bg-table-header rounded-lg transition-colors">
             <X className="w-5 h-5 text-text-muted" />
           </button>
         </div>

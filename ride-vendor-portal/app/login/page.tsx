@@ -60,8 +60,8 @@ export default function LoginPage() {
           <div className="w-16 h-16 bg-sidebar-bg rounded-xl flex items-center justify-center mb-4">
             <Truck className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-text-primary">{t("rideVendorPortal", language)}</h1>
-          <p className="text-sm text-text-muted mt-1">{t("signInManageFleet", language)}</p>
+          <h1 className="display-serif text-3xl text-text-primary tracking-tight text-center">{t("rideVendorPortal", language)}</h1>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-text-muted mt-2">{t("signInManageFleet", language)}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

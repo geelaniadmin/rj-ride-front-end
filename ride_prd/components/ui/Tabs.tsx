@@ -27,7 +27,7 @@ export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, children 
               className={`px-4 py-2.5 text-sm font-medium transition-all flex items-center gap-2 rounded-t-lg ${
                 activeTab === tab.id
                   ? "bg-ops-sidebar text-white shadow-sm"
-                  : "text-text-secondary hover:text-text-primary hover:bg-ops-bg"
+                  : "text-text-secondary hover:text-text-primary hover:bg-ops-card2"
               }`}
             >
               {Icon && <Icon className="w-4 h-4" />}

@@ -45,7 +45,7 @@ export const PiiField: React.FC<PiiFieldProps> = ({ value, maskFn = defaultMask 
       <span className="font-mono text-sm">{revealed ? value : maskFn(value)}</span>
       <button
         onClick={handleToggle}
-        className="p-0.5 hover:bg-ops-bg rounded transition-colors"
+        className="p-0.5 hover:bg-table-header rounded transition-colors"
         title={revealed ? "Hide" : "Reveal (10s)"}
       >
         {revealed ? <EyeOff className="w-3.5 h-3.5 text-text-muted" /> : <Eye className="w-3.5 h-3.5 text-text-muted" />}

@@ -70,6 +70,10 @@ export const keys = {
         ["fleet", "drivers", "list", filters ?? {}] as const,
       detail: (id: string) => ["fleet", "drivers", "detail", id] as const,
     },
+    locations: {
+      list: (filters?: FiltersShape) =>
+        ["fleet", "locations", "list", filters ?? {}] as const,
+    },
   },
 
   pricing: {

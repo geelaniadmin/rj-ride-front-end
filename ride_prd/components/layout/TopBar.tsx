@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { LogOut, Radio } from "lucide-react";
 import { useAuth, useLanguageStore, t } from "@/lib/shared";
 import { PII } from "@/components/ui/PII";
 import { LanguageToggle } from "@/components/ui/LanguageToggle";
@@ -24,37 +25,47 @@ export const TopBar: React.FC = () => {
   };
 
   return (
-    <header className="h-16 border-b border-white/10 bg-ops-sidebar/95 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-30">
-      <div className="flex items-center gap-4">
-        <h2 className="text-sm font-medium text-white">{t("rideTM", language)}</h2>
+    // FL8 header: sticky, compact (h-14), hairline bottom border, translucent cream with backdrop blur.
+    <header className="h-14 border-b border-border bg-ops-bg/80 backdrop-blur supports-[backdrop-filter]:bg-ops-bg/70 flex items-center justify-between px-5 sticky top-0 z-30">
+      <div className="flex items-center gap-3">
+        <span className="text-[11px] uppercase tracking-[0.18em] text-text-tertiary font-mono">{t("rideTM", language)}</span>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 pl-4 border-l border-white/10">
-          <div className="w-8 h-8 rounded-full bg-brand-blue flex items-center justify-center text-white text-xs font-bold">
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 pl-3 border-l border-border">
+          <div className="w-7 h-7 rounded-full bg-brand-wine flex items-center justify-center text-white text-[11px] font-semibold">
             {initials}
           </div>
           {user?.email ? (
-            <PII value={user.email} type="email" className="text-white" />
+            <PII value={user.email} type="email" className="text-text-primary" />
           ) : (
-            <span className="text-sm text-white/70">—</span>
+            <span className="text-sm text-text-secondary">—</span>
           )}
           {user?.role && (
-            <span className="text-xs text-white/50 font-mono">{user.role}</span>
+            <span className="text-[10px] text-text-tertiary font-mono uppercase tracking-wider">{user.role}</span>
           )}
           <button
             onClick={handleLogout}
-            className="p-1 hover:bg-white/10 rounded transition-colors"
+            className="p-1.5 hover:bg-ops-card2 rounded-md transition-colors"
             aria-label="Logout"
           >
-            <LogOut className="w-4 h-4 text-white/60" />
+            <LogOut className="w-4 h-4 text-text-tertiary" />
           </button>
         </div>
+
+        <Link
+          href="/availability"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-white text-sm font-medium text-text-secondary hover:bg-ops-card2 hover:text-text-primary transition-colors"
+          title="Fleet availability — synced to RITMO automatically"
+        >
+          <Radio className="w-4 h-4 text-brand-wine" />
+          Availability
+        </Link>
 
         <LanguageToggle />
 
         {user?.tenant?.id && (
-          <div className="ml-4 px-2.5 py-1 bg-white/10 border border-white/20 rounded-lg text-xs text-white/70 font-mono">
+          <div className="ml-1 px-2.5 py-1 bg-ops-card border border-border rounded-md text-[11px] text-text-secondary font-mono">
             {user.tenant.id}
           </div>
         )}

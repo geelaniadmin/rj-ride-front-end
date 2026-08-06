@@ -70,7 +70,7 @@ export default function KitchenSinkPage() {
     { key: "id", header: "ID", sortable: true },
     { key: "name", header: "Name", sortable: true },
     { key: "status", header: "Status", sortable: true, render: (val) => <StatusBadge status={val as TripStatus} /> },
-    { key: "value", header: "Value (₹)", sortable: true, render: (val) => `₹${val}` },
+    { key: "value", header: "Value ($)", sortable: true, render: (val) => `$${val}` },
   ];
 
   return (

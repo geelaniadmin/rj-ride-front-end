@@ -30,7 +30,7 @@ export const Drawer: React.FC<DrawerProps> = ({ open, onClose, title, children, 
         {title && (
           <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card-bg z-10">
             <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
-            <button onClick={onClose} className="p-1 hover:bg-ops-bg rounded-lg transition-colors">
+            <button onClick={onClose} className="p-1 hover:bg-table-header rounded-lg transition-colors">
               <X className="w-5 h-5 text-text-muted" />
             </button>
           </div>

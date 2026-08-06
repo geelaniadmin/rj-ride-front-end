@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient, keys, isApiError, csrfFetch } from "@/lib/shared";
+import { apiClient, keys, isApiError } from "@/lib/shared";
 import type { components } from "@/lib/shared/api/schema.d";
 import { useToastStore } from "@/stores/toastStore";
 import { Card } from "@/components/ui/Card";
@@ -13,12 +13,27 @@ import { Input } from "@/components/ui/Input";
 import { TripDetailView } from "@/components/trips/TripDetailView";
 import { cursorFromUrl } from "@/hooks/useCursorPagination";
 import { DateTimePicker } from "@/components/ui/DateTimePicker";
-import { ChevronRight, ChevronLeft, X } from "lucide-react";
+import { ChevronRight, ChevronLeft, X, Building2 } from "lucide-react";
 import type { TripStatus } from "@/lib/types";
 
 type TripRequest = components["schemas"]["TripRequest"];
 
 const STATUS_FILTERS = ["", "DRAFT", "CONFIRMED", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "BILLED", "CANCELLED"];
+
+/** Vendors that have been offered/assigned to this trip's vehicles, de-duped, in trip order. */
+const assignedVendors = (trip: TripRequest): string[] => {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const v of trip.vehicles ?? []) {
+    // PENDING means no vendor has been engaged yet — an offer or an assignment both count.
+    if (v.status === "PENDING" || !v.vendor_name) continue;
+    if (!seen.has(v.vendor_name)) {
+      seen.add(v.vendor_name);
+      names.push(v.vendor_name);
+    }
+  }
+  return names;
+};
 
 export const TripsListTab: React.FC = () => {
   const addToast = useToastStore((s) => s.addToast);
@@ -97,16 +112,15 @@ export const TripsListTab: React.FC = () => {
         return;
       }
       for (const v of vehicles) {
-        const resp = await csrfFetch(`/api/v1/trips/${cancelTrip.id}/vehicles/${v.id}/transitions`, {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: "CANCELLED", reason: cancelReason || undefined }),
+        // Cancel each convoy vehicle. The transition serializer's field is `status` (not `to`),
+        // and apiClient handles the forced trailing slash + CSRF header — the previous raw
+        // csrfFetch sent `{to: "CANCELLED"}` to a slashless URL, so every cancel 400'd. The
+        // reason rides along in `context` (the serializer's optional free-form dict).
+        const { error: txErr } = await apiClient.POST("/v1/trips/{id}/vehicles/{vehicle_pk}/transitions", {
+          params: { path: { id: cancelTrip.id, vehicle_pk: v.id } },
+          body: { status: "CANCELLED", context: cancelReason ? { reason: cancelReason } : {} } as never,
         });
-        if (!resp.ok) {
-          const body = await resp.json().catch(() => ({})) as { error?: { message?: string } };
-          throw new Error(body?.error?.message ?? `Cancel failed (${resp.status})`);
-        }
+        if (txErr) throw txErr;
       }
       addToast("Trip cancelled", "success");
       void qc.invalidateQueries({ queryKey: keys.trips.all() });
@@ -189,6 +203,15 @@ export const TripsListTab: React.FC = () => {
                       {trip.pickup_at ? new Date(trip.pickup_at).toLocaleString() : "—"}
                       {trip.vehicles.length > 0 && ` · ${trip.vehicles.length} vehicle(s)`}
                     </p>
+                    {assignedVendors(trip).length > 0 && (
+                      <p className="text-xs mt-0.5 flex items-center gap-1.5">
+                        <Building2 className="w-3 h-3 text-text-tertiary" />
+                        <span className="text-text-tertiary">Vendor:</span>
+                        <span className="text-text-primary font-medium">
+                          {assignedVendors(trip).join(", ")}
+                        </span>
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

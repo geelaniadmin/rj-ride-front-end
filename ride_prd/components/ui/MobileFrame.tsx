@@ -36,9 +36,9 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, title = "RID
         {/* App content area */}
         <div className="absolute inset-0 top-[48px] bottom-[8px] left-[2px] right-[2px] rounded-[40px] overflow-hidden bg-white">
           {/* App header */}
-          <div className="bg-[#1B2A4A] px-4 pt-2 pb-3 flex items-center justify-between">
+          <div className="bg-[#14161A] px-4 pt-2 pb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-[#5A6ACF] flex items-center justify-center">
+              <div className="w-7 h-7 rounded-full bg-[#B23457] flex items-center justify-center">
                 <span className="text-white text-xs font-bold">R</span>
               </div>
               <span className="text-white text-sm font-semibold">{title}</span>
@@ -51,7 +51,7 @@ export const MobileFrame: React.FC<MobileFrameProps> = ({ children, title = "RID
           </div>
 
           {/* Scrollable content */}
-          <div className="h-[calc(100%-44px)] overflow-y-auto custom-scrollbar bg-[#F4F5F7]">
+          <div className="h-[calc(100%-44px)] overflow-y-auto custom-scrollbar bg-[#F7F5F3]">
             {children}
           </div>
         </div>

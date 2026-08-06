@@ -41,7 +41,7 @@ export default function UITestPage() {
   const columns: Column<TestRow>[] = [
     { key: 'name', label: 'Trip Name', sortable: true },
     { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val as import('@/lib/shared').TripStatus} /> },
-    { key: 'value', label: 'Amount (₹)', sortable: true, render: (val) => `₹${val}` },
+    { key: 'value', label: 'Amount ($)', sortable: true, render: (val) => `$${val}` },
   ];
 
   const showToast = (type: 'success' | 'error' | 'warning' | 'info') => {
@@ -100,7 +100,7 @@ export default function UITestPage() {
           <KpiCard label="Active Trips" value={42} unit="trips" icon={<TrendingUp className="w-6 h-6" />} />
           <KpiCard
             label="Revenue"
-            value="₹125,500"
+            value="$125,500"
             trend={{ direction: 'up', value: '12% today' }}
             icon={<TrendingUp className="w-6 h-6" />}
           />

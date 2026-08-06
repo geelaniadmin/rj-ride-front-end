@@ -19,6 +19,13 @@ interface DateTimePickerProps {
   placeholder?: string;
   /** Earliest selectable day, "YYYY-MM-DD". */
   minDate?: string;
+  /**
+   * Reject dates/times in the past. Disables earlier calendar days (min = today) and, for
+   * `datetime`/`date` mode, snaps a chosen moment that lands before "now" forward to now — so a
+   * trip can never be scheduled in the past, even for a time earlier today. Ignored for `time` mode
+   * (a recurring time-of-day has no past/future). An explicit `minDate` still wins for the day floor.
+   */
+  disablePast?: boolean;
   className?: string;
   disabled?: boolean;
 }
@@ -88,6 +95,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
   mode = "date",
   placeholder,
   minDate,
+  disablePast = false,
   className = "",
   disabled = false,
 }) => {
@@ -102,10 +110,45 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
     [parts],
   );
   const min = useMemo(() => {
-    if (!minDate) return undefined;
-    const p = parseValue(minDate, "date");
-    return p.hasDate ? new Date(p.y, p.m - 1, p.d) : undefined;
-  }, [minDate]);
+    if (minDate) {
+      const p = parseValue(minDate, "date");
+      if (p.hasDate) return new Date(p.y, p.m - 1, p.d);
+    }
+    // No explicit floor but past disallowed → earliest selectable day is today.
+    if (disablePast) {
+      const t = new Date();
+      return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+    }
+    return undefined;
+  }, [minDate, disablePast]);
+
+  /**
+   * Emit the chosen value, but when `disablePast` is on never let a datetime land before now:
+   * a same-day time earlier than the current time is snapped up to now (seconds cleared). The
+   * calendar already blocks earlier days, so this only bites the "today, but an earlier hour" case.
+   */
+  const commit = (val: string) => {
+    if (disablePast && val && mode !== "time") {
+      const p = parseValue(val, mode);
+      if (p.hasDate) {
+        const chosen = new Date(p.y, p.m - 1, p.d, p.hh, p.mm).getTime();
+        const now = Date.now();
+        if (chosen < now) {
+          const snapped = new Date(now);
+          snapped.setSeconds(0, 0);
+          val = format(
+            snapped.getFullYear(),
+            snapped.getMonth() + 1,
+            snapped.getDate(),
+            mode === "datetime" ? snapped.getHours() : 0,
+            mode === "datetime" ? snapped.getMinutes() : 0,
+            mode,
+          );
+        }
+      }
+    }
+    onChange(val);
+  };
 
   const open = () => {
     if (disabled) return;
@@ -119,16 +162,16 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
       setStep("clock"); // continue to the time step
       return;
     }
-    onChange(format(d.getFullYear(), d.getMonth() + 1, d.getDate(), 0, 0, mode));
+    commit(format(d.getFullYear(), d.getMonth() + 1, d.getDate(), 0, 0, mode));
     setStep("none");
   };
 
   const onTimePicked = (hh: number, mm: number) => {
     if (mode === "time") {
-      onChange(format(0, 0, 0, hh, mm, mode));
+      commit(format(0, 0, 0, hh, mm, mode));
     } else {
       const d = draftDate ?? initialDate;
-      onChange(format(d.getFullYear(), d.getMonth() + 1, d.getDate(), hh, mm, mode));
+      commit(format(d.getFullYear(), d.getMonth() + 1, d.getDate(), hh, mm, mode));
     }
     setStep("none");
   };

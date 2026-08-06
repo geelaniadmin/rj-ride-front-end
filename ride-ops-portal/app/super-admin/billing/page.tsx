@@ -44,7 +44,7 @@ export default function BillingPage() {
     {
       key: 'totalMinor',
       label: 'Amount',
-      render: (v, row) => `${row.currency ?? '₹'} ${((v as number) / 100).toFixed(2)}`,
+      render: (v, row) => `${row.currency ?? '$'} ${((v as number) / 100).toFixed(2)}`,
     },
   ];
 
@@ -66,7 +66,7 @@ export default function BillingPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KpiCard
           label={t('totalRevenue', language)}
-          value={`₹${(totalMinor / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+          value={`$${(totalMinor / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })}`}
           icon={<DollarSign />}
         />
         <KpiCard label="Paid invoices" value={paid} icon={<Zap />} />

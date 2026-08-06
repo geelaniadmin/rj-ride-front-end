@@ -88,7 +88,7 @@ export function checkCancel(offer: Offer, pickupTime: string, lockedPrice: numbe
       free: false,
       penaltyPct: defaultPenaltyPct,
       resultingStatus: "CANCELLED_PENALTY",
-      reason: `Cancellation after free window (deadline: ${deadline.toLocaleTimeString()}). Penalty: ${defaultPenaltyPct}% of fare (₹${penaltyAmount.toFixed(0)})`,
+      reason: `Cancellation after free window (deadline: ${deadline.toLocaleTimeString()}). Penalty: ${defaultPenaltyPct}% of fare ($${penaltyAmount.toFixed(0)})`,
       penaltyAmount,
     };
   }

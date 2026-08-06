@@ -2911,6 +2911,8 @@ export interface components {
             readonly ac?: boolean;
             /** @description Seated passenger capacity. */
             readonly capacity?: number;
+            /** @description Number of luggage bags the type can carry. */
+            readonly luggage_capacity?: number;
             /** Format: date-time */
             readonly created_at?: string;
         };
@@ -3258,6 +3260,8 @@ export interface components {
             readonly ac: boolean;
             /** @description Seated passenger capacity. */
             readonly capacity: number;
+            /** @description Number of luggage bags the type can carry. */
+            readonly luggage_capacity: number;
             /** Format: date-time */
             readonly created_at: string;
         };

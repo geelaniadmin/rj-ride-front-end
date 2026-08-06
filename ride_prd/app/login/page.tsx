@@ -35,8 +35,8 @@ export default function LoginPage() {
     <div className="min-h-screen bg-ops-bg flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-ops-sidebar">RIDE</h1>
-          <p className="text-sm text-text-secondary mt-1">Rezolv Integrated Dispatch Engine</p>
+          <h1 className="display-serif text-5xl text-ops-sidebar tracking-tight">RIDE</h1>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-text-secondary mt-2">Rezolv Integrated Dispatch Engine</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-border p-6 space-y-4 shadow-sm">

@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLanguageStore, t, apiClient, keys, QueryBoundary, formatMoney, toMinor, csrfFetch } from "@/lib/shared";
 import type { components } from "@/lib/shared/api/schema.d";
-import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
@@ -191,7 +190,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
     rate_per_km_minor: 2000,
     modifiers: { min_fare_minor: 20000 },
     valid_from: today,
-    currency: "INR",
+    currency: "USD",
   };
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -202,10 +201,10 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
   const [formData, setFormData] = useState<RateCardInput>(emptyForm);
 
   /**
-   * The rate inputs are held as text in *rupees*, not as numbers in the `_minor` fields.
+   * The rate inputs are held as text in *dollars*, not as numbers in the `_minor` fields.
    *
    * Two reasons. First, typing 22 used to be written straight into `rate_per_km_minor`, which
-   * the API and the table both read as 22 *paise* — the card came back as ₹0.22. Second, a
+   * the API and the table both read as 22 *cents* — the card came back as $0.22. Second, a
    * number input backed by `minor / 100` cannot be typed into: after "22." parseFloat yields
    * 22, the field snaps back to "22", and the next keystroke gives 225 instead of 22.5.
    * Keeping the raw string until save fixes both.
@@ -215,8 +214,8 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
     perHour: "",
   });
 
-  /** Minor units → an editable rupee string. Blank for "not set", so the field starts empty. */
-  const minorToRupeeText = (minor?: number | null): string =>
+  /** Minor units → an editable dollar string. Blank for "not set", so the field starts empty. */
+  const minorToDollarText = (minor?: number | null): string =>
     minor == null ? "" : String(minor / 100);
 
   const openCreate = () => {
@@ -224,8 +223,8 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
     setSupersedingId(null);
     setFormData({ ...emptyForm, vendor_id: vendors[0]?.id ?? "", customer_id: customers[0]?.id ?? "", vehicle_type_id: vts[0]?.id ?? "" });
     setRateText({
-      perKm: minorToRupeeText(emptyForm.rate_per_km_minor),
-      perHour: minorToRupeeText(emptyForm.rate_per_hour_minor),
+      perKm: minorToDollarText(emptyForm.rate_per_km_minor),
+      perHour: minorToDollarText(emptyForm.rate_per_hour_minor),
     });
     setDrawerOpen(true);
   };
@@ -259,8 +258,8 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
       currency: rc.currency,
     });
     setRateText({
-      perKm: minorToRupeeText(rc.rate_per_km_minor),
-      perHour: minorToRupeeText(rc.rate_per_hour_minor),
+      perKm: minorToDollarText(rc.rate_per_km_minor),
+      perHour: minorToDollarText(rc.rate_per_hour_minor),
     });
     setDrawerOpen(true);
   };
@@ -271,8 +270,8 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
       return;
     }
 
-    const currency = formData.currency ?? "INR";
-    // Convert at the boundary: what the operator typed is rupees, what the API stores is paise.
+    const currency = formData.currency ?? "USD";
+    // Convert at the boundary: what the operator typed is dollars, what the API stores is cents.
     const toMinorOrUndefined = (text: string): number | undefined => {
       const trimmed = text.trim();
       if (!trimmed) return undefined;
@@ -316,21 +315,85 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
       render: (val): React.ReactNode => <Badge variant="blue">{val as string}</Badge>,
     },
     {
+      key: "vendor_name",
+      header: t("vendor", language),
+      sortable: true,
+      render: (val): React.ReactNode => (val ? (val as string) : t("dash", language)),
+    },
+    {
+      key: "customer_name",
+      header: t("customer", language),
+      sortable: true,
+      render: (val): React.ReactNode => (val ? (val as string) : t("dash", language)),
+    },
+    {
+      key: "vehicle_type_name",
+      header: t("vehicleType", language),
+      sortable: true,
+      render: (val, row): React.ReactNode => {
+        const name = val ? (val as string) : t("dash", language);
+        const vt = vts.find((v) => v.id === (row as Record<string, unknown>).vehicle_type);
+        return vt && typeof vt.luggage_capacity === "number"
+          ? `${name} · ${vt.luggage_capacity} bag${vt.luggage_capacity === 1 ? "" : "s"}`
+          : name;
+      },
+    },
+    {
       key: "rate_per_km_minor",
       header: t("perKm", language),
-      render: (val): React.ReactNode => (val ? formatMoney(val as number, "INR") : t("dash", language)),
+      render: (val): React.ReactNode => (val ? formatMoney(val as number, "USD") : t("dash", language)),
     },
     {
       key: "rate_per_hour_minor",
       header: t("hourly", language),
-      render: (val): React.ReactNode => (val ? formatMoney(val as number, "INR") : t("dash", language)),
+      render: (val): React.ReactNode => (val ? formatMoney(val as number, "USD") : t("dash", language)),
     },
     { key: "valid_from", header: t("validFrom", language), sortable: true },
+    {
+      key: "valid_to",
+      header: t("validTo", language),
+      render: (val): React.ReactNode => (val ? (val as string) : "∞"),
+    },
     {
       key: "version",
       header: t("version", language),
       sortable: true,
       render: (val): React.ReactNode => <Badge variant="purple">v{val as number}</Badge>,
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      // Both actions open the same drawer. Rate cards are copy-on-write in the backend
+      // (apps/pricing/services.supersede_rate_card): a card that has priced an Offer is
+      // evidence of what someone was quoted, so editing in place would rewrite history and
+      // break the price-lock chain. "Edit rates" means "correct the numbers" (PATCH, version
+      // unchanged); "New version" publishes v+1 and closes this card. There is no delete —
+      // rate cards are never destroyed (versioned, append-only).
+      render: (_, row): React.ReactNode => {
+        const rc = row as unknown as RateCard;
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-brand-wine/10! hover:text-brand-wine!"
+              onClick={() => openEdit(rc)}
+              title={`Edit v${rc.version} in place — the version number does not change`}
+            >
+              {t("edit", language)}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-brand-wine/10! hover:text-brand-wine!"
+              onClick={() => openSupersede(rc)}
+              title={`Publish v${rc.version + 1} based on this card`}
+            >
+              {t("newVersion", language)}
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -472,7 +535,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
           </FormField>
 
           {formData.basis === "PER_KM" && (
-            <FormField label={`${t("ratePerKm", language)} (₹)`}>
+            <FormField label={`${t("ratePerKm", language)} ($)`}>
               <Input
                 type="number"
                 min="0"
@@ -485,7 +548,7 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
           )}
 
           {formData.basis === "HOURLY" && (
-            <FormField label={`${t("hourlyRate", language)} (₹)`}>
+            <FormField label={`${t("hourlyRate", language)} ($)`}>
               <Input
                 type="number"
                 min="0"
@@ -525,52 +588,6 @@ export const RateCardsTab: React.FC<RateCardsTabProps> = ({ searchQuery = "" }) 
           </div>
         </div>
       </Drawer>
-
-      <div className="space-y-3 pt-4">
-        <h4 className="font-medium text-text-primary text-sm">{t("versionHistory", language)}</h4>
-        {filteredRateCards.map((rc) => (
-          <Card key={rc.id} padding="sm" className="text-sm">
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-ops-sidebar font-medium">
-                  {rc.vendor_name} × {rc.customer_name}
-                </p>
-                <p className="text-text-secondary">
-                  {rc.basis} v{rc.version} · {rc.vehicle_type_name}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-ops-sidebar">
-                  {rc.valid_from} → {rc.valid_to ?? "∞"}
-                </p>
-                {/* Both open the same drawer. Rate cards are copy-on-write in the backend
-                    (apps/pricing/services.supersede_rate_card): a card that has priced an Offer
-                    is evidence of what someone was quoted, so editing in place would rewrite
-                    history and break the price-lock chain. "Edit rates" therefore means
-                    "correct the numbers", and saving publishes the next version. */}
-                <div className="flex gap-2 justify-end mt-1">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => openEdit(rc)}
-                    title={`Edit v${rc.version} in place — the version number does not change`}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-ops-sidebar text-white border-ops-sidebar shadow-sm hover:bg-ops-sidebar"
-                    onClick={() => openSupersede(rc)}
-                    title={`Publish v${rc.version + 1} based on this card`}
-                  >
-                    {t("newVersion", language)}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
     </div>
   );
 };

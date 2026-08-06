@@ -20,6 +20,7 @@ interface VehicleTypeWriteInput {
   name: string;
   ac?: boolean;
   capacity: number;
+  luggage_capacity: number;
 }
 
 interface VehicleTypesTabProps {
@@ -123,7 +124,7 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
   // with cascade plus the server's own explanation, which already names the count.
   const [pendingCascade, setPendingCascade] = useState<{ id: string; reason: string } | null>(null);
 
-  const emptyForm: VehicleTypeWriteInput = { name: "", capacity: 4, ac: true };
+  const emptyForm: VehicleTypeWriteInput = { name: "", capacity: 4, luggage_capacity: 0, ac: true };
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<VehicleTypeWriteInput>(emptyForm);
@@ -136,7 +137,7 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
 
   const openEdit = (vt: VehicleType) => {
     setEditingId(vt.id);
-    setFormData({ name: vt.name, capacity: vt.capacity, ac: vt.ac });
+    setFormData({ name: vt.name, capacity: vt.capacity, luggage_capacity: vt.luggage_capacity ?? 0, ac: vt.ac });
     setDrawerOpen(true);
   };
 
@@ -148,6 +149,7 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
     const input: VehicleTypeWriteInput = {
       name: formData.name,
       capacity: formData.capacity,
+      luggage_capacity: formData.luggage_capacity,
       ac: formData.ac,
     };
     if (editingId) {
@@ -161,11 +163,46 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
     { key: "name", header: "Type Name", sortable: true },
     { key: "capacity", header: "Seating", sortable: true },
     {
+      key: "luggage_capacity",
+      header: "Luggage",
+      sortable: true,
+      render: (val): React.ReactNode =>
+        val == null ? "-" : <span>{`${val as number} bag${val === 1 ? "" : "s"}`}</span>,
+    },
+    {
       key: "ac",
       header: "AC",
       render: (val): React.ReactNode => (
         <Badge variant={val ? "green" : "red"}>{val ? "Yes" : "No"}</Badge>
       ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (_, row): React.ReactNode => {
+        const vt = row as unknown as VehicleType;
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-brand-wine/10! hover:text-brand-wine!"
+              onClick={() => openEdit(vt)}
+            >
+              Edit
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-danger/10! hover:text-danger!"
+              onClick={() => deleteMutation.mutate({ id: vt.id })}
+              disabled={deleteMutation.isPending}
+            >
+              Deactivate
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -213,6 +250,18 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
             />
           </FormField>
 
+          <FormField label="Luggage Capacity">
+            <Input
+              type="number"
+              min="0"
+              value={formData.luggage_capacity}
+              onChange={(e) =>
+                setFormData({ ...formData, luggage_capacity: parseInt(e.target.value) || 0 })
+              }
+            />
+            <p className="text-xs text-text-secondary mt-1">Number of luggage bags the type can carry.</p>
+          </FormField>
+
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -240,26 +289,6 @@ export const VehicleTypesTab: React.FC<VehicleTypesTabProps> = ({ searchQuery = 
           </div>
         </div>
       </Drawer>
-
-      <div className="flex flex-wrap gap-2 pt-4">
-        {vts.map((vt) => (
-          <div key={vt.id} className="p-3 bg-ops-bg rounded border border-border text-sm flex items-center gap-3">
-            <div>
-              <p className="font-medium text-ops-sidebar">{vt.name}</p>
-              <p className="text-xs text-text-secondary">{vt.capacity} seats · {vt.ac ? "AC" : "Non-AC"}</p>
-            </div>
-            <Button size="sm" variant="ghost" onClick={() => openEdit(vt)}>Edit</Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => deleteMutation.mutate({ id: vt.id })}
-              disabled={deleteMutation.isPending}
-            >
-              Deactivate
-            </Button>
-          </div>
-        ))}
-      </div>
 
       <ConfirmDialog
         open={pendingCascade !== null}

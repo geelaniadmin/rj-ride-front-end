@@ -12,11 +12,11 @@ export interface FareInput {
 }
 
 export interface FareBreakdown {
-  baseFare: number; // paise
-  nightSurcharge: number; // paise
-  waitingCharge: number; // paise
-  tollCharge: number; // paise (placeholder if EXTRA)
-  total: number; // paise
+  baseFare: number; // minor units (cents)
+  nightSurcharge: number; // minor units (cents)
+  waitingCharge: number; // minor units (cents)
+  tollCharge: number; // minor units (cents) (placeholder if EXTRA)
+  total: number; // minor units (cents)
   isApproximate: boolean; // true if basis is FIXED_LOCATION_PAIR
 }
 
@@ -90,7 +90,7 @@ export function computeFare(input: FareInput): FareBreakdown {
 
   let tollCharge = 0;
   if (tollApplicable && rateCard.modifiers?.tollHandling === 'EXTRA') {
-    tollCharge = 10000; // ₹100 placeholder
+    tollCharge = 10000; // $100 placeholder
   }
 
   const total = baseFare + nightSurcharge + waitingCharge + tollCharge;

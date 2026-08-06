@@ -20,14 +20,14 @@ import {
 
 const NAV_ITEMS = [
   { labelKey: "dashboard" as const, icon: LayoutDashboard, href: "/" },
-  { labelKey: "configuration" as const, icon: Settings2, href: "/configuration" },
   { labelKey: "pricingAndQuotes" as const, icon: Tags, href: "/pricing" },
   { labelKey: "tripRequests" as const, icon: Route, href: "/trips" },
   { labelKey: "ritmo" as const, icon: Inbox, href: "/ritmo" },
   { labelKey: "dispatch" as const, icon: Radio, href: "/dispatch" },
   { labelKey: "tracking" as const, icon: MapPin, href: "/tracking" },
   { labelKey: "billing" as const, icon: Receipt, href: "/billing" },
-  { labelKey: "apiConsole" as const, icon: Code2, href: "/api-console" },
+  // { labelKey: "apiConsole" as const, icon: Code2, href: "/api-console" },
+  { labelKey: "configuration" as const, icon: Settings2, href: "/configuration" },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -35,13 +35,18 @@ export const Sidebar: React.FC = () => {
   const language = useLanguageStore((s) => s.language);
 
   return (
-    <aside className="w-60 bg-ops-sidebar border-r border-border h-screen flex flex-col shadow-lg">
-      <div className="p-5 border-b border-white/10">
-        <h1 className="text-xl font-bold text-white">{t('rideTM', language)}</h1>
-        <p className="text-xs text-white/60 mt-1">{t('transportManagement', language)}</p>
+    // FL8 (c.fl8.in) editorial shell: light card rail with a hairline right border — not a dark
+    // navy sidebar. Muted nav labels that darken on hover; wine primary marks the active route.
+    <aside className="w-60 bg-ops-card border-r border-border h-screen flex flex-col">
+      <div className="px-5 py-4 border-b border-border">
+        <div className="flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-brand-wine flex-shrink-0" />
+          <h1 className="display-serif text-2xl text-text-primary tracking-tight leading-none">{t('rideTM', language)}</h1>
+        </div>
+        <p className="text-[10px] uppercase tracking-[0.18em] text-text-tertiary mt-2">{t('transportManagement', language)}</p>
       </div>
 
-      <nav className="flex-1 overflow-y-auto p-3 flex flex-col gap-0.5">
+      <nav className="flex-1 overflow-y-auto py-3 px-3 flex flex-col gap-0.5">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -50,24 +55,24 @@ export const Sidebar: React.FC = () => {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+              className={`group relative flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                 isActive
-                  ? "bg-brand-blue text-white font-medium shadow-sm"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                  ? "bg-brand-wine/[0.08] text-brand-wine font-medium"
+                  : "text-text-secondary hover:bg-ops-card2 hover:text-text-primary"
               }`}
             >
-              <Icon className="w-5 h-5 flex-shrink-0" />
+              {isActive && (
+                <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-brand-wine" />
+              )}
+              <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-brand-wine" : "text-text-tertiary group-hover:text-text-primary"}`} />
               <span className="text-sm">{t(item.labelKey, language)}</span>
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-white/10">
-        <div className="text-xs text-white/50 text-center">
-          <p className="font-medium text-white/80">RIDE</p>
-          <p>Transport Management</p>
-        </div>
+      <div className="px-5 py-3 border-t border-border">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-text-tertiary font-mono">Rezolv · RIDE</p>
       </div>
     </aside>
   );

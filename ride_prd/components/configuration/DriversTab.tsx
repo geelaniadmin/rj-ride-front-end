@@ -222,6 +222,34 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
         </Badge>
       ),
     },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (_, row): React.ReactNode => {
+        const driver = row as unknown as ApiDriver;
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-brand-wine/10! hover:text-brand-wine!"
+              onClick={() => openEdit(driver)}
+            >
+              {t("edit", language)}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-danger/10! hover:text-danger!"
+              onClick={() => deleteMutation.mutate(driver.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {t("deactivate", language)}
+            </Button>
+          </div>
+        );
+      },
+    },
   ];
 
   return (
@@ -337,30 +365,6 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
           </div>
         </div>
       </Drawer>
-
-      {drivers.map((driver) => (
-        <div key={driver.id} className="p-3 bg-ops-bg rounded border border-border text-sm">
-          <div className="font-medium text-ops-sidebar">
-            <PII value={driver.name} type="name" />
-          </div>
-          <p className="text-xs text-text-secondary mt-1">
-            <PII value={driver.phone} type="phone" />
-          </p>
-          <div className="flex gap-2 mt-2">
-            <Button size="sm" variant="ghost" onClick={() => openEdit(driver)}>
-              {t("edit", language)}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => deleteMutation.mutate(driver.id)}
-              disabled={deleteMutation.isPending}
-            >
-              {t("deactivate", language)}
-            </Button>
-          </div>
-        </div>
-      ))}
     </div>
   );
 };

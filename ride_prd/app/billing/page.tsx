@@ -85,7 +85,7 @@ export default function BillingPage() {
  */
 function TotalBreakdown({ trip }: { trip: BillableTrip }) {
   if (trip.total_minor == null) return null;
-  const currency = trip.lines?.[0]?.currency ?? "INR";
+  const currency = trip.lines?.[0]?.currency ?? "USD";
   const subtotal = trip.subtotal_minor ?? 0;
   const fee = trip.operator_fee_minor ?? 0;
   const adjustments = (trip.adjustments ?? []).reduce(
@@ -210,7 +210,7 @@ function BillableTripsTab() {
   });
 
   // Derived once for the expanded detail panel's itemised total.
-  const detailCurrency = detail?.lines?.[0]?.currency ?? "INR";
+  const detailCurrency = detail?.lines?.[0]?.currency ?? "USD";
   const detailBps = (detail?.fee_config_snapshot as { bps?: number } | null | undefined)?.bps;
   const detailAdjustments = (detail?.adjustments ?? []).reduce(
     (sum, a) => sum + ((a as { amount_minor?: number }).amount_minor ?? 0),
@@ -248,7 +248,7 @@ function BillableTripsTab() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setAdjustModal({ id: trip.id, currency: trip.lines?.[0]?.currency ?? "INR" })}
+                    onClick={() => setAdjustModal({ id: trip.id, currency: trip.lines?.[0]?.currency ?? "USD" })}
                   >
                     <DollarSign className="w-3 h-3 mr-1" /> Adjust
                   </Button>

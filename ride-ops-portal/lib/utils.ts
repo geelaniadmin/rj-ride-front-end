@@ -1,5 +1,6 @@
-export function formatPaise(paise: number): string {
-  return `₹${(paise / 100).toFixed(2)}`;
+/** Format minor units (cents) as dollars. Kept currency-neutral for legacy callers. */
+export function formatMinor(minor: number): string {
+  return `$${(minor / 100).toFixed(2)}`;
 }
 
 export function maskPii(value: string): string {

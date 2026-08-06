@@ -195,7 +195,13 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
       key: "vehicle_type_name",
       header: t("type", language),
       sortable: true,
-      render: (val): React.ReactNode => (val as string) || t("dash", language),
+      render: (val, row): React.ReactNode => {
+        const name = (val as string) || t("dash", language);
+        const vt = vehicleTypes.find((v) => v.id === (row as Record<string, unknown>).vehicle_type);
+        return vt && typeof vt.luggage_capacity === "number"
+          ? `${name} · ${vt.luggage_capacity} bag${vt.luggage_capacity === 1 ? "" : "s"}`
+          : name;
+      },
     },
     {
       key: "vendor_name",
@@ -209,6 +215,34 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
       render: (val): React.ReactNode => (
         <Badge variant={val ? "green" : "red"}>{val ? t("active", language) : t("inactive", language)}</Badge>
       ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (_, row): React.ReactNode => {
+        const vehicle = row as unknown as ApiVehicle;
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-brand-wine/10! hover:text-brand-wine!"
+              onClick={() => openEdit(vehicle)}
+            >
+              {t("edit", language)}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hover:bg-danger/10! hover:text-danger!"
+              onClick={() => deleteMutation.mutate(vehicle.id)}
+              disabled={deleteMutation.isPending}
+            >
+              {t("deactivate", language)}
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 
@@ -318,35 +352,6 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
           </div>
         </div>
       </Drawer>
-
-      {vehicles.map((vehicle) => (
-        <div key={vehicle.id} className="p-3 bg-ops-bg rounded border border-border text-sm">
-          <div className="flex justify-between items-start mb-2">
-            <div className="font-medium text-ops-sidebar">
-              {vehicle.vehicle_type_name} — {vehicle.plate}
-            </div>
-            <Badge variant={vehicle.is_active ? "green" : "red"}>
-              {vehicle.is_active ? t("active", language) : t("inactive", language)}
-            </Badge>
-          </div>
-          {vehicle.vendor_name && (
-            <p className="text-xs text-text-secondary">{vehicle.vendor_name}</p>
-          )}
-          <div className="flex gap-2 mt-2">
-            <Button size="sm" variant="ghost" onClick={() => openEdit(vehicle)}>
-              {t("edit", language)}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => deleteMutation.mutate(vehicle.id)}
-              disabled={deleteMutation.isPending}
-            >
-              {t("deactivate", language)}
-            </Button>
-          </div>
-        </div>
-      ))}
     </div>
   );
 };

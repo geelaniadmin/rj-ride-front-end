@@ -19,7 +19,7 @@ interface EarningsChartProps {
 }
 
 const CHART_COLORS = {
-  earnings: "#2563eb",
+  earnings: "#B23457",
 };
 
 export const EarningsChart: React.FC<EarningsChartProps> = ({ data }) => {
@@ -39,7 +39,7 @@ export const EarningsChart: React.FC<EarningsChartProps> = ({ data }) => {
             tick={{ fontSize: 11, fill: "#64748b" }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(val: number) => `₹${val}`}
+            tickFormatter={(val: number) => `$${val}`}
           />
           <Tooltip
             contentStyle={{
@@ -49,7 +49,7 @@ export const EarningsChart: React.FC<EarningsChartProps> = ({ data }) => {
               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
               fontSize: "13px",
             }}
-            formatter={(value) => [`₹${Number(value ?? 0).toLocaleString()}`, t('earnings', language)]}
+            formatter={(value) => [`$${Number(value ?? 0).toLocaleString()}`, t('earnings', language)]}
             labelFormatter={(label) => `${t('date', language)}: ${String(label ?? "")}`}
           />
           <Bar dataKey="earnings" radius={[4, 4, 0, 0]} maxBarSize={48}>

@@ -309,7 +309,7 @@ export default function OffersPage() {
                       )}
                       {offer.locked_price_minor != null && (
                         <p className="text-sm font-semibold text-slate-800">
-                          {formatMoney(offer.locked_price_minor, offer.currency ?? "INR")}
+                          {formatMoney(offer.locked_price_minor, offer.currency ?? "USD")}
                         </p>
                       )}
                     </div>

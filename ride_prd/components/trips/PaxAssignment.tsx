@@ -59,7 +59,7 @@ export const PaxAssignment: React.FC<PaxAssignmentProps> = ({ vehicles, onUpdate
               {/* Vehicle Header */}
               <button
                 onClick={() => setExpandedVehicleId(isExpanded ? null : vehicle.id)}
-                className="w-full p-3 bg-ops-bg hover:bg-ops-bg transition-colors flex items-center justify-between"
+                className="w-full p-3 bg-ops-bg hover:bg-ops-card2 transition-colors flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-medium text-text-primary">Vehicle {vehicleIndex + 1}</span>
