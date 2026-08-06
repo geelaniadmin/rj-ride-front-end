@@ -33,6 +33,8 @@ interface RitmoVehicle {
   pax_count: number;
   pax: { name: string; phone: string }[];
   allottable: boolean;
+  // Why a PENDING slot is not yet auto-allotted: "no_city_vendor" | "car_type_unavailable" | "".
+  alloc_reason: string;
   active_offer: ActiveOffer | null;
 }
 
@@ -131,6 +133,21 @@ export default function RitmoPage() {
     staleTime: 60_000,
   });
 
+  // Car types for the "car type not available" fallback picker.
+  const { data: vehicleTypes = [] } = useQuery({
+    queryKey: ["config", "vehicle-types", "all"],
+    queryFn: async (): Promise<{ id: string; name: string }[]> => {
+      const { data: res, error: err } = await apiClient.GET("/v1/config/vehicle-types", {});
+      if (err) throw err;
+      return ((res as unknown as { results?: { id: string; name: string }[] })?.results ?? []);
+    },
+    staleTime: 60_000,
+  });
+  const vehicleTypeOptions = useMemo(
+    () => vehicleTypes.map((vt) => ({ value: vt.id, label: vt.name })),
+    [vehicleTypes],
+  );
+
   // Offers still awaiting a vendor response — exactly what "Alert vendors" will nudge.
   const pendingAlertCount = useMemo(
     () =>
@@ -205,6 +222,42 @@ export default function RitmoPage() {
     } catch (err) {
       addToast(
         isApiError(err) ? err.message : err instanceof Error ? err.message : "Failed to allot",
+        "error",
+      );
+    } finally {
+      setAllotting(null);
+    }
+  };
+
+  // Car-type fallback: when no city vendor has the requested type, ops picks another type and the
+  // backend re-runs the city auto-dispatch (auto-allot + auto-accept) for that type.
+  const reallocateWithType = async (vehicleId: string, vehicleTypeId: string) => {
+    if (!vehicleTypeId) return;
+    setAllotting(vehicleId);
+    try {
+      const resp = await csrfFetch(`/api/v1/trips/vehicles/${vehicleId}/reallocate/`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "Idempotency-Key": uuidv4() },
+        body: JSON.stringify({ vehicle_type_id: vehicleTypeId }),
+      });
+      const body = (await resp.json().catch(() => ({}))) as {
+        result?: { status?: string; vendor_name?: string };
+        error?: { message?: string };
+      };
+      if (!resp.ok) throw new Error(body?.error?.message ?? `Reallocate failed (${resp.status})`);
+      const status = body.result?.status;
+      if (status === "assigned") {
+        addToast(`Auto-allotted to ${body.result?.vendor_name ?? "a vendor"} and accepted.`, "success");
+      } else if (status === "car_type_unavailable") {
+        addToast("That car type isn't available in this city either — try another.", "error");
+      } else if (status === "no_city_vendor") {
+        addToast("No vendors operate in this city.", "error");
+      }
+      void qc.invalidateQueries({ queryKey: ["ritmo", "requests"] });
+    } catch (err) {
+      addToast(
+        isApiError(err) ? err.message : err instanceof Error ? err.message : "Failed to reallocate",
         "error",
       );
     } finally {
@@ -479,15 +532,35 @@ export default function RitmoPage() {
                         </div>
                       ) : v.allottable ? (
                         (() => {
-                          // Only vendors operating in this request's city are offered.
-                          const cityOptions = vendorOptionsForCity(trip.city);
-                          if (trip.city && cityOptions.length === 0) {
+                          // No vendor operates in the request's city at all.
+                          if (v.alloc_reason === "no_city_vendor") {
                             return (
                               <span className="text-xs text-danger">
-                                No vendors operating in {trip.city} — add one in Configuration.
+                                No vendors operating in {trip.city || "this city"} — add one in Configuration.
                               </span>
                             );
                           }
+                          // Vendors exist in the city, but none has the requested car type free.
+                          // Offer an alternate car type; picking one re-runs auto-allot + auto-accept.
+                          if (v.alloc_reason === "car_type_unavailable") {
+                            return (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-danger whitespace-nowrap">
+                                  {v.vehicle_type_name} not available in {trip.city} —
+                                </span>
+                                <div className="w-48">
+                                  <SearchableSelect
+                                    options={vehicleTypeOptions.filter((o) => o.label !== v.vehicle_type_name)}
+                                    value=""
+                                    placeholder={allotting === v.id ? "Allotting…" : "Select other car type…"}
+                                    onChange={(val) => void reallocateWithType(v.id, val)}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          }
+                          // Genuinely allottable (a city vendor is free) — manual city-scoped picker.
+                          const cityOptions = vendorOptionsForCity(trip.city);
                           return (
                             <div className="flex items-center gap-2">
                               <div className="w-56">
