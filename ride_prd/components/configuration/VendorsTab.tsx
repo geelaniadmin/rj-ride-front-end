@@ -21,7 +21,7 @@ interface VendorWriteInput {
   contact_name?: string;
   contact_phone?: string;
   contact_email?: string;
-  city?: string;
+  airport_code?: string;
   address?: string;
 }
 
@@ -129,11 +129,11 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
   // with cascade plus the server's own explanation, which already names the count.
   const [pendingCascade, setPendingCascade] = useState<{ id: string; reason: string } | null>(null);
 
-  const emptyForm: VendorWriteInput = { name: "", contact_name: "", contact_phone: "", contact_email: "", city: "" };
+  const emptyForm: VendorWriteInput = { name: "", contact_name: "", contact_phone: "", contact_email: "", airport_code: "" };
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<VendorWriteInput>(emptyForm);
-  // True when the vendor already has its own city — its legacy address must be left untouched.
+  // True when the vendor already has its own airport code — its legacy address must be left untouched.
   const [preserveAddress, setPreserveAddress] = useState(false);
 
   const openCreate = () => {
@@ -145,14 +145,15 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
 
   const openEdit = (vendor: Vendor) => {
     setEditingId(vendor.id);
-    setPreserveAddress(Boolean(vendor.city));
+    const vendorAirport = (vendor as { airport_code?: string }).airport_code;
+    setPreserveAddress(Boolean(vendorAirport));
     setFormData({
       name: vendor.name,
       contact_name: vendor.contact_name ?? "",
       contact_phone: vendor.contact_phone ?? "",
       contact_email: vendor.contact_email ?? "",
-      // Legacy rows carry the city inside the address field — show it so editing never wipes it.
-      city: vendor.city || vendor.address || "",
+      // Legacy rows carry the location inside the address field — show it so editing never wipes it.
+      airport_code: vendorAirport || vendor.address || "",
     });
     setDrawerOpen(true);
   };
@@ -168,17 +169,17 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
       addToast("A valid contact email is required — it becomes the vendor's login.", "error");
       return;
     }
-    const city = (formData.city ?? "").trim();
+    const airportCode = (formData.airport_code ?? "").trim();
     const input: VendorWriteInput = {
       name: formData.name,
       contact_name: formData.contact_name || undefined,
       contact_phone: formData.contact_phone || undefined,
       contact_email: email,
-      city: city || undefined,
-      // Sync the legacy address field only on create or when migrating a legacy row (its city
-      // was empty). When editing a vendor that already had a city, leave its address untouched
-      // so a real street address is never clobbered by a name-only edit.
-      address: preserveAddress ? undefined : (city || undefined),
+      airport_code: airportCode || undefined,
+      // Sync the legacy address field only on create or when migrating a legacy row (its airport
+      // was empty). When editing a vendor that already had an airport code, leave its address
+      // untouched so a real street address is never clobbered by a name-only edit.
+      address: preserveAddress ? undefined : (airportCode || undefined),
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, input });
@@ -210,8 +211,8 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
       render: (val): React.ReactNode => (val ? <PII value={val as string} type="email" /> : t("dash", language)),
     },
     {
-      key: "city",
-      header: "City",
+      key: "airport_code",
+      header: "Airport Code",
       sortable: true,
       render: (val): React.ReactNode => (val ? <span className="text-text-secondary">{val as string}</span> : t("dash", language)),
     },
@@ -306,14 +307,14 @@ export const VendorsTab: React.FC<VendorsTabProps> = ({ searchQuery = "" }) => {
             <p className="text-xs text-text-secondary mt-1">Becomes the vendor&apos;s portal login (password: Vendor@12345).</p>
           </FormField>
 
-          <FormField label="City">
+          <FormField label="Airport Code">
             <Input
-              value={formData.city ?? ""}
-              onChange={(e) => setFormData({ ...formData, city: e.target.value || undefined })}
-              placeholder="e.g., Boston"
+              value={formData.airport_code ?? ""}
+              onChange={(e) => setFormData({ ...formData, airport_code: e.target.value || undefined })}
+              placeholder="e.g., DEL, BLR"
             />
             <p className="text-xs text-text-secondary mt-1">
-              Operating city — feeds the fleet filter and RITMO availability.
+              Operating airport code — feeds the fleet filter, RITMO auto-dispatch and availability.
             </p>
           </FormField>
 

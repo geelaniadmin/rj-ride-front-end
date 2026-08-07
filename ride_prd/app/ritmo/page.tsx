@@ -42,7 +42,11 @@ interface RitmoTrip {
   id: string;
   reference: string;
   ritmo_ref: string;
-  city: string | null;
+  airport_code: string | null;
+  contact_number: string | null;
+  staff_number: string | null;
+  remarks: string | null;
+  luggage_count: number;
   status: string;
   pickup_at: string | null;
   created_at: string;
@@ -164,15 +168,15 @@ export default function RitmoPage() {
     [vendors],
   );
 
-  // Vendors are city-scoped (Vendor.city): a RITMO request carries its operating city, and a slot
-  // may only be allotted to vendors that operate in that city. `city` isn't in the generated Vendor
-  // type yet, so read it defensively. A request with no city falls back to every vendor.
+  // Vendors are airport-scoped (Vendor.airport_code): a RITMO request carries its operating airport,
+  // and a slot may only be allotted to vendors at that airport. `airport_code` is not in the Vendor
+  // type yet, so read it defensively. A request with no airport falls back to every vendor.
   const vendorOptionsForCity = useCallback(
     (city: string | null | undefined) => {
       const c = (city ?? "").trim().toLowerCase();
       if (!c) return vendorOptions;
       return vendors
-        .filter((v) => ((v as { city?: string }).city ?? "").trim().toLowerCase() === c)
+        .filter((v) => ((v as { airport_code?: string }).airport_code ?? "").trim().toLowerCase() === c)
         .map((v) => ({ value: v.id, label: v.name }));
     },
     [vendors, vendorOptions],
@@ -185,7 +189,10 @@ export default function RitmoPage() {
       [
         t.reference,
         t.ritmo_ref,
-        t.city,
+        t.airport_code,
+        t.contact_number,
+        t.staff_number,
+        t.remarks,
         t.customer_name,
         t.status,
         ...t.stops.map((s) => s.address),
@@ -250,9 +257,9 @@ export default function RitmoPage() {
       if (status === "assigned") {
         addToast(`Auto-allotted to ${body.result?.vendor_name ?? "a vendor"} and accepted.`, "success");
       } else if (status === "car_type_unavailable") {
-        addToast("That car type isn't available in this city either — try another.", "error");
+        addToast("That car type isn't available at this airport either — try another.", "error");
       } else if (status === "no_city_vendor") {
-        addToast("No vendors operate in this city.", "error");
+        addToast("No vendors operate at this airport.", "error");
       }
       void qc.invalidateQueries({ queryKey: ["ritmo", "requests"] });
     } catch (err) {
@@ -448,10 +455,10 @@ export default function RitmoPage() {
                     <span className="text-xs px-1.5 py-0.5 rounded bg-brand-blue/10 text-brand-blue font-medium">
                       RITMO: {trip.ritmo_ref}
                     </span>
-                    {trip.city && (
+                    {trip.airport_code && (
                       <span className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-accent-gold/15 text-text-primary font-medium">
                         <MapPin className="w-3 h-3 text-accent-gold" />
-                        {trip.city}
+                        {trip.airport_code}
                       </span>
                     )}
                     {trip.customer_name && (
@@ -465,6 +472,24 @@ export default function RitmoPage() {
                     <div className="mt-1.5 flex items-start gap-1 text-xs text-text-secondary">
                       <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                       <span>{trip.stops.map((s) => s.address).join("  →  ")}</span>
+                    </div>
+                  )}
+                  {(trip.contact_number || trip.staff_number || trip.luggage_count > 0) && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
+                      {trip.contact_number && (
+                        <span>Contact: <span className="text-text-primary">{trip.contact_number}</span></span>
+                      )}
+                      {trip.staff_number && (
+                        <span>Staff #: <span className="text-text-primary">{trip.staff_number}</span></span>
+                      )}
+                      {trip.luggage_count > 0 && (
+                        <span>Bags: <span className="text-text-primary">{trip.luggage_count}</span></span>
+                      )}
+                    </div>
+                  )}
+                  {trip.remarks && (
+                    <div className="mt-1.5 text-xs text-text-secondary italic">
+                      “{trip.remarks}”
                     </div>
                   )}
                 </div>
@@ -536,7 +561,7 @@ export default function RitmoPage() {
                           if (v.alloc_reason === "no_city_vendor") {
                             return (
                               <span className="text-xs text-danger">
-                                No vendors operating in {trip.city || "this city"} — add one in Configuration.
+                                No vendors operating in {trip.airport_code || "this airport"} — add one in Configuration.
                               </span>
                             );
                           }
@@ -546,7 +571,7 @@ export default function RitmoPage() {
                             return (
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-danger whitespace-nowrap">
-                                  {v.vehicle_type_name} not available in {trip.city} —
+                                  {v.vehicle_type_name} not available in {trip.airport_code} —
                                 </span>
                                 <div className="w-48">
                                   <SearchableSelect
@@ -560,14 +585,14 @@ export default function RitmoPage() {
                             );
                           }
                           // Genuinely allottable (a city vendor is free) — manual city-scoped picker.
-                          const cityOptions = vendorOptionsForCity(trip.city);
+                          const cityOptions = vendorOptionsForCity(trip.airport_code);
                           return (
                             <div className="flex items-center gap-2">
                               <div className="w-56">
                                 <SearchableSelect
                                   options={cityOptions}
                                   value={selectedVendor[v.id] ?? ""}
-                                  placeholder={trip.city ? `Vendors in ${trip.city}…` : "Search vendor…"}
+                                  placeholder={trip.airport_code ? `Vendors in ${trip.airport_code}…` : "Search vendor…"}
                                   onChange={(val) =>
                                     setSelectedVendor((prev) => ({ ...prev, [v.id]: val }))
                                   }

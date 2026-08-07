@@ -70,7 +70,6 @@ export const Sidebar: React.FC = () => {
           );
         })}
       </nav>
-
       <div className="px-5 py-3 border-t border-border">
         <p className="text-[10px] uppercase tracking-[0.18em] text-text-tertiary font-mono">Rezolv · RIDE</p>
       </div>
