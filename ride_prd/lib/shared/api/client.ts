@@ -165,8 +165,15 @@ const trailingSlashMiddleware: Middleware = {
   },
 };
 
+// Statuses that MUST carry no body (fetch spec). Rebuilding a Response with a body for these —
+// even an empty string — throws "Response with null body status cannot have body". A 204 is the
+// normal success for DELETE, so return it untouched instead of normalizing an envelope.
+const NULL_BODY_STATUSES = new Set([204, 205, 304]);
+
 const errorNormalizationMiddleware: Middleware = {
   async onResponse({ response }) {
+    if (NULL_BODY_STATUSES.has(response.status)) return response;
+
     let text: string;
     try {
       text = await response.text();

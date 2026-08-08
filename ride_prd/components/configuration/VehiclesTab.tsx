@@ -2,11 +2,12 @@
 
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLanguageStore, t, apiClient, keys, QueryBoundary, csrfFetch } from "@/lib/shared";
+import { useLanguageStore, t, apiClient, keys, QueryBoundary, csrfFetch, isApiError } from "@/lib/shared";
 import type { components } from "@/lib/shared/api/schema.d";
 import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
+import { Modal } from "@/components/ui/Modal";
 import { MultiSelectFilter } from "@/components/ui/MultiSelectFilter";
 import { Input } from "@/components/ui/Input";
 import { FormField } from "@/components/ui/FormField";
@@ -53,7 +54,16 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
       if (!resp.ok) throw new Error(`Failed to load vehicles (${resp.status})`);
       return (await resp.json()) as { results?: ApiVehicle[] };
     },
+    // Always load current rows: a row edited/deactivated in another tab (or before a data change)
+    // would otherwise linger and 404 on edit/deactivate with "resource does not exist".
+    refetchOnMount: "always",
   });
+
+  // A vehicle can vanish between the list render and the action (deleted in another tab / session).
+  // Rather than dead-end on the backend's 404, refresh the list and say so plainly.
+  const isMissing = (err: unknown) => isApiError(err) && err.status === 404;
+  const refreshVehicles = () =>
+    void queryClient.invalidateQueries({ queryKey: keys.fleet.vehicles.list() });
 
   // Reference data for the create/edit form dropdowns. Agency admins may file a vehicle
   // under any vendor, so we list all vendors and vehicle types.
@@ -120,7 +130,13 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
       setDrawerOpen(false);
     },
     onError: (err: unknown) => {
-      addToast(err instanceof Error ? err.message : "Failed to update vehicle", "error");
+      if (isMissing(err)) {
+        refreshVehicles();
+        setDrawerOpen(false);
+        addToast("This vehicle no longer exists — the list has been refreshed.", "error");
+        return;
+      }
+      addToast(isApiError(err) ? err.message : err instanceof Error ? err.message : "Failed to update vehicle", "error");
     },
   });
 
@@ -132,11 +148,21 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.fleet.vehicles.list() });
       addToast("Vehicle deactivated", "success");
+      setConfirmTarget(null);
     },
     onError: (err: unknown) => {
-      addToast(err instanceof Error ? err.message : "Failed to deactivate vehicle", "error");
+      setConfirmTarget(null);
+      if (isMissing(err)) {
+        refreshVehicles();
+        addToast("This vehicle no longer exists — the list has been refreshed.", "error");
+        return;
+      }
+      addToast(isApiError(err) ? err.message : err instanceof Error ? err.message : "Failed to deactivate vehicle", "error");
     },
   });
+
+  // Deactivation asks for confirmation first (it removes the vehicle from the fleet).
+  const [confirmTarget, setConfirmTarget] = useState<{ id: string; label: string } | null>(null);
 
   const emptyForm: VehicleWriteInput = { vendor: "", vehicle_type: "", plate: "", traccar_device_id: "", is_active: true };
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -235,8 +261,7 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
               size="sm"
               variant="ghost"
               className="hover:bg-danger/10! hover:text-danger!"
-              onClick={() => deleteMutation.mutate(vehicle.id)}
-              disabled={deleteMutation.isPending}
+              onClick={() => setConfirmTarget({ id: vehicle.id, label: vehicle.plate })}
             >
               {t("deactivate", language)}
             </Button>
@@ -352,6 +377,30 @@ export const VehiclesTab: React.FC<VehiclesTabProps> = ({ searchQuery = "" }) =>
           </div>
         </div>
       </Drawer>
+
+      <Modal
+        open={confirmTarget !== null}
+        onClose={() => setConfirmTarget(null)}
+        title="Deactivate vehicle"
+      >
+        <p className="text-sm text-text-secondary">
+          Deactivate{" "}
+          <span className="font-medium text-text-primary">{confirmTarget?.label}</span>? It will be
+          removed from the fleet.
+        </p>
+        <div className="flex justify-end gap-2 mt-5">
+          <Button variant="secondary" onClick={() => setConfirmTarget(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            disabled={deleteMutation.isPending}
+            onClick={() => confirmTarget && deleteMutation.mutate(confirmTarget.id)}
+          >
+            {deleteMutation.isPending ? "Deactivating…" : "Deactivate"}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };

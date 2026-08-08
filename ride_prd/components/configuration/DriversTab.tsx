@@ -2,11 +2,12 @@
 
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLanguageStore, t, apiClient, keys, QueryBoundary, csrfFetch } from "@/lib/shared";
+import { useLanguageStore, t, apiClient, keys, QueryBoundary, csrfFetch, isApiError } from "@/lib/shared";
 import type { components } from "@/lib/shared/api/schema.d";
 import { Button } from "@/components/ui/Button";
 import { DataTable, Column } from "@/components/ui/DataTable";
 import { Drawer } from "@/components/ui/Drawer";
+import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { FormField } from "@/components/ui/FormField";
 import { Select } from "@/components/ui/Select";
@@ -57,7 +58,14 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
       if (!resp.ok) throw new Error(`Failed to load drivers (${resp.status})`);
       return (await resp.json()) as { results?: ApiDriver[] };
     },
+    // Always load current rows: a driver edited/deactivated elsewhere would otherwise linger and
+    // 404 on edit/deactivate with "resource does not exist".
+    refetchOnMount: "always",
   });
+
+  const isMissing = (err: unknown) => isApiError(err) && err.status === 404;
+  const refreshDrivers = () =>
+    void queryClient.invalidateQueries({ queryKey: keys.fleet.drivers.list() });
 
   // Agency admins may file a driver under any vendor, so list them all for the dropdown.
   const { data: vendorsData } = useQuery({
@@ -111,7 +119,13 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
       setDrawerOpen(false);
     },
     onError: (err: unknown) => {
-      addToast(err instanceof Error ? err.message : "Failed to update driver", "error");
+      if (isMissing(err)) {
+        refreshDrivers();
+        setDrawerOpen(false);
+        addToast("This driver no longer exists — the list has been refreshed.", "error");
+        return;
+      }
+      addToast(isApiError(err) ? err.message : err instanceof Error ? err.message : "Failed to update driver", "error");
     },
   });
 
@@ -123,11 +137,21 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.fleet.drivers.list() });
       addToast("Driver deactivated", "success");
+      setConfirmTarget(null);
     },
     onError: (err: unknown) => {
-      addToast(err instanceof Error ? err.message : "Failed to deactivate driver", "error");
+      setConfirmTarget(null);
+      if (isMissing(err)) {
+        refreshDrivers();
+        addToast("This driver no longer exists — the list has been refreshed.", "error");
+        return;
+      }
+      addToast(isApiError(err) ? err.message : err instanceof Error ? err.message : "Failed to deactivate driver", "error");
     },
   });
+
+  // Deactivation asks for confirmation first (it removes the driver from the roster).
+  const [confirmTarget, setConfirmTarget] = useState<{ id: string; label: string } | null>(null);
 
   const emptyForm: DriverFormState = { vendor: "", name: "", phone: "", licence_number: "", status: "AVAILABLE", is_active: true };
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -241,8 +265,7 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
               size="sm"
               variant="ghost"
               className="hover:bg-danger/10! hover:text-danger!"
-              onClick={() => deleteMutation.mutate(driver.id)}
-              disabled={deleteMutation.isPending}
+              onClick={() => setConfirmTarget({ id: driver.id, label: driver.name })}
             >
               {t("deactivate", language)}
             </Button>
@@ -365,6 +388,30 @@ export const DriversTab: React.FC<DriversTabProps> = ({ searchQuery = "" }) => {
           </div>
         </div>
       </Drawer>
+
+      <Modal
+        open={confirmTarget !== null}
+        onClose={() => setConfirmTarget(null)}
+        title="Deactivate driver"
+      >
+        <p className="text-sm text-text-secondary">
+          Deactivate{" "}
+          <span className="font-medium text-text-primary">{confirmTarget?.label}</span>? They will
+          be removed from the roster.
+        </p>
+        <div className="flex justify-end gap-2 mt-5">
+          <Button variant="secondary" onClick={() => setConfirmTarget(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            disabled={deleteMutation.isPending}
+            onClick={() => confirmTarget && deleteMutation.mutate(confirmTarget.id)}
+          >
+            {deleteMutation.isPending ? "Deactivating…" : "Deactivate"}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 };
